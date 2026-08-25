@@ -2694,25 +2694,33 @@ async function loadIssues() {
       if (issue) fillForm(issue);
     }
 
-    function deleteIssue() {
-      const id = issueId.value;
-      if (!id) return;
-      const issue = issues.find(x => x.id === id);
-      if (!issue) return;
-      if (!canDeleteIssue(issue)) {
-        alert(`이 항목은 등록자 ${issue.reporter || '-'}만 삭제할 수 있습니다.`);
-        return;
-      }
-      if (!confirm(`${issue.issueNo || '선택한 항목'}을 삭제하시겠습니까?`)) return;
-      issues = issues.filter(x => x.id !== id);
-      selectedIssueIds.delete(id);
-      saveIssues();
-      resetForm();
-      applyFilters();
-      renderDashboard();
-      renderStatistics();
-      showToast('삭제되었습니다.');
-    }
+ async function deleteIssue() {
+  const id = issueId.value;
+  if (!id) return;
+  const issue = issues.find(x => x.id === id);
+  if (!issue) return;
+  if (!canDeleteIssue(issue)) {
+    alert(`이 항목은 등록자 ${issue.reporter || '-'}만 삭제할 수 있습니다.`);
+    return;
+  }
+  if (!confirm(`${issue.issueNo || '선택한 항목'}을 삭제하시겠습니까?`)) return;
+
+  try {
+    const { error } = await supabase.from('issues').delete().eq('id', id);
+    if (error) throw error;
+
+    issues = issues.filter(x => x.id !== id);
+    selectedIssueIds.delete(id);
+    resetForm();
+    applyFilters();
+    renderDashboard();
+    renderStatistics();
+    showToast('클라우드에서 완전히 삭제되었습니다.');
+  } catch (err) {
+    console.error('Supabase 삭제 실패:', err);
+    alert('클라우드에서 삭제하는 중 오류가 발생했습니다.');
+  }
+}
 
     function resetForm() {
       document.getElementById('issueForm').reset();
@@ -2808,20 +2816,29 @@ async function loadIssues() {
         bulkDeleteBtn.disabled = selectedIssueIds.size === 0;
       }
     }
-    function deleteSelectedIssues() {
-      const targets = [...selectedIssueIds].map(id => issues.find(x => x.id === id)).filter(x => x && canDeleteIssue(x));
-      if (!targets.length) { showToast('삭제 가능한 선택 항목이 없습니다.'); updateSelectionControls(); return; }
-      if (!confirm(`선택한 ${targets.length}건을 삭제하시겠습니까? 삭제 후 대시보드와 통계가 즉시 갱신됩니다.`)) return;
-      const targetIds = new Set(targets.map(x => x.id));
-      issues = issues.filter(x => !targetIds.has(x.id));
-      selectedIssueIds.clear();
-      saveIssues();
-      resetForm();
-      applyFilters();
-      renderDashboard();
-      renderStatistics();
-      showToast(`${targets.length}건이 삭제되었습니다.`);
-    }
+  async function deleteSelectedIssues() {
+  const targets = [...selectedIssueIds].map(id => issues.find(x => x.id === id)).filter(x => x && canDeleteIssue(x));
+  if (!targets.length) { showToast('삭제 가능한 선택 항목이 없습니다.'); updateSelectionControls(); return; }
+  if (!confirm(`선택한 ${targets.length}건을 삭제하시겠습니까? 삭제 후 대시보드와 통계가 즉시 갱신됩니다.`)) return;
+  
+  const targetIds = [...selectedIssueIds];
+  try {
+    const { error } = await supabase.from('issues').delete().in('id', targetIds);
+    if (error) throw error;
+
+    const targetSet = new Set(targetIds);
+    issues = issues.filter(x => !targetSet.has(x.id));
+    selectedIssueIds.clear();
+    resetForm();
+    applyFilters();
+    renderDashboard();
+    renderStatistics();
+    showToast(`선택한 ${targets.length}건이 클라우드에서 완전히 삭제되었습니다.`);
+  } catch (err) {
+    console.error('Supabase 일괄 삭제 실패:', err);
+    alert('클라우드에서 일괄 삭제하는 중 오류가 발생했습니다.');
+  }
+}
 
     function renderIssueList() {
       const list = document.getElementById('issueList');
