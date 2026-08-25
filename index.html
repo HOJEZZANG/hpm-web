@@ -2177,31 +2177,104 @@
         ? {...issue, process:'조립'}
         : issue;
     }
-    function loadIssues() {
-      const normalizeList = list => {
-        const original = Array.isArray(list) ? list : [];
-        const normalized = original.map(normalizeIssueProcess);
-        try {
-          if (JSON.stringify(original) !== JSON.stringify(normalized)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-          }
-        } catch(e) {}
-        return normalized;
-      };
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return normalizeList(parsed);
-        }
-      } catch (e) {}
-      const embedded = getEmbeddedPortalSnapshot();
-      return Array.isArray(embedded?.issues) ? normalizeList(embedded.issues) : [];
+async function loadIssues() {
+  try {
+    const { data, error } = await supabase
+      .from('issues')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      issues = data.map(item => ({
+        id: item.id,
+        issueNo: item.issue_no,
+        occurDate: item.occur_date,
+        registerDate: item.register_date || item.occur_date,
+        product: item.product || '미분류',
+        projectNo: item.project_no || '',
+        processPnd: item.process_pnd || '',
+        deliveryDate: item.delivery_date || '',
+        process: item.process || '',
+        issueType: item.issue_type || '',
+        title: item.title || '',
+        description: item.description || '',
+        finder: item.finder || '',
+        reporter: item.reporter || '',
+        responsibleDept: item.responsible_dept || '',
+        status: item.status || '접수',
+        priority: item.priority || '보통',
+        dueDate: item.due_date || '',
+        feedbackOwner: item.feedback_owner || '',
+        causeFeedback: item.cause_feedback || '',
+        actionDetail: item.action_detail || '',
+        completedDate: item.completed_date || '',
+        verifier: item.verifier || '',
+        prevention: item.prevention || '',
+        followupFlag: item.followup_flag || false,
+        images: item.images || [],
+        afterImages: item.after_images || [],
+        createdAt: item.created_at,
+        updatedAt: item.updated_at || item.created_at,
+        history: item.history || []
+      }));
+    } else {
+      issues = [];
     }
-    function saveIssues() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(issues)); }
-      catch(e) { console.warn('문제점 데이터 브라우저 저장 실패:', e); }
-    }
+  } catch (err) {
+    console.error('Supabase 데이터 로드 실패:', err);
+    issues = [];
+  }
+  
+  renderDashboard();
+  applyFilters();
+  renderStatistics();
+  return issues;
+}
+  async function saveIssues() {
+  if (!issues || !issues.length) return;
+  
+  const dbPayloads = issues.map(data => ({
+    id: data.id,
+    issue_no: data.issueNo,
+    occur_date: data.occurDate,
+    register_date: data.registerDate,
+    product: data.product,
+    project_no: data.projectNo,
+    process_pnd: data.processPnd,
+    delivery_date: data.deliveryDate,
+    process: data.process,
+    issue_type: data.issueType,
+    title: data.title,
+    description: data.description,
+    finder: data.finder,
+    reporter: data.reporter,
+    responsible_dept: data.responsibleDept,
+    status: data.status,
+    priority: data.priority,
+    due_date: data.dueDate,
+    feedback_owner: data.feedbackOwner,
+    cause_feedback: data.causeFeedback,
+    action_detail: data.actionDetail,
+    completed_date: data.completedDate,
+    verifier: data.verifier,
+    prevention: data.prevention,
+    followup_flag: data.followupFlag,
+    images: data.images,
+    after_images: data.afterImages,
+    updated_at: data.updatedAt,
+    history: data.history
+  }));
+
+  try {
+    const { error } = await supabase.from('issues').upsert(dbPayloads);
+    if (error) throw error;
+  } catch (err) {
+    console.error('Supabase 일괄 저장 실패:', err);
+    alert('클라우드 저장 중 오류가 발생했습니다.');
+  }
+}
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
     function pad(n) { return String(n).padStart(2, '0'); }
     function todayStr() {
@@ -3165,7 +3238,23 @@
       }
       renderAuthState()
     }
-    function initializePortal(){updatePortalClock();setInterval(updatePortalClock,1000);renderAuthState();resetForm();renderDashboard();applyFilters();renderStatistics();resetCalendarForm('as');resetCalendarForm('team');renderCalendar('as');renderCalendar('team');renderPortalHome();navigatePortal('home')}
+async function initializePortal() {
+  updatePortalClock();
+  setInterval(updatePortalClock, 1000);
+  renderAuthState();
+  resetForm();
+  
+  // Supabase 클라우드에서 데이터를 먼저 불러온 뒤 화면을 그립니다.
+  await loadIssues();
+  
+  renderStatistics();
+  resetCalendarForm('as');
+  resetCalendarForm('team');
+  renderCalendar('as');
+  renderCalendar('team');
+  renderPortalHome();
+  navigatePortal('home');
+}
     document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLoginModal();closePhotoLightbox();}if(e.key==='Enter'&&authModal.classList.contains('show')&&document.activeElement?.id==='authPassword')submitAuth()});
 
 initializePortal();
