@@ -2092,19 +2092,51 @@
       if (currentUser) return true;
       alert(`${action}을 사용하려면 먼저 로그인하세요.`); openLoginModal('login'); return false;
     }
-    function renderAuthState() {
-      const logged = !!currentUser;
-      topLoginBtn.style.display = logged ? 'none':'inline-block';
-      authChip.style.display = logged ? 'flex':'none';
-      topLogoutBtn.style.display = logged ? 'inline-block':'none';
-      if (logged) { authName.textContent=currentUser.name; authAvatar.textContent=(currentUser.name||currentUser.id).slice(0,1); }
-      sidebarUserBox.innerHTML = logged ? `<strong>${escapePortal(currentUser.name)}님 로그인</strong>사용자 ID: ${escapePortal(currentUser.id)}<br>본인이 등록한 문제점만 삭제할 수 있습니다.` : '<strong>로그인 전</strong>자료 등록·수정과 등록자 권한 삭제 기능은 로그인 후 사용할 수 있습니다.';
-      const notice = document.getElementById('homeLoginNotice');
-      if (notice) {
-        notice.classList.toggle('logged',logged);
-        notice.innerHTML = logged ? `<span><strong>${escapePortal(currentUser.name)}</strong>님으로 로그인했습니다. 등록자 이력과 삭제 권한이 계정에 연동됩니다.</span><button class="btn outline" onclick="logoutPortal()">로그아웃</button>` : '<span>로그인 전 상태입니다. 자료 등록과 수정, 등록자 권한 삭제 기능을 사용하려면 로그인하세요.</span><button class="btn primary" onclick="openLoginModal(\'login\')">로그인하기</button>';
-      }
+   function renderAuthState() {
+  // 1. sessionStorage에서 현재 로그인 세션 정보 복원 시도
+  if (!currentUser) {
+    try {
+      const raw = sessionStorage.getItem(AUTH_SESSION_KEY);
+      if (raw) currentUser = JSON.parse(raw);
+    } catch (e) {
+      currentUser = null;
     }
+  }
+
+  const logged = !!currentUser;
+  
+  // 2. 상단 버튼 및 컴포넌트 안전하게 토글 (요소가 존재하는지 안전 검사 포함)
+  if (typeof topLoginBtn !== 'undefined' && topLoginBtn) {
+    topLoginBtn.style.display = logged ? 'none' : 'inline-block';
+  }
+  if (typeof authChip !== 'undefined' && authChip) {
+    authChip.style.display = logged ? 'flex' : 'none';
+  }
+  if (typeof topLogoutBtn !== 'undefined' && topLogoutBtn) {
+    topLogoutBtn.style.display = logged ? 'inline-block' : 'none';
+  }
+
+  // 3. 로그인된 경우 이름 및 아바타 렌더링
+  if (logged && currentUser) {
+    if (typeof authName !== 'undefined' && authName) authName.textContent = currentUser.name || '';
+    if (typeof authAvatar !== 'undefined' && authAvatar) authAvatar.textContent = (currentUser.name || currentUser.id || '').slice(0, 1);
+    if (typeof sidebarUserBox !== 'undefined' && sidebarUserBox) {
+      sidebarUserBox.innerHTML = `<strong>${escapePortal(currentUser.name)}</strong>님 로그인<br>사용자 ID: ${escapePortal(currentUser.id)}<br>본인이 등록한 문제점만 삭제할 수 있습니다.`;
+    }
+  } else {
+    if (typeof sidebarUserBox !== 'undefined' && sidebarUserBox) {
+      sidebarUserBox.innerHTML = `로그인이 필요합니다.<br>우측 상단 버튼을 통해 로그인해 주세요.`;
+    }
+  }
+
+  const notice = document.getElementById('homeLoginNotice');
+  if (notice) {
+    notice.classList.toggle('logged', logged);
+    notice.innerHTML = logged 
+      ? `<span><strong>${escapePortal(currentUser.name)}</strong>님으로 로그인했습니다. 등록자 이력과 삭제 권한이 계정에 연동됩니다.</span>`
+      : `<span>로그인 후 문제점 등록 및 수정 기능을 이용할 수 있습니다.</span>`;
+  }
+}
     function syncModulesAfterAuth() {
       if (typeof updateCurrentUserUI === 'function') updateCurrentUserUI();
       if (typeof applyFilters === 'function') applyFilters(false);
