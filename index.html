@@ -18,8 +18,6 @@
             try { localStorage.setItem(markerKey, snap.snapshotId); } catch(e) {}
           }
 
-          // 발표용 PC에서는 이전 세션을 사용하지 않고 직접 로그인하도록 초기화
-          try { sessionStorage.removeItem('productionPortalSessionV1'); } catch(e) {}
         } catch(e) {
           console.error('HPM 발표용 데이터 복원 실패:', e);
         }
