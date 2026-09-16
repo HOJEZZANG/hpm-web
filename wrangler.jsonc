@@ -1,0 +1,18 @@
+{
+  "name": "hpmanagement-web",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-15",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hpmanagement-db",
+      "database_id": "8f6f86d3-9a12-43ff-8236-8e2437ecc98e"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "hpm-photos"
+    }
+  ]
+}

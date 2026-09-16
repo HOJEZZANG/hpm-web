@@ -12,7 +12,6 @@
           try { already = localStorage.getItem(markerKey) === snap.snapshotId; } catch(e) {}
 
           if (!already) {
-            try { localStorage.setItem('processIssueFeedbackV1', JSON.stringify(snap.issues || [])); } catch(e) {}
             try { localStorage.setItem('asEvents', JSON.stringify(snap.asEvents || [])); } catch(e) {}
             try { localStorage.setItem('teamEvents', JSON.stringify(snap.teamEvents || [])); } catch(e) {}
             try { localStorage.setItem('productionPortalUsersV1', JSON.stringify(snap.users || [])); } catch(e) {}
@@ -1307,6 +1306,7 @@
 <div class="card-head">
 <h2>문제점 등록 / 수정</h2><span class="badge primary" id="formModeBadge">신규</span>
 </div>
+<div id="issueApiStatus" class="badge blue" role="status" aria-live="polite" hidden></div>
 <form id="issueForm">
 <input id="issueId" type="hidden" value="">
 <input id="issueNo" type="hidden" value="">
@@ -1400,7 +1400,7 @@
 <fieldset>
 <legend>2. 문제 발생 사진 (조치 전)</legend>
 <div class="upload-box">
-<input accept="image/*" id="photoInput" multiple="" type="file">
+<input accept="image/jpeg,image/png,image/webp" id="photoInput" multiple="" type="file">
 <div class="hint" style="margin-top:8px;">문제 발생 당시 사진 최대 3장. 클릭하면 확대할 수 있습니다.</div>
 <div class="preview-grid" id="previewGrid"></div>
 </div>
@@ -1457,7 +1457,7 @@
 <textarea id="actionDetail" placeholder="현장 조치, 재작업, 도면 수정, 자재 교체 등의 내용을 작성하세요."></textarea>
 <div class="photo-section-title">조치 후 사진 <span>최대 3장 · 클릭 확대</span></div>
 <div class="upload-box">
-  <input accept="image/*" id="afterPhotoInput" multiple="" type="file">
+  <input accept="image/jpeg,image/png,image/webp" id="afterPhotoInput" multiple="" type="file">
   <div class="hint" style="margin-top:8px;">조치 완료 또는 개선 결과를 확인할 수 있는 사진을 등록하세요.</div>
   <div class="preview-grid" id="afterPreviewGrid"></div>
 </div>
@@ -2171,7 +2171,167 @@
     });
 
 
-    const STORAGE_KEY = 'processIssueFeedbackV1';
+    const API_BASE_URL = 'https://hpmanagement-web.lotusland1995.workers.dev';
+    let issuesLoaded = false;
+    let issueBusy = '';
+    let draftIssueId = '';
+    const pendingPhotoUrls = new Set();
+    const disabledIssueControls = new Map();
+
+    function isPresentationMode() {
+      return location.protocol === 'file:' && !!getEmbeddedPortalSnapshot();
+    }
+    function assertIssueWriteReady() {
+      if (isPresentationMode()) throw new Error('발표용 파일은 문제점 조회 전용입니다. 등록·수정·삭제는 웹사이트에서 진행하세요.');
+      if (!issuesLoaded) throw new Error('문제점 데이터를 불러오지 못했습니다. 페이지를 새로고침한 후 다시 시도하세요.');
+    }
+    function setIssueBusy(message = '') {
+      issueBusy = message;
+      const controls = document.querySelectorAll('#issueForm input, #issueForm select, #issueForm textarea, #issueForm button, #importInput, #bulkDeleteBtn, button[onclick="addSampleData()"]');
+      if (message) {
+        controls.forEach(control => {
+          if (!disabledIssueControls.has(control)) disabledIssueControls.set(control, control.disabled);
+          control.disabled = true;
+        });
+      } else {
+        disabledIssueControls.forEach((disabled, control) => { control.disabled = disabled; });
+        disabledIssueControls.clear();
+        updateSelectionControls();
+      }
+      const indicator = document.getElementById('issueApiStatus');
+      if (indicator) { indicator.textContent = message; indicator.hidden = !message; }
+    }
+    async function apiRequest(path, options = {}) {
+      if (isPresentationMode()) throw new Error('발표용 파일에서는 API를 변경하거나 호출할 수 없습니다. 웹사이트를 이용하세요.');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 45000);
+      try {
+        const response = await fetch(API_BASE_URL + path, { ...options, signal: controller.signal });
+        let result;
+        try { result = await response.json(); } catch { throw new Error('서버 응답을 읽지 못했습니다. Worker 배포 상태를 확인하세요.'); }
+        if (!response.ok || result.ok !== true) throw new Error(result.error || '서버 요청에 실패했습니다. 잠시 후 다시 시도하세요.');
+        if (result.photosCleaned === false) alert('문제점 데이터는 반영되었지만 일부 미사용 사진을 정리하지 못했습니다. R2 저장소 상태를 확인하세요.');
+        return result;
+      } catch (error) {
+        if (error.name === 'AbortError' || error instanceof TypeError) throw new Error('서버에 연결하지 못했습니다. 네트워크와 Worker 상태를 확인하고 다시 시도하세요.');
+        throw error;
+      } finally { clearTimeout(timer); }
+    }
+    function issuePhotoUrl(value) {
+      if (typeof value !== 'string') return '';
+      if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=\s]+$/.test(value)) return value;
+      let key = value;
+      if (!key.startsWith('issues/')) {
+        try {
+          const url = new URL(value, API_BASE_URL);
+          if (url.origin !== API_BASE_URL || url.search || url.hash || !url.pathname.startsWith('/api/photos/')) return '';
+          key = decodeURIComponent(url.pathname.slice('/api/photos/'.length));
+        } catch { return ''; }
+      }
+      return /^issues\/[A-Za-z0-9_-]{1,128}\/(before|after)\/[A-Za-z0-9_-]{1,128}\.(jpg|jpeg|png|webp)$/.test(key)
+        ? API_BASE_URL + '/api/photos/' + key : '';
+    }
+    function issueArray(value) {
+      try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; }
+      catch { return []; }
+    }
+    function normalizeClientIssue(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('문제점 데이터 형식이 올바르지 않습니다.');
+      const fieldNames = 'id issueNo occurDate registerDate product projectNo processPnd deliveryDate process issueType title description finder reporter reporterId responsibleDept status priority dueDate feedbackOwner causeFeedback actionDetail completedDate verifier prevention createdAt updatedAt'.split(' ');
+      const data = {};
+      for (const key of fieldNames) {
+        const snake = key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
+        data[key] = String(value[key] ?? value[snake] ?? '');
+      }
+      data.product ||= '미분류'; data.status ||= '접수'; data.priority ||= '보통';
+      data.registerDate ||= data.occurDate; data.updatedAt ||= data.createdAt;
+      const truthy = v => v === true || v === 1 || v === '1' || v === 'true';
+      data.followupFlag = truthy(value.followupFlag ?? value.followup_flag);
+      data.sample = truthy(value.sample);
+      data.images = issueArray(value.images).map(issuePhotoUrl).filter(Boolean);
+      data.afterImages = issueArray(value.afterImages ?? value.after_images).map(issuePhotoUrl).filter(Boolean);
+      data.history = issueArray(value.history).filter(h => h && typeof h === 'object' && !Array.isArray(h)).map(h => ({
+        at:String(h.at ?? ''), status:String(h.status ?? ''), actor:String(h.actor ?? ''), note:String(h.note ?? ''),
+      }));
+      return normalizeIssueProcess(data);
+    }
+    async function loadIssues() {
+      try {
+        const result = isPresentationMode()
+          ? { issues: getEmbeddedPortalSnapshot().issues || [] }
+          : await apiRequest('/api/issues');
+        if (!Array.isArray(result.issues)) throw new Error('문제점 목록 응답 형식이 올바르지 않습니다.');
+        issues = result.issues.map(normalizeClientIssue);
+        issuesLoaded = true;
+        return issues;
+      } catch (error) {
+        issuesLoaded = false;
+        alert('문제점 목록을 불러오지 못했습니다. ' + error.message);
+        throw error;
+      }
+    }
+    async function uploadPhotoBlob(blob, id, category) {
+      const form = new FormData();
+      form.append('file', blob, 'photo.' + (blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg'));
+      form.append('issueId', id); form.append('category', category);
+      const result = await apiRequest('/api/photos', { method: 'POST', body: form });
+      const url = issuePhotoUrl(result.url);
+      if (!url || url.startsWith('data:')) throw new Error('사진 업로드 응답이 올바르지 않습니다.');
+      return url;
+    }
+    async function cleanPhotoUrls(urls) {
+      const removed = new Set();
+      for (const url of new Set(urls)) {
+        if (!issuePhotoUrl(url) || url.startsWith('data:')) continue;
+        try {
+          const result = await apiRequest(new URL(url).pathname, { method: 'DELETE' });
+          if (result.deleted) removed.add(url);
+        } catch { console.warn('미사용 사진 정리를 완료하지 못했습니다.'); }
+      }
+      return removed;
+    }
+    async function discardPendingPhotos() {
+      const urls = [...pendingPhotoUrls];
+      pendingPhotoUrls.clear();
+      await cleanPhotoUrls(urls);
+    }
+    async function saveIssue(data) {
+      assertIssueWriteReady();
+      const draft = { ...data, images: [...(data.images || [])], afterImages: [...(data.afterImages || [])] };
+      const uploaded = [];
+      try {
+        // Old backups and existing inline images are migrated when their issue is saved.
+        for (const [field, category] of [['images', 'before'], ['afterImages', 'after']]) {
+          if (draft[field].length > 3) throw new Error('사진은 조치 전·후 각각 최대 3장입니다.');
+          for (let i = 0; i < draft[field].length; i++) {
+            const source = issuePhotoUrl(draft[field][i]);
+            if (!source) throw new Error('지원하지 않는 사진 주소입니다.');
+            if (source.startsWith('data:')) {
+              setIssueBusy('사진 업로드 중…');
+              const blob = await (await fetch(source)).blob();
+              draft[field][i] = await uploadPhotoBlob(blob, draft.id, category);
+              uploaded.push(draft[field][i]);
+            } else draft[field][i] = source;
+          }
+        }
+        setIssueBusy('문제점 저장 중…');
+        const result = await apiRequest('/api/issues/' + encodeURIComponent(draft.id), {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft),
+        });
+        const saved = normalizeClientIssue(result.issue);
+        const index = issues.findIndex(item => item.id === saved.id);
+        if (index >= 0) issues[index] = saved; else issues.unshift(saved);
+        for (const url of [...saved.images, ...saved.afterImages]) pendingPhotoUrls.delete(url);
+        return saved;
+      } catch (error) {
+        await cleanPhotoUrls(uploaded);
+        throw error;
+      }
+    }
+    function refreshIssueViews() {
+      applyFilters(); renderDashboard(); renderStatistics(); renderPortalHome();
+    }
+
     const PAGE_SIZE = 7;
     const closedStatuses = ['조치완료', '종결'];
     const el = id => document.getElementById(id);
@@ -2203,104 +2363,6 @@
         ? {...issue, process:'조립'}
         : issue;
     }
-async function loadIssues() {
-  try {
-    const { data, error } = await supabase
-      .from('issues')
-      .select('*')
-      .order('created_at', { ascending: false });
-      
-    if (error) throw error;
-    
-    if (data && data.length > 0) {
-      issues = data.map(item => ({
-        id: item.id,
-        issueNo: item.issue_no,
-        occurDate: item.occur_date,
-        registerDate: item.register_date || item.occur_date,
-        product: item.product || '미분류',
-        projectNo: item.project_no || '',
-        processPnd: item.process_pnd || '',
-        deliveryDate: item.delivery_date || '',
-        process: item.process || '',
-        issueType: item.issue_type || '',
-        title: item.title || '',
-        description: item.description || '',
-        finder: item.finder || '',
-        reporter: item.reporter || '',
-        responsibleDept: item.responsible_dept || '',
-        status: item.status || '접수',
-        priority: item.priority || '보통',
-        dueDate: item.due_date || '',
-        feedbackOwner: item.feedback_owner || '',
-        causeFeedback: item.cause_feedback || '',
-        actionDetail: item.action_detail || '',
-        completedDate: item.completed_date || '',
-        verifier: item.verifier || '',
-        prevention: item.prevention || '',
-        followupFlag: item.followup_flag || false,
-        images: item.images || [],
-        afterImages: item.after_images || [],
-        createdAt: item.created_at,
-        updatedAt: item.updated_at || item.created_at,
-        history: item.history || []
-      }));
-    } else {
-      issues = [];
-    }
-  } catch (err) {
-    console.error('Supabase 데이터 로드 실패:', err);
-    issues = [];
-  }
-  
-  renderDashboard();
-  applyFilters();
-  renderStatistics();
-  return issues;
-}
-  async function saveIssues() {
-  if (!issues || !issues.length) return;
-  
-  const dbPayloads = issues.map(data => ({
-    id: data.id,
-    issue_no: data.issueNo,
-    occur_date: data.occurDate,
-    register_date: data.registerDate,
-    product: data.product,
-    project_no: data.projectNo,
-    process_pnd: data.processPnd,
-    delivery_date: data.deliveryDate,
-    process: data.process,
-    issue_type: data.issueType,
-    title: data.title,
-    description: data.description,
-    finder: data.finder,
-    reporter: data.reporter,
-    responsible_dept: data.responsibleDept,
-    status: data.status,
-    priority: data.priority,
-    due_date: data.dueDate,
-    feedback_owner: data.feedbackOwner,
-    cause_feedback: data.causeFeedback,
-    action_detail: data.actionDetail,
-    completed_date: data.completedDate,
-    verifier: data.verifier,
-    prevention: data.prevention,
-    followup_flag: data.followupFlag,
-    images: data.images,
-    after_images: data.afterImages,
-    updated_at: data.updatedAt,
-    history: data.history
-  }));
-
-  try {
-    const { error } = await supabase.from('issues').upsert(dbPayloads);
-    if (error) throw error;
-  } catch (err) {
-    console.error('Supabase 일괄 저장 실패:', err);
-    alert('클라우드 저장 중 오류가 발생했습니다.');
-  }
-}
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
     function pad(n) { return String(n).padStart(2, '0'); }
     function todayStr() {
@@ -2450,38 +2512,32 @@ async function loadIssues() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    document.getElementById('photoInput').addEventListener('change', async function(e) {
-      const files = [...e.target.files];
-      if (!files.length) return;
-      const available = 3 - currentImages.length;
-      if (available <= 0) { showToast('사진은 최대 3장까지 등록할 수 있습니다.'); this.value = ''; return; }
-      const selected = files.slice(0, available);
-      for (const file of selected) {
-        if (!file.type.startsWith('image/')) continue;
-        try {
+    async function handlePhotoSelection(input, category) {
+      if (issueBusy) { input.value = ''; return; }
+      try { assertIssueWriteReady(); } catch (error) { alert(error.message); input.value = ''; return; }
+      if (!currentUser) { input.value = ''; openLoginModal('login'); return; }
+      const target = category === 'before' ? currentImages : currentAfterImages;
+      const files = [...input.files].slice(0, 3 - target.length);
+      if (!files.length) { input.value = ''; showToast('사진은 조치 전·후 각각 최대 3장까지 등록할 수 있습니다.'); return; }
+      draftIssueId ||= issueId.value || uid();
+      setIssueBusy('사진 업로드 중…');
+      try {
+        for (const file of files) {
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('JPEG, PNG, WebP 사진을 선택하세요.');
           const compressed = await compressImage(file, 1280, 0.76);
-          currentImages.push(compressed);
-        } catch (err) {
-          showToast('일부 사진을 처리하지 못했습니다.');
+          const blob = await (await fetch(compressed)).blob();
+          const url = await uploadPhotoBlob(blob, draftIssueId, category);
+          pendingPhotoUrls.add(url);
+          target.push(url);
         }
+      } catch (error) { alert('사진 업로드 실패: ' + error.message); }
+      finally {
+        input.value = ''; setIssueBusy('');
+        renderPreviews(); renderAfterPreviews();
       }
-      this.value = '';
-      renderPreviews();
-    });
-
-    document.getElementById('afterPhotoInput').addEventListener('change', async function(e) {
-      const files = [...e.target.files];
-      if (!files.length) return;
-      const available = 3 - currentAfterImages.length;
-      if (available <= 0) { showToast('조치 후 사진은 최대 3장까지 등록할 수 있습니다.'); this.value = ''; return; }
-      for (const file of files.slice(0, available)) {
-        if (!file.type.startsWith('image/')) continue;
-        try { currentAfterImages.push(await compressImage(file, 1280, 0.76)); }
-        catch (err) { showToast('일부 조치 후 사진을 처리하지 못했습니다.'); }
-      }
-      this.value = '';
-      renderAfterPreviews();
-    });
+    }
+    document.getElementById('photoInput').addEventListener('change', function() { void handlePhotoSelection(this, 'before'); });
+    document.getElementById('afterPhotoInput').addEventListener('change', function() { void handlePhotoSelection(this, 'after'); });
 
     function compressImage(file, maxSize, quality) {
       return new Promise((resolve, reject) => {
@@ -2514,7 +2570,7 @@ async function loadIssues() {
     }
     function openPhotoLightbox(src) {
       if (!src) return;
-      photoLightboxImage.src = src;
+      photoLightboxImage.src = issuePhotoUrl(src);
       applyPhotoZoom(1);
       photoLightbox.classList.add('show');
       document.body.style.overflow = 'hidden';
@@ -2540,12 +2596,12 @@ async function loadIssues() {
       currentImages.forEach((src, index) => {
         const div = document.createElement('div');
         div.className = 'preview';
-        div.innerHTML = `<img src="${src}" alt="문제 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
+        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="문제 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
     }
-    function removeImage(index) { currentImages.splice(index, 1); renderPreviews(); }
+    function removeImage(index) { if (issueBusy) return; currentImages.splice(index, 1); renderPreviews(); }
 
     function renderAfterPreviews() {
       const grid = document.getElementById('afterPreviewGrid');
@@ -2553,12 +2609,12 @@ async function loadIssues() {
       currentAfterImages.forEach((src, index) => {
         const div = document.createElement('div');
         div.className = 'preview';
-        div.innerHTML = `<img src="${src}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
+        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
     }
-    function removeAfterImage(index) { currentAfterImages.splice(index, 1); renderAfterPreviews(); }
+    function removeAfterImage(index) { if (issueBusy) return; currentAfterImages.splice(index, 1); renderAfterPreviews(); }
 
     function buildHistoryNote(existing, draft) {
       if (!existing) return '문제점 신규 등록';
@@ -2600,9 +2656,12 @@ async function loadIssues() {
       }).join('');
     }
 
-    document.getElementById('issueForm').addEventListener('submit', function(e) {
+    document.getElementById('issueForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const id = issueId.value || uid();
+      if (issueBusy) return;
+      try { assertIssueWriteReady(); } catch (error) { alert(error.message); return; }
+      const id = issueId.value || draftIssueId || uid();
+      draftIssueId = id;
       const existing = issues.find(x => x.id === id);
       const completed = completedDate.value;
       if (!currentUser) {
@@ -2639,8 +2698,9 @@ async function loadIssues() {
         finder: finder.value.trim(),
         reporter: existing?.reporter || currentUser.name,
         reporterId: existing ? (existing.reporterId || (normalizedUser(existing.reporter) === normalizedUser(currentUser.name) ? currentUser.id : '')) : currentUser.id,
-        images: currentImages,
-        afterImages: currentAfterImages,
+        images: [...currentImages],
+        afterImages: [...currentAfterImages],
+        sample: existing?.sample || false,
         responsibleDept: responsibleDept.value,
         status: status.value,
         priority: priority.value,
@@ -2663,21 +2723,28 @@ async function loadIssues() {
         note: buildHistoryNote(existing, data)
       }];
 
-      const idx = issues.findIndex(x => x.id === id);
-      if (idx >= 0) issues[idx] = data; else issues.push(data);
+      setIssueBusy('문제점 저장 중…');
       try {
-        saveIssues();
-      } catch (err) {
-        alert('브라우저 저장 용량을 초과했습니다. 사진 수를 줄이거나 백업 후 오래된 데이터를 정리해 주세요.');
-        return;
-      }
-      showToast(idx >= 0 ? '수정 내용이 저장되었습니다.' : '문제점이 등록되었습니다.');
-      resetForm();
-      applyFilters();
-      renderDashboard();
+        await saveIssue(data);
+        await discardPendingPhotos();
+        setIssueBusy('');
+        resetForm();
+        refreshIssueViews();
+        showToast(existing ? '수정 내용이 저장되었습니다.' : '문제점이 등록되었습니다.');
+      } catch (error) {
+        const removed = await cleanPhotoUrls([...pendingPhotoUrls]);
+        for (const url of removed) pendingPhotoUrls.delete(url);
+        currentImages = currentImages.filter(url => !removed.has(url));
+        currentAfterImages = currentAfterImages.filter(url => !removed.has(url));
+        renderPreviews(); renderAfterPreviews();
+        alert('문제점을 저장하지 못했습니다. ' + error.message + (removed.size ? '\n정리된 사진은 다시 선택해 주세요.' : ''));
+      } finally { setIssueBusy(''); }
     });
 
     function fillForm(issue) {
+      if (issueBusy) { showToast(issueBusy); return; }
+      void discardPendingPhotos();
+      draftIssueId = issue.id;
       issueId.value = issue.id;
       issueNo.value = issue.issueNo || '';
       occurDate.value = issue.occurDate || '';
@@ -2721,6 +2788,8 @@ async function loadIssues() {
     }
 
  async function deleteIssue() {
+  if (issueBusy) return;
+  try { assertIssueWriteReady(); } catch (error) { alert(error.message); return; }
   const id = issueId.value;
   if (!id) return;
   const issue = issues.find(x => x.id === id);
@@ -2732,8 +2801,9 @@ async function loadIssues() {
   if (!confirm(`${issue.issueNo || '선택한 항목'}을 삭제하시겠습니까?`)) return;
 
   try {
-    const { error } = await supabase.from('issues').delete().eq('id', id);
-    if (error) throw error;
+    setIssueBusy('문제점 삭제 중…');
+    await apiRequest('/api/issues/' + encodeURIComponent(id), { method: 'DELETE' });
+    setIssueBusy('');
 
     issues = issues.filter(x => x.id !== id);
     selectedIssueIds.delete(id);
@@ -2741,14 +2811,17 @@ async function loadIssues() {
     applyFilters();
     renderDashboard();
     renderStatistics();
+    renderPortalHome();
     showToast('클라우드에서 완전히 삭제되었습니다.');
   } catch (err) {
-    console.error('Supabase 삭제 실패:', err);
-    alert('클라우드에서 삭제하는 중 오류가 발생했습니다.');
-  }
+    alert('삭제하지 못했습니다. ' + err.message);
+  } finally { setIssueBusy(''); }
 }
 
     function resetForm() {
+      if (issueBusy) { showToast(issueBusy); return; }
+      void discardPendingPhotos();
+      draftIssueId = uid();
       document.getElementById('issueForm').reset();
       issueId.value = '';
       issueNo.value = '';
@@ -2839,18 +2912,22 @@ async function loadIssues() {
       }
       if (bulkDeleteBtn) {
         bulkDeleteBtn.textContent = `선택 삭제 (${selectedIssueIds.size})`;
-        bulkDeleteBtn.disabled = selectedIssueIds.size === 0;
+        bulkDeleteBtn.disabled = !!issueBusy || selectedIssueIds.size === 0;
       }
     }
   async function deleteSelectedIssues() {
+  if (issueBusy) return;
+  try { assertIssueWriteReady(); } catch (error) { alert(error.message); return; }
   const targets = [...selectedIssueIds].map(id => issues.find(x => x.id === id)).filter(x => x && canDeleteIssue(x));
   if (!targets.length) { showToast('삭제 가능한 선택 항목이 없습니다.'); updateSelectionControls(); return; }
   if (!confirm(`선택한 ${targets.length}건을 삭제하시겠습니까? 삭제 후 대시보드와 통계가 즉시 갱신됩니다.`)) return;
   
-  const targetIds = [...selectedIssueIds];
+  const targetIds = targets.map(issue => issue.id);
+  if (targetIds.length > 100) { alert('한 번에 최대 100건까지 삭제할 수 있습니다.'); return; }
   try {
-    const { error } = await supabase.from('issues').delete().in('id', targetIds);
-    if (error) throw error;
+    setIssueBusy('선택한 문제점 삭제 중…');
+    await apiRequest('/api/issues/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: targetIds }) });
+    setIssueBusy('');
 
     const targetSet = new Set(targetIds);
     issues = issues.filter(x => !targetSet.has(x.id));
@@ -2859,11 +2936,11 @@ async function loadIssues() {
     applyFilters();
     renderDashboard();
     renderStatistics();
+    renderPortalHome();
     showToast(`선택한 ${targets.length}건이 클라우드에서 완전히 삭제되었습니다.`);
   } catch (err) {
-    console.error('Supabase 일괄 삭제 실패:', err);
-    alert('클라우드에서 일괄 삭제하는 중 오류가 발생했습니다.');
-  }
+    alert('선택 항목을 삭제하지 못했습니다. ' + err.message);
+  } finally { setIssueBusy(''); }
 }
 
     function renderIssueList() {
@@ -2883,8 +2960,8 @@ async function loadIssues() {
         const div = document.createElement('div');
         div.className = 'issue-item' + (isOverdue(issue) ? ' overdue' : '') + (closedStatuses.includes(issue.status) ? ' closed' : '') + (selectedIssueIds.has(issue.id) ? ' selected' : '');
         div.onclick = () => editIssue(issue.id);
-        const beforeImage = issue.images?.[0] ? `<div class="thumb-labeled"><img class="mini-thumb" src="${issue.images[0]}" alt="문제 발생 사진" title="클릭하여 확대" onclick="event.stopPropagation();openPhotoLightbox(this.src)"><span class="thumb-label">발생</span></div>` : '';
-        const afterImage = issue.afterImages?.[0] ? `<div class="thumb-labeled after"><img class="mini-thumb" src="${issue.afterImages[0]}" alt="조치 후 사진" title="클릭하여 확대" onclick="event.stopPropagation();openPhotoLightbox(this.src)"><span class="thumb-label">조치 후</span></div>` : '';
+        const beforeImage = issue.images?.[0] ? `<div class="thumb-labeled"><img class="mini-thumb" src="${esc(issuePhotoUrl(issue.images[0]))}" alt="문제 발생 사진" title="클릭하여 확대" onclick="event.stopPropagation();openPhotoLightbox(this.src)"><span class="thumb-label">발생</span></div>` : '';
+        const afterImage = issue.afterImages?.[0] ? `<div class="thumb-labeled after"><img class="mini-thumb" src="${esc(issuePhotoUrl(issue.afterImages[0]))}" alt="조치 후 사진" title="클릭하여 확대" onclick="event.stopPropagation();openPhotoLightbox(this.src)"><span class="thumb-label">조치 후</span></div>` : '';
         const image = (beforeImage || afterImage) ? `<div class="issue-photo-pair">${beforeImage}${afterImage}</div>` : '';
         const lead = issue.completedDate ? dateDiff(issue.occurDate, issue.completedDate) : null;
         div.innerHTML = `
@@ -3121,6 +3198,8 @@ async function loadIssues() {
     function runPresentationPreflight(){openPresentationExportModal();}
     function exportPresentationHtml(){openPresentationExportModal();}
     async function confirmPresentationExport(){
+      if (issueBusy) return;
+      if (!issuesLoaded) { presentationExportMessage.textContent='문제점 목록을 먼저 불러와야 합니다.'; return; }
       if(!currentUser){presentationExportMessage.textContent='로그인 상태가 아닙니다. 다시 로그인해 주세요.';return;}
       const password=presentationPassword.value, passwordConfirm=presentationPasswordConfirm.value;
       if(password.length<4){presentationExportMessage.textContent='발표용 비밀번호는 4자 이상 입력하세요.';return;}
@@ -3128,13 +3207,46 @@ async function loadIssues() {
       const users=loadPortalUsers(), hash=await hashPortalPassword(password); let currentAccount=users.find(u=>u.id===currentUser.id);
       if(currentAccount){currentAccount={...currentAccount,id:currentUser.id,name:currentUser.name,team:currentUser.team||currentAccount.team||'',officePhone:currentUser.officePhone||currentAccount.officePhone||'',mobilePhone:currentUser.mobilePhone||currentAccount.mobilePhone||'',email:currentUser.email||currentAccount.email||'',passwordHash:hash,passwordResetAt:new Date().toISOString()};users[users.findIndex(u=>u.id===currentUser.id)]=currentAccount;}
       else{currentAccount={...currentUser,passwordHash:hash,createdAt:new Date().toISOString()};users.push(currentAccount);} savePortalUsers(users);
-      const {asEvents,teamEvents}=getPresentationDataBundle(), normalizedIssues=issues.map(normalizeIssueProcess);
+      const {asEvents,teamEvents}=getPresentationDataBundle();
+      let normalizedIssues;
+      const cache = new Map();
+      setIssueBusy('발표용 사진 준비 중…');
+      try {
+        normalizedIssues = [];
+        for (const original of issues) {
+          const item = structuredClone(normalizeIssueProcess(original));
+          for (const field of ['images', 'afterImages']) {
+            item[field] = await Promise.all((item[field] || []).map(async source => {
+              if (source.startsWith('data:')) return source;
+              if (!cache.has(source)) cache.set(source, (async () => {
+                const response = await fetch(issuePhotoUrl(source), { signal: AbortSignal.timeout(45000) });
+                if (!response.ok) throw new Error('사진을 내려받지 못했습니다.');
+                const blob = await response.blob();
+                return await new Promise((resolve, reject) => {
+                  const reader = new FileReader(); reader.onload = () => resolve(reader.result);
+                  reader.onerror = reject; reader.readAsDataURL(blob);
+                });
+              })());
+              return cache.get(source);
+            }));
+          }
+          normalizedIssues.push(item);
+        }
+      } catch (error) { presentationExportMessage.textContent='발표용 사진 준비 실패: ' + error.message; return; }
+      finally { setIssueBusy(''); }
       const portableUsers=users.filter(u=>isPortablePasswordHash(u.passwordHash)).map(u=>({id:u.id||'',name:u.name||'',team:u.team||'',officePhone:u.officePhone||'',mobilePhone:u.mobilePhone||'',email:u.email||'',passwordHash:u.passwordHash||'',createdAt:u.createdAt||''}));
       const snapshot={snapshotVersion:3,exportedAt:new Date().toISOString(),snapshotId:'hpm-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),presentationUserId:currentUser.id,issues:normalizedIssues,asEvents,teamEvents,users:portableUsers};
       const encoded=encodeSnapshotBase64(snapshot), clone=document.documentElement.cloneNode(true);
+      for (const img of clone.querySelectorAll('img[src]')) {
+        const source = issuePhotoUrl(img.getAttribute('src'));
+        if (source && !source.startsWith('data:')) {
+          if (cache.has(source)) img.setAttribute('src', await cache.get(source));
+          else img.removeAttribute('src');
+        }
+      }
       clone.querySelector('#authModal')?.classList.remove('show'); clone.querySelector('#presentationExportModal')?.classList.remove('show'); clone.querySelector('#photoLightbox')?.classList.remove('show'); clone.querySelector('#toast')?.classList.remove('show'); clone.querySelectorAll('#hpmEmbeddedSnapshot').forEach(el=>el.remove());
       const bootScript=document.createElement('script'); bootScript.id='hpmEmbeddedSnapshot';
-      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{localStorage.setItem('processIssueFeedbackV1',JSON.stringify(snap.issues||[]))}catch(e){}try{localStorage.setItem('asEvents',JSON.stringify(snap.asEvents||[]))}catch(e){}try{localStorage.setItem('teamEvents',JSON.stringify(snap.teamEvents||[]))}catch(e){}try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
+      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{localStorage.setItem('asEvents',JSON.stringify(snap.asEvents||[]))}catch(e){}try{localStorage.setItem('teamEvents',JSON.stringify(snap.teamEvents||[]))}catch(e){}try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
       clone.querySelector('head')?.insertBefore(bootScript,clone.querySelector('head').firstChild);
       const finalHtml='<!DOCTYPE html>\n'+clone.outerHTML,d=new Date(),stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
       downloadBlob(finalHtml,`HPM_생산관리_발표용_${stamp}.html`,'text/html;charset=utf-8'); closePresentationExportModal(); showToast(`발표용 HTML 생성 완료 · 문제 ${normalizedIssues.length}건 · 계정 ${portableUsers.length}개 · 로그인 ID ${currentUser.id}`);
@@ -3147,29 +3259,51 @@ async function loadIssues() {
       setTimeout(() => URL.revokeObjectURL(url), 500);
     }
 
-    document.getElementById('importInput').addEventListener('change', function(e) {
+    document.getElementById('importInput').addEventListener('change', async function(e) {
       const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result);
-          const incoming = Array.isArray(parsed) ? parsed : parsed.issues;
-          if (!Array.isArray(incoming)) throw new Error('형식 오류');
-          if (!confirm(`백업 데이터 ${incoming.length}건으로 현재 데이터를 교체하시겠습니까?`)) return;
-          issues = incoming.map(normalizeIssueProcess);
-          saveIssues();
-          resetForm(); applyFilters(); renderDashboard(); renderStatistics();
-          showToast('백업 데이터를 불러왔습니다.');
-        } catch (err) { alert('올바른 백업 JSON 파일이 아닙니다.'); }
-        this.value = '';
-      };
-      reader.readAsText(file, 'utf-8');
+      if (!file || issueBusy) return;
+      let count = 0;
+      try {
+        assertIssueWriteReady();
+        if (!currentUser) { openLoginModal('login'); return; }
+        const parsed = JSON.parse(await file.text());
+        const incoming = Array.isArray(parsed) ? parsed : parsed.issues;
+        if (!Array.isArray(incoming)) throw new Error('올바른 백업 JSON 파일이 아닙니다.');
+        const seen = new Set();
+        const drafts = incoming.map(value => {
+          const item = normalizeClientIssue(value);
+          if (!/^[A-Za-z0-9_-]{1,128}$/.test(item.id) || !item.title.trim() || seen.has(item.id)) throw new Error('중복 ID, 잘못된 ID 또는 빈 제목이 있습니다.');
+          seen.add(item.id);
+          // Never silently drop unsupported imported photos.
+          if (item.images.length !== issueArray(value.images).length || item.afterImages.length !== issueArray(value.afterImages ?? value.after_images).length) throw new Error('가져올 데이터에 지원하지 않는 사진 주소가 있습니다.');
+          if (item.images.length > 3 || item.afterImages.length > 3) throw new Error('사진은 조치 전·후 각각 최대 3장입니다.');
+          const existing = issues.find(issue => issue.id === item.id);
+          if (existing) {
+            item.reporter = existing.reporter; item.reporterId = existing.reporterId;
+            item.createdAt = existing.createdAt;
+          } else {
+            item.reporter ||= currentUser.name;
+            if (!item.reporterId && normalizedUser(item.reporter) === normalizedUser(currentUser.name)) item.reporterId = currentUser.id;
+          }
+          return item;
+        });
+        if (!confirm('백업 ' + drafts.length + '건을 D1에 병합하시겠습니까? 같은 ID는 수정되며 백업에 없는 기존 항목은 유지됩니다.')) return;
+        setIssueBusy('백업 데이터 저장 중…');
+        for (const draft of drafts) { await saveIssue(draft); count++; }
+        showToast('백업 데이터 ' + count + '건을 D1에 저장했습니다.');
+      } catch (error) {
+        alert('가져오기 중단: ' + error.message + (count ? '\n이미 저장된 ' + count + '건은 유지됩니다. 같은 파일로 다시 시도할 수 있습니다.' : ''));
+      } finally {
+        this.value = ''; setIssueBusy(''); refreshIssueViews();
+      }
     });
 
-    function addSampleData() {
+    async function addSampleData() {
+      if (issueBusy) return;
+      try { assertIssueWriteReady(); } catch (error) { alert(error.message); return; }
       if (!currentUser) { alert('샘플 데이터를 추가하려면 먼저 로그인하세요.'); openLoginModal('login'); return; }
-      if (issues.some(x => x.sample)) { showToast('샘플 데이터가 이미 들어 있습니다.'); return; }
+      const savedSampleNos = new Set(issues.filter(x => x.sample).map(x => x.issueNo));
+      if (['SAMPLE-01', 'SAMPLE-02', 'SAMPLE-03', 'SAMPLE-04'].every(no => savedSampleNos.has(no))) { showToast('샘플 데이터가 이미 들어 있습니다.'); return; }
       if (issues.length && !confirm('현재 데이터에 샘플 4건을 추가하시겠습니까?')) return;
       const base = todayStr();
       const sample = [
@@ -3180,14 +3314,16 @@ async function loadIssues() {
       ].map((x, i) => ({
         ...x, id: uid(), issueNo: `SAMPLE-${String(i+1).padStart(2,'0')}`, occurDate: base, registerDate: base, images: [], afterImages: [], createdAt: nowIso(), updatedAt: nowIso(), history: [{at:nowIso(),status:x.status,actor:currentUser.name,note:'발표용 샘플 문제점 등록'}], sample:true
       }));
-      issues.push(...sample); saveIssues(); renderDashboard(); applyFilters(); renderStatistics(); showToast('샘플 데이터 4건을 추가했습니다.');
+      let saved = 0;
+      setIssueBusy('샘플 데이터 저장 중…');
+      try {
+        for (const item of sample.filter(item => !savedSampleNos.has(item.issueNo))) { await saveIssue(item); saved++; }
+        showToast('샘플 데이터 ' + saved + '건을 D1에 저장했습니다.');
+      } catch (error) { alert('샘플 저장 중단: ' + error.message + '\n저장 완료: ' + saved + '건'); }
+      finally { setIssueBusy(''); refreshIssueViews(); }
     }
 
-    updateCurrentUserUI();
-    resetForm();
-    renderDashboard();
-    applyFilters();
-    renderStatistics();
+    // Issue views are initialized only after loadIssues has completed.
   
 
     const calendarDayNames = ['일','월','화','수','목','금','토'];
@@ -3287,8 +3423,20 @@ async function initializePortal() {
   renderAuthState();
   resetForm();
   
-  // Supabase 클라우드에서 데이터를 먼저 불러온 뒤 화면을 그립니다.
-  await loadIssues();
+  // Wait for the authoritative API before rendering issue data.
+  try {
+    await loadIssues();
+    renderDashboard(); applyFilters();
+    if (isPresentationMode()) {
+      const note = document.getElementById('presentationPortabilityNote');
+      note.style.display = 'block'; note.textContent = '발표용 스냅샷 · 문제점 조회 전용 · 변경은 웹사이트에서 진행하세요.';
+    }
+  } catch {
+    const notice = document.createElement('div');
+    notice.className = 'auth-message'; notice.setAttribute('role', 'alert');
+    notice.textContent = '문제점 데이터를 불러오지 못했습니다. 연결 상태를 확인한 후 새로고침하세요. 등록·수정·삭제는 잠시 사용할 수 없습니다.';
+    document.body.prepend(notice);
+  }
   
   renderStatistics();
   resetCalendarForm('as');
