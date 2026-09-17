@@ -16,8 +16,16 @@ const photoKey = 'issues/browser-one/before/test.png';
 const photoUrl = api + '/api/photos/' + photoKey;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jBzQAAAAASUVORK5CYII=', 'base64');
 const records = new Map();
+const calendarRecords = {as:new Map(),team:new Map()};
+const legacyAs = [
+  {id:'as-legacy',date:'2026-09-16',yard:'HHI',asType:'누설',carInfo:'96오 7790',workDetail:'기존 상세'},
+  {id:'as-fail',startDate:'2026-09-17',endDate:'2026-09-17',yard:'HHI',asType:'누설',carInfo:'96오 7790'},
+];
+const legacyTeam = [{date:'2026-09-16',teamType:'회사행사',title:'이전 일정',startTime:'09:00',endTime:'18:00'}];
+let failCalendarId = 'as-fail', failCalendarWrites = false, failCalendarReads = false, calendarWrites = 0;
 let failWrite = false, failLoad = false, writeCount = 0, uploads = 0;
 let offlineSnapshotHtml = '';
+let navigationPending = false;
 const errors = [], requests = [], dialogs = [];
 const chrome = spawn(executable, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
   '--disable-background-networking', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { windowsHide:true });
@@ -43,7 +51,12 @@ try {
       const item = pending.get(message.id); pending.delete(message.id);
       if (message.error) item.reject(new Error(message.error.message)); else item.resolve(message.result);
     } else for (const handler of handlers.get(message.method) || []) {
-      Promise.resolve(handler(message.params, message.sessionId)).catch(error => errors.push(error.stack));
+      Promise.resolve(handler(message.params, message.sessionId)).catch(error => {
+        // Image requests may be cancelled by DOM replacement as well as navigation.
+        if (message.method === 'Fetch.requestPaused' && error.message === 'Invalid InterceptionId.' &&
+            (navigationPending || message.params.resourceType === 'Image')) return;
+        errors.push(message.method + ' ' + (message.params.request?.url || '') + ': ' + error.stack);
+      });
     }
   };
   function send(method, params = {}, sessionId) {
@@ -78,6 +91,26 @@ try {
     if (!request.url.startsWith(api)) return fulfill(requestId, '', 404, 'text/plain');
     const path = new URL(request.url).pathname;
     if (request.method === 'OPTIONS') return fulfill(requestId, '', 204);
+    const calendarRoute = path.match(/^\/api\/(as|team)-events(?:\/([^/]+))?$/);
+    if (calendarRoute) {
+      const [,type,id] = calendarRoute;
+      const events = calendarRecords[type];
+      if (request.method === 'GET') return fulfill(requestId, JSON.stringify(failCalendarReads ? {ok:false,error:'일정 조회 실패'} : {ok:true,events:[...events.values()]}), failCalendarReads ? 500 : 200);
+      if (failCalendarWrites || id === failCalendarId) return fulfill(requestId, JSON.stringify({ok:false,error:'일정 저장 실패 테스트'}),500);
+      if (request.method === 'PUT') {
+        calendarWrites++;
+        if (new URL(request.url).searchParams.get('migration') === '1' && events.has(id)) {
+          return fulfill(requestId,JSON.stringify({ok:true,event:events.get(id)}));
+        }
+        const event = JSON.parse(request.postData);
+        event.createdAt = events.get(id)?.createdAt || new Date().toISOString(); event.updatedAt = new Date().toISOString();
+        events.set(id,event);
+        return fulfill(requestId,JSON.stringify({ok:true,event}));
+      }
+      if (request.method === 'DELETE') {
+        events.delete(id); return fulfill(requestId,JSON.stringify({ok:true,id,deleted:true}));
+      }
+    }
     if (path === '/api/issues' && request.method === 'GET') {
       return fulfill(requestId, JSON.stringify(failLoad ? {ok:false,error:'조회 실패'} : {ok:true,issues:[...records.values()]}), failLoad ? 500 : 200);
     }
@@ -127,16 +160,39 @@ try {
     }
     throw new Error('Timed out: '+expression);
   }
+  await call('Page.addScriptToEvaluateOnNewDocument', {source:
+    "if (!localStorage.getItem('calendarTestSeeded')) { localStorage.setItem('asEvents', " + JSON.stringify(JSON.stringify(legacyAs)) + "); localStorage.setItem('teamEvents', " + JSON.stringify(JSON.stringify(legacyTeam)) + "); localStorage.setItem('calendarTestSeeded','yes'); }"
+  });
+  navigationPending = true;
   await call('Page.navigate',{url:site});
   await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && document.getElementById('homePage').classList.contains('active')");
+  navigationPending = false;
+  assert.equal(await evaluate('calendarState.as.loaded'),false);
+  assert.equal(await evaluate('localStorage.getItem(CALENDAR_MIGRATION_KEY)'),null);
+  assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('asEvents')")),legacyAs);
+  assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('teamEvents')")),legacyTeam);
+  assert.equal(calendarRecords.as.size,1);
+  calendarRecords.as.get('as-legacy').memo = '다른 PC에서 수정한 일정';
+  failCalendarId = null;
+  await evaluate('initializeCalendars()');
+  assert.equal(await evaluate('localStorage.getItem(CALENDAR_MIGRATION_KEY)'),'done');
+  assert.equal(calendarRecords.as.size,2); assert.equal(calendarRecords.team.size,1);
+  assert.match([...calendarRecords.team.keys()][0],/^legacy-team-/);
+  assert.equal(calendarRecords.as.get('as-legacy').asDetail,'기존 상세');
+  assert.equal(calendarRecords.as.get('as-legacy').memo,'다른 PC에서 수정한 일정');
+  const migratedWrites = calendarWrites;
+  await evaluate('initializeCalendars()');
+  assert.equal(calendarWrites,migratedWrites);
   await evaluate("currentUser={id:'browser-user',name:'브라우저 검사',team:'검사팀'}; renderAuthState(); syncModulesAfterAuth();");
   assert.equal(await evaluate('issues.length'),0);
   await evaluate("title.value='브라우저 등록'; processPnd.value='2026-09-15'; issueForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
   await waitFor("!issueBusy && issues.length===1");
   const id = await evaluate('issues[0].id');
   assert.equal(records.size,1);
+  navigationPending = true;
   await call('Page.reload');
-  await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && issues.length===1");
+  await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && issues.length===1 && calendarState.as.loaded && calendarState.team.loaded && !calendarInitialization");
+  navigationPending = false;
   await evaluate("currentUser={id:'browser-user',name:'브라우저 검사',team:'검사팀'}; renderAuthState(); syncModulesAfterAuth(); editIssue(" + JSON.stringify(id) + "); title.value='브라우저 수정'; issueForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
   await waitFor("!issueBusy && issues[0].title==='브라우저 수정'");
   const committed = records.get(id).title;
@@ -177,6 +233,44 @@ try {
   assert.equal(writeCount,previousWrites);
   failLoad = false;
   await evaluate('loadIssues().then(refreshIssueViews)');
+  // Calendar CRUD changes UI only after success; local copies stay unchanged.
+  await waitFor('calendarState.as.loaded && calendarState.team.loaded && !calendarInitialization');
+  await evaluate("resetCalendarForm('as'); asStartDate.value='2026-09-18'; asEndDate.value='2026-09-19'; asMemo.value='브라우저 AS'; asForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
+  await waitFor("!calendarState.as.busy && calendarState.as.events.some(event=>event.memo==='브라우저 AS')");
+  const asId = await evaluate("calendarState.as.events.find(event=>event.memo==='브라우저 AS').id");
+  await evaluate("editCalendarEvent('as',"+JSON.stringify(asId)+"); asMemo.value='AS 수정'; asForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
+  await waitFor("!calendarState.as.busy && calendarState.as.events.some(event=>event.memo==='AS 수정')");
+  failCalendarWrites = true;
+  await evaluate("editCalendarEvent('as',"+JSON.stringify(asId)+"); asMemo.value='실패한 AS 수정'; asForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
+  await waitFor('!calendarState.as.busy');
+  assert.equal(calendarRecords.as.get(asId).memo,'AS 수정');
+  assert.equal(await evaluate("calendarState.as.events.find(event=>event.id==="+JSON.stringify(asId)+").memo"),'AS 수정');
+  await evaluate("deleteCalendarEvent('as')");
+  assert.ok(calendarRecords.as.has(asId));
+  failCalendarWrites = false;
+  await evaluate("deleteCalendarEvent('as')");
+  assert.ok(!calendarRecords.as.has(asId));
+  await evaluate("resetCalendarForm('team'); teamStartDate.value='2026-09-18'; teamEndDate.value='2026-09-18'; teamTitle.value='브라우저 팀'; teamForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
+  await waitFor("!calendarState.team.busy && calendarState.team.events.some(event=>event.title==='브라우저 팀')");
+  const teamId = await evaluate("calendarState.team.events.find(event=>event.title==='브라우저 팀').id");
+  await evaluate("editCalendarEvent('team',"+JSON.stringify(teamId)+"); teamTitle.value='팀 수정'; teamForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
+  await waitFor("!calendarState.team.busy && calendarState.team.events.some(event=>event.title==='팀 수정')");
+  await evaluate("editCalendarEvent('team',"+JSON.stringify(teamId)+"); deleteCalendarEvent('team')");
+  await waitFor('!calendarState.team.busy');
+  assert.ok(!calendarRecords.team.has(teamId));
+  calendarRecords.team.set('other-pc',{...legacyTeam[0],id:'other-pc',startDate:'2026-09-16',endDate:'2026-09-16',title:'다른 PC 일정'});
+  await evaluate("navigatePortal('team')");
+  await waitFor("!calendarState.team.busy && calendarState.team.events.some(event=>event.id==='other-pc')");
+  failCalendarReads = true;
+  await evaluate("refreshCalendar('as')");
+  assert.equal(await evaluate('calendarState.as.loaded'),false);
+  const beforeBlocked = calendarWrites;
+  await evaluate("upsertCalendar('as', {id:'blocked'})");
+  assert.equal(calendarWrites,beforeBlocked);
+  failCalendarReads = false;
+  await evaluate('initializeCalendars()');
+  assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('asEvents')")),legacyAs);
+  assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('teamEvents')")),legacyTeam);
   // Both sample creation and legacy JSON import must persist via individual PUT requests.
   await evaluate('addSampleData()');
   assert.equal([...records.values()].filter(item=>item.sample).length,4);
@@ -200,8 +294,11 @@ try {
   const snapshotPath = join(profile,'presentation.html');
   writeFileSync(snapshotPath,offlineSnapshotHtml);
   const apiCount = requests.filter(request=>request.url.startsWith(api)).length;
+  navigationPending = true;
   await call('Page.navigate',{url:pathToFileURL(snapshotPath).href});
-  await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && isPresentationMode()");
+  await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && isPresentationMode() && calendarState.as.loaded && calendarState.team.loaded");
+  navigationPending = false;
+  assert.equal(await evaluate("calendarState.team.events.some(event=>event.id==='other-pc')"),true);
   assert.equal(await evaluate("issues.find(item=>item.id==='imported').afterImages[0].startsWith('data:image/')"),true);
   await evaluate("currentUser={id:'browser-user',name:'브라우저 검사'}; editIssue('imported'); issueForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
   assert.equal(requests.filter(request=>request.url.startsWith(api)).length,apiCount);
@@ -209,6 +306,7 @@ try {
   assert.ok(dialogs.some(message=>message.includes('저장하지 못했습니다')));
   console.log('PASS browser: initialize, create, reload, edit, failed save/delete, compress/upload, preview/lightbox, photo save, mixed-owner bulk delete, load failure lock, samples, legacy JSON import, after photos, offline presentation export and write lock.');
   console.log('Intercepted requests: '+requests.length+'; no production API requests forwarded.');
+  console.log('PASS calendars: partial migration failure/retry, deterministic IDs, completion flag, unchanged local backups, CRUD, failure preservation, cross-PC reads, offline snapshot.');
   await call('Page.close');
   await send('Browser.close');
 } finally {

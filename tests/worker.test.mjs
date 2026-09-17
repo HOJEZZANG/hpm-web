@@ -5,6 +5,95 @@ import { readFileSync } from 'node:fs';
 import worker from '../worker.js';
 import { buildSupplement } from '../scripts/prepare-migration.mjs';
 
+const asDraft = (id, extra = {}) => ({ id, startDate:'2026-09-16', endDate:'2026-09-17',
+  yard:'HHI', hullNo:'HN-1', asType:'누설', asDetail:'작업 상세', workerInfo:'출장자',
+  carInfo:'96오 7790', memo:"'); DELETE FROM issues; --", createdById:'owner', createdByName:'등록자', ...extra });
+const teamDraft = (id, extra = {}) => ({ id, startDate:'2026-09-16', endDate:'2026-09-16',
+  startTime:'09:00', endTime:'18:00', teamType:'회사행사', title:'회의', members:'팀원',
+  location:'회의실', detail:'상세', createdById:'owner', createdByName:'등록자', ...extra });
+const calendarSchema = readFileSync(new URL('../migrations/0003_shared_calendars.sql', import.meta.url), 'utf8');
+
+for (const [collection, table, draftEvent] of [['as-events','as_events',asDraft], ['team-events','team_events',teamDraft]]) {
+  test(collection + ': legacy migration retries preserve newer shared data', async () => {
+    const env = makeEnv(); env.sqlite.exec(calendarSchema);
+    const path = '/api/' + collection + '/legacy';
+    const draft = draftEvent('legacy');
+    const first = await request(env, path + '?migration=1', 'PUT', draft);
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).event.id, 'legacy');
+    const updated = await request(env, path, 'PUT', draftEvent('legacy',
+      collection === 'as-events' ? {memo:'newer shared value'} : {title:'newer shared value'}));
+    const latest = (await updated.json()).event;
+    for (let retry = 0; retry < 2; retry++) {
+      const imported = await request(env, path + '?migration=1', 'PUT', draft);
+      assert.equal(imported.status, 200);
+      assert.deepEqual((await imported.json()).event, latest);
+    }
+    assert.equal(env.sqlite.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n, 1);
+  });
+
+  test(collection + ': list, bound UPSERT, creation preservation and idempotent scoped delete', async () => {
+    const env = makeEnv(); env.sqlite.exec(calendarSchema);
+    await put(env, 'unchanged');
+    const oldIssue = {...env.sqlite.prepare('SELECT * FROM issues').get()};
+    const createdAt = '2020-01-01T00:00:00.000Z';
+    const input = draftEvent('shared', {createdAt});
+    const saved = await request(env, '/api/' + collection + '/shared', 'PUT', input);
+    assert.equal(saved.status, 200);
+    const event = (await saved.json()).event;
+    for (const [key,value] of Object.entries(input)) assert.equal(event[key],value);
+    const updated = await request(env, '/api/' + collection + '/shared', 'PUT', draftEvent('shared', {
+      createdAt:'2025-01-01T00:00:00.000Z', createdById:'other', createdByName:'other',
+      ...(collection === 'as-events' ? { memo:'수정' } : { title:'수정' }),
+    }));
+    assert.equal(updated.status,200);
+    const changed = (await updated.json()).event;
+    assert.equal(changed.createdAt,createdAt); assert.equal(changed.createdById,'owner');
+    assert.equal(changed.createdByName,'등록자'); assert.ok(changed.updatedAt);
+    await request(env,'/api/' + collection + '/earlier','PUT',draftEvent('earlier',{startDate:'2026-09-01',endDate:'2026-09-01'}));
+    const list = await (await request(env,'/api/' + collection)).json();
+    assert.deepEqual(list.events.map(e=>e.id),['earlier','shared']);
+    assert.equal((await request(env,'/api/' + collection + '/shared','DELETE')).status,200);
+    const again = await (await request(env,'/api/' + collection + '/shared','DELETE')).json();
+    assert.equal(again.ok,true); assert.equal(again.deleted,false);
+    assert.deepEqual({...env.sqlite.prepare('SELECT * FROM issues').get()},oldIssue);
+    assert.equal(env.sqlite.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n,1);
+  });
+
+  test(collection + ': invalid input, D1 error and CORS; PHOTOS binding is unnecessary', async () => {
+    const env = makeEnv(); env.sqlite.exec(calendarSchema); delete env.PHOTOS;
+    const invalid = [null, [], {}, draftEvent('wrong'), draftEvent('one',{startDate:'2026-02-30'}),
+      draftEvent('one',{endDate:'2020-01-01'}), draftEvent('one',{createdAt:'bad'}),
+      draftEvent('one',{createdByName:{bad:true}}),
+      draftEvent('one',collection==='as-events'?{yard:''}:{title:''})];
+    if (collection==='team-events') invalid.push(
+      draftEvent('one',{startTime:'25:00'}), draftEvent('one',{endTime:'08:00'}), draftEvent('one',{endTime:''})
+    );
+    for (const input of invalid) assert.equal((await request(env,'/api/' + collection + '/one','PUT',input)).status,400);
+    assert.equal((await request(env,'/api/' + collection + '/bad%20id','DELETE')).status,400);
+    assert.equal((await request(env,'/api/' + collection + '/one','PUT',draftEvent('one'))).status,200);
+    assert.equal((await request(env,'/api/' + collection + '/one','PUT',draftEvent('one'),{Origin:'https://evil.example'})).status,403);
+    assert.equal((await request({},'/api/' + collection)).status,503);
+    env.DB.prepare = () => { throw new Error('SENSITIVE SQL'); };
+    const failed = await request(env,'/api/' + collection);
+    assert.equal(failed.status,500); assert.ok(!(await failed.text()).includes('SENSITIVE'));
+  });
+}
+
+test('calendar migration is repeatable, preserves issue records, and calendar IDs are independent', async () => {
+  const env = makeEnv();
+  await put(env,'keep');
+  const before = {...env.sqlite.prepare('SELECT * FROM issues').get()};
+  env.sqlite.exec(calendarSchema);
+  assert.equal((await request(env,'/api/as-events/same','PUT',asDraft('same'))).status,200);
+  assert.equal((await request(env,'/api/team-events/same','PUT',teamDraft('same'))).status,200);
+  env.sqlite.exec(calendarSchema);
+  await request(env,'/api/as-events/same','DELETE');
+  assert.equal((await (await request(env,'/api/team-events')).json()).events.length,1);
+  assert.deepEqual({...env.sqlite.prepare('SELECT * FROM issues').get()},before);
+  assert.ok(!/\b(DROP|DELETE|TRUNCATE|REPLACE|ALTER)\b/i.test(calendarSchema));
+});
+
 const origin = 'https://hojezzang.github.io';
 const base = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const schema = readFileSync(new URL('../migrations/0001_cloudflare_schema.sql', import.meta.url), 'utf8');

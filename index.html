@@ -12,8 +12,8 @@
           try { already = localStorage.getItem(markerKey) === snap.snapshotId; } catch(e) {}
 
           if (!already) {
-            try { localStorage.setItem('asEvents', JSON.stringify(snap.asEvents || [])); } catch(e) {}
-            try { localStorage.setItem('teamEvents', JSON.stringify(snap.teamEvents || [])); } catch(e) {}
+            try { if (localStorage.getItem('asEvents') === null) localStorage.setItem('asEvents', JSON.stringify(snap.asEvents || [])); } catch(e) {}
+            try { if (localStorage.getItem('teamEvents') === null) localStorage.setItem('teamEvents', JSON.stringify(snap.teamEvents || [])); } catch(e) {}
             try { localStorage.setItem('productionPortalUsersV1', JSON.stringify(snap.users || [])); } catch(e) {}
             try { localStorage.setItem(markerKey, snap.snapshotId); } catch(e) {}
           }
@@ -3161,8 +3161,8 @@
       return /^[0-9a-f]{64}$/i.test(h) || h.startsWith('fallback-');
     }
     function getPresentationDataBundle() {
-      const asEvents = (typeof calendarState !== 'undefined' && Array.isArray(calendarState.as?.events)) ? calendarState.as.events : loadCalendarEvents('asEvents');
-      const teamEvents = (typeof calendarState !== 'undefined' && Array.isArray(calendarState.team?.events)) ? calendarState.team.events : loadCalendarEvents('teamEvents');
+      const asEvents = (typeof calendarState !== 'undefined' && Array.isArray(calendarState.as?.events)) ? calendarState.as.events : [];
+      const teamEvents = (typeof calendarState !== 'undefined' && Array.isArray(calendarState.team?.events)) ? calendarState.team.events : [];
       return { asEvents, teamEvents };
     }
     function buildPresentationPreflight() {
@@ -3187,6 +3187,7 @@
       presentationPreflightSummary.innerHTML = preflight.checks.map(c => `<div class="preflight-row ${c.state}"><span class="preflight-icon">${c.state==='ok'?'✓':c.state==='warn'?'!':'×'}</span><div><strong>${escapePortal(c.title)}</strong><br><span>${escapePortal(c.detail)}</span></div></div>`).join('');
     }
     function openPresentationExportModal() {
+      if (!calendarState.as.loaded || !calendarState.team.loaded || calendarState.as.busy || calendarState.team.busy) { showToast('AS·팀 일정을 모두 불러온 뒤 발표용 파일을 만들어 주세요.'); return false; }
       if (!currentUser) { alert('발표용 HTML을 만들기 전에 로그인하세요.'); openLoginModal('login'); return false; }
       renderPresentationPreflight(buildPresentationPreflight());
       presentationUserId.value=currentUser.id; presentationPassword.value=''; presentationPasswordConfirm.value=''; presentationExportMessage.textContent=''; presentationExportModal.classList.add('show');
@@ -3244,7 +3245,7 @@
       }
       clone.querySelector('#authModal')?.classList.remove('show'); clone.querySelector('#presentationExportModal')?.classList.remove('show'); clone.querySelector('#photoLightbox')?.classList.remove('show'); clone.querySelector('#toast')?.classList.remove('show'); clone.querySelectorAll('#hpmEmbeddedSnapshot').forEach(el=>el.remove());
       const bootScript=document.createElement('script'); bootScript.id='hpmEmbeddedSnapshot';
-      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{localStorage.setItem('asEvents',JSON.stringify(snap.asEvents||[]))}catch(e){}try{localStorage.setItem('teamEvents',JSON.stringify(snap.teamEvents||[]))}catch(e){}try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
+      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{if(localStorage.getItem('asEvents')===null)localStorage.setItem('asEvents',JSON.stringify(snap.asEvents||[]))}catch(e){}try{if(localStorage.getItem('teamEvents')===null)localStorage.setItem('teamEvents',JSON.stringify(snap.teamEvents||[]))}catch(e){}try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
       clone.querySelector('head')?.insertBefore(bootScript,clone.querySelector('head').firstChild);
       const finalHtml='<!DOCTYPE html>\n'+clone.outerHTML,d=new Date(),stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
       downloadBlob(finalHtml,`HPM_생산관리_발표용_${stamp}.html`,'text/html;charset=utf-8'); closePresentationExportModal(); showToast(`발표용 HTML 생성 완료 · 문제 ${normalizedIssues.length}건 · 계정 ${portableUsers.length}개 · 로그인 ID ${currentUser.id}`);
@@ -3326,22 +3327,133 @@
 
     const calendarDayNames = ['일','월','화','수','목','금','토'];
     const calendarState = {
-      as:{current:new Date(),events:loadCalendarEvents('asEvents')},
-      team:{current:new Date(),events:loadCalendarEvents('teamEvents')}
+      as:{current:new Date(),events:[],loaded:false,busy:false},
+      team:{current:new Date(),events:[],loaded:false,busy:false}
     };
-    function loadCalendarEvents(key){
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) return JSON.parse(raw);
-      } catch(e) {}
-      const embedded = getEmbeddedPortalSnapshot();
-      if (key === 'asEvents' && Array.isArray(embedded?.asEvents)) return embedded.asEvents;
-      if (key === 'teamEvents' && Array.isArray(embedded?.teamEvents)) return embedded.teamEvents;
-      return [];
+    const CALENDAR_MIGRATION_KEY = 'hpmCalendarsCloudMigrationV1';
+    let calendarInitialization = null;
+    function calendarPath(type) {
+      if (!['as', 'team'].includes(type)) throw new Error('지원하지 않는 일정입니다.');
+      return '/api/' + type + '-events';
     }
-    function saveCalendarEvents(type){
-      try { localStorage.setItem(type+'Events',JSON.stringify(calendarState[type].events)); }
-      catch(e) { console.warn(type+' 일정 브라우저 저장 실패:', e); }
+    function normalizeCalendarEvent(type, value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('기존 일정 데이터 형식을 확인하세요.');
+      const names = type === 'as'
+        ? 'id startDate endDate yard hullNo asType asDetail workerInfo carInfo memo createdById createdByName createdAt updatedAt'
+        : 'id startDate endDate startTime endTime teamType title members location detail createdById createdByName createdAt updatedAt';
+      const event = {};
+      for (const name of names.split(' ')) event[name] = String(value[name] ?? '');
+      event.startDate ||= String(value.date || '');
+      event.endDate ||= event.startDate;
+      if (type === 'as') event.asDetail ||= String(value.workDetail || '');
+      return event;
+    }
+    function calendarNotice(type, message, retry = false) {
+      let box = document.getElementById(type + 'CloudStatus');
+      if (!box) {
+        box = document.createElement('div'); box.id = type + 'CloudStatus';
+        box.className = 'auth-security-note'; box.setAttribute('role', 'status');
+        document.getElementById(type + 'Form').before(box);
+      }
+      box.textContent = message; box.hidden = !message;
+      if (retry) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'btn light small'; button.textContent = '다시 불러오기';
+        button.onclick = () => { void initializeCalendars(); };
+        box.append(' ', button);
+      }
+    }
+    function calendarBusy(type, busy) {
+      calendarState[type].busy = busy;
+      document.querySelectorAll('#' + type + 'Form input, #' + type + 'Form select, #' + type + 'Form textarea, #' + type + 'Form button')
+        .forEach(control => { control.disabled = busy || !calendarState[type].loaded || isPresentationMode(); });
+    }
+    function assertCalendarWritable(type) {
+      if (isPresentationMode()) throw new Error('발표용 파일의 일정은 조회 전용입니다. 웹사이트에서 변경하세요.');
+      if (!calendarState[type].loaded) throw new Error('D1 일정을 먼저 불러와야 합니다. 다시 불러오기를 눌러 주세요.');
+    }
+    async function loadCalendarEvents(type) {
+      calendarPath(type);
+      if (isPresentationMode()) {
+        const events = getEmbeddedPortalSnapshot()?.[type + 'Events'] || [];
+        if (!Array.isArray(events)) throw new Error('발표용 일정 형식이 올바르지 않습니다.');
+        return events.map(event => normalizeCalendarEvent(type, event));
+      }
+      const result = await apiRequest(calendarPath(type));
+      if (!Array.isArray(result.events)) throw new Error('일정 목록 응답이 올바르지 않습니다.');
+      return result.events.map(event => normalizeCalendarEvent(type, event));
+    }
+    async function saveCalendarEvents(type, data, importOnly = false) {
+      const result = await apiRequest(calendarPath(type) + '/' + encodeURIComponent(data.id) + (importOnly ? '?migration=1' : ''), {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+      });
+      if (!result.event || result.event.id !== data.id) throw new Error('일정 저장 응답이 올바르지 않습니다.');
+      return normalizeCalendarEvent(type, result.event);
+    }
+    function readLocalCalendarMigration(type) {
+      const raw = localStorage.getItem(type + 'Events');
+      const events = raw === null ? [] : JSON.parse(raw);
+      if (!Array.isArray(events)) throw new Error('기존 ' + type + ' 일정 백업 형식을 확인하세요.');
+      return events.map(value => {
+        const event = normalizeCalendarEvent(type, value);
+        // Deterministic legacy IDs make retries safe without rewriting the original backup.
+        event.id ||= 'legacy-' + type + '-' + sha256Portable(JSON.stringify(event)).slice(0, 40);
+        return event;
+      });
+    }
+    async function initializeCalendars() {
+      if (calendarInitialization) return calendarInitialization;
+      if (calendarState.as.busy || calendarState.team.busy) return;
+      calendarInitialization = (async () => {
+        for (const type of ['as', 'team']) {
+          calendarBusy(type, true); calendarNotice(type, '공유 일정 불러오는 중…');
+        }
+        try {
+          const migrateAndLoad = async () => {
+            let lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
+            if (!isPresentationMode() && localStorage.getItem(CALENDAR_MIGRATION_KEY) !== 'done') {
+              const legacy = { as:readLocalCalendarMigration('as'), team:readLocalCalendarMigration('team') };
+              for (const type of ['as', 'team']) {
+                calendarNotice(type, '기존 일정 D1 이전 중…');
+                for (const event of legacy[type]) await saveCalendarEvents(type, event, true);
+              }
+              // Verify both reads before marking the entire migration complete.
+              lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
+              localStorage.setItem(CALENDAR_MIGRATION_KEY, 'done');
+            }
+            return lists;
+          };
+          const lists = !isPresentationMode() && navigator.locks
+            ? await navigator.locks.request(CALENDAR_MIGRATION_KEY, migrateAndLoad)
+            : await migrateAndLoad();
+          ['as', 'team'].forEach((type, index) => {
+            calendarState[type].events = lists[index]; calendarState[type].loaded = true;
+            calendarNotice(type, isPresentationMode() ? '발표용 일정 · 조회 전용' : '');
+          });
+        } catch (error) {
+          for (const type of ['as', 'team']) {
+            calendarState[type].loaded = false;
+            calendarNotice(type, '공유 일정 로드/이전 실패: ' + error.message + ' 기존 브라우저 일정은 삭제되지 않았습니다.', true);
+          }
+        } finally {
+          for (const type of ['as', 'team']) { calendarBusy(type, false); renderCalendar(type); }
+          renderPortalHome();
+        }
+      })();
+      try { await calendarInitialization; } finally { calendarInitialization = null; }
+    }
+    async function refreshCalendar(type) {
+      if (calendarInitialization) { await calendarInitialization; return; }
+      if (calendarState[type].busy) return;
+      if (!calendarState[type].loaded) { await initializeCalendars(); return; }
+      calendarBusy(type, true);
+      try {
+        calendarState[type].events = await loadCalendarEvents(type);
+        calendarNotice(type, isPresentationMode() ? '발표용 일정 · 조회 전용' : '');
+      } catch (error) {
+        calendarState[type].loaded = false;
+        calendarNotice(type, '공유 일정 조회 실패: ' + error.message, true);
+      } finally { calendarBusy(type, false); renderCalendar(type); renderPortalHome(); }
     }
     function calUid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
     function calFmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
@@ -3359,6 +3471,7 @@
     function moveCalendarMonth(type,diff){const d=calendarState[type].current;calendarState[type].current=new Date(d.getFullYear(),d.getMonth()+diff,1);renderCalendar(type)}
     function goCalendarToday(type){calendarState[type].current=new Date();renderCalendar(type)}
     function renderCalendar(type){
+      if (!calendarState[type].loaded) return;
       const current=calendarState[type].current,y=current.getFullYear(),m=current.getMonth();
       document.getElementById(type+'MonthTitle').textContent=`${y}년 ${m+1}월`;
       const box=document.getElementById(type+'Calendar');if(!box)return;box.innerHTML='';
@@ -3371,23 +3484,56 @@
       }
       renderCalendarList(type);applyCalendarFilter(type);
     }
-    function setCalendarDate(type,date){if(type==='as'){asStartDate.value=date;asEndDate.value=date}else{teamStartDate.value=date;teamEndDate.value=date}}
+    function setCalendarDate(type,date){if(calendarState[type].busy)return;if(type==='as'){asStartDate.value=date;asEndDate.value=date}else{teamStartDate.value=date;teamEndDate.value=date}}
     function calendarPeriod(e,type){if(type==='as')return `${calGetStart(e)} ~ ${calGetEnd(e)}`;const sd=calGetStart(e),ed=calGetEnd(e),st=e.startTime||'',et=e.endTime||'';return sd===ed?`${sd} ${st}${et?' ~ '+et:''}`:`${sd} ${st} ~ ${ed} ${et}`}
     function renderCalendarList(type){const box=document.getElementById(type+'List');if(!box)return;const rows=[...calendarState[type].events].sort((a,b)=>calGetStart(a).localeCompare(calGetStart(b)));box.innerHTML=rows.length?'':'<div class="cal-empty">등록된 일정이 없습니다.</div>';rows.forEach(e=>box.appendChild(calendarItem(type,e)))}
     function calendarItem(type,e){const div=document.createElement('div');div.className='cal-item';div.onclick=()=>editCalendarEvent(type,e.id);div.innerHTML=type==='as'?`<strong>${calendarPeriod(e,type)} | ${escapePortal(e.asType||'미분류')} · ${escapePortal(e.yard||'-')} / ${escapePortal(e.hullNo||'-')}</strong><span>작업상세: ${escapePortal(e.asDetail||e.workDetail||'-')} · 출장자: ${escapePortal(e.workerInfo||'-')} · 등록자: ${escapePortal(e.createdByName||'-')}</span>`:`<strong>${calendarPeriod(e,type)} | ${escapePortal(e.teamType||'-')} - ${escapePortal(e.title||'-')}</strong><span>대상: ${escapePortal(e.members||'-')} · 장소: ${escapePortal(e.location||'-')} · 등록자: ${escapePortal(e.createdByName||'-')}</span>`;return div}
-    document.getElementById('asForm').addEventListener('submit',function(e){e.preventDefault();if(!requirePortalLogin('AS출장 저장'))return;if(asEndDate.value<asStartDate.value){alert('출장 종료일은 시작일보다 빠를 수 없습니다.');return}const yard=getYardInfo(),type=getAsTypeInfo(),car=getCarInfo();if(!yard||!type||!car){alert('직접입력 항목을 확인하세요.');return}const id=asId.value||calUid(),old=calendarState.as.events.find(x=>x.id===id),data={id,startDate:asStartDate.value,endDate:asEndDate.value,yard,hullNo:hullNo.value.trim(),asType:type,asDetail:asDetail.value.trim(),workerInfo:workerInfo.value.trim(),carInfo:car,memo:asMemo.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};upsertCalendar('as',data)})
-    document.getElementById('teamForm').addEventListener('submit',function(e){e.preventDefault();if(!requirePortalLogin('팀 일정 저장'))return;if(teamEndDate.value<teamStartDate.value){alert('종료일자는 시작일자보다 빠를 수 없습니다.');return}if(teamStartDate.value===teamEndDate.value&&teamEndTime.value<=teamStartTime.value){alert('같은 날짜에서는 종료시간이 시작시간보다 늦어야 합니다.');return}const type=getTeamTypeInfo();if(!type){alert('일정구분을 입력하세요.');return}const id=teamId.value||calUid(),old=calendarState.team.events.find(x=>x.id===id),data={id,startDate:teamStartDate.value,endDate:teamEndDate.value,startTime:teamStartTime.value,endTime:teamEndTime.value,teamType:type,title:teamTitle.value.trim(),members:teamMembers.value.trim(),location:teamLocation.value.trim(),detail:teamDetail.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};upsertCalendar('team',data)})
-    function upsertCalendar(type,data){const i=calendarState[type].events.findIndex(x=>x.id===data.id);if(i>=0)calendarState[type].events[i]=data;else calendarState[type].events.push(data);saveCalendarEvents(type);resetCalendarForm(type);renderCalendar(type);renderPortalHome();showToast(i>=0?'일정이 수정되었습니다.':'일정이 등록되었습니다.')}
-    function editCalendarEvent(type,id){const e=calendarState[type].events.find(x=>x.id===id);if(!e)return;if(type==='as'){asId.value=e.id;asStartDate.value=calGetStart(e);asEndDate.value=calGetEnd(e);setCustomSelect(yardSelect,yardCustom,e.yard||'HHI',['HHI','HSHI','HMD','SHI','HNW','KSB','DHS','DSS']);hullNo.value=e.hullNo||'';setCustomSelect(asType,asTypeCustom,e.asType||'자재불량',['자재불량','누설','용접불량','도장불량','자재파손','자재설치누락','생산오작','설계오작']);asDetail.value=e.asDetail||e.workDetail||'';workerInfo.value=e.workerInfo||'';setCustomSelect(carSelect,carCustom,e.carInfo||'96오 7790',['96오 7790','91무 2355']);asMemo.value=e.memo||'';asDeleteBtn.style.display='inline-block'}else{teamId.value=e.id;teamStartDate.value=calGetStart(e);teamEndDate.value=calGetEnd(e);teamStartTime.value=e.startTime||'09:00';teamEndTime.value=e.endTime||'18:00';setCustomSelect(teamType,teamTypeCustom,e.teamType||'연차계획',['연차계획','회사행사','사외교육','사내교육']);teamTitle.value=e.title||'';teamMembers.value=e.members||'';teamLocation.value=e.location||'';teamDetail.value=e.detail||'';teamDeleteBtn.style.display='inline-block'}window.scrollTo({top:0,behavior:'smooth'})}
-    function deleteCalendarEvent(type){if(!requirePortalLogin('일정 삭제'))return;const id=document.getElementById(type+'Id').value;if(!id)return;if(!confirm('선택한 일정을 삭제하시겠습니까?'))return;calendarState[type].events=calendarState[type].events.filter(e=>e.id!==id);saveCalendarEvents(type);resetCalendarForm(type);renderCalendar(type);renderPortalHome();showToast('일정이 삭제되었습니다.')}
-    function resetCalendarForm(type){document.getElementById(type+'Form').reset();document.getElementById(type+'Id').value='';document.getElementById(type+'DeleteBtn').style.display='none';if(type==='as'){yardSelect.value='HHI';yardCustom.style.display='none';asType.value='자재불량';asTypeCustom.style.display='none';carSelect.value='96오 7790';carCustom.style.display='none'}else{teamType.value='연차계획';teamTypeCustom.style.display='none';teamStartTime.value='09:00';teamEndTime.value='18:00'}}
+    document.getElementById('asForm').addEventListener('submit',async function(e){e.preventDefault();if(calendarState.as.busy)return;if(!requirePortalLogin('AS출장 저장'))return;if(asEndDate.value<asStartDate.value){alert('출장 종료일은 시작일보다 빠를 수 없습니다.');return}const yard=getYardInfo(),type=getAsTypeInfo(),car=getCarInfo();if(!yard||!type||!car){alert('직접입력 항목을 확인하세요.');return}const id=asId.value||calUid(),old=calendarState.as.events.find(x=>x.id===id),data={id,startDate:asStartDate.value,endDate:asEndDate.value,yard,hullNo:hullNo.value.trim(),asType:type,asDetail:asDetail.value.trim(),workerInfo:workerInfo.value.trim(),carInfo:car,memo:asMemo.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};await upsertCalendar('as',data)})
+    document.getElementById('teamForm').addEventListener('submit',async function(e){e.preventDefault();if(calendarState.team.busy)return;if(!requirePortalLogin('팀 일정 저장'))return;if(teamEndDate.value<teamStartDate.value){alert('종료일자는 시작일자보다 빠를 수 없습니다.');return}if(teamStartDate.value===teamEndDate.value&&teamEndTime.value<=teamStartTime.value){alert('같은 날짜에서는 종료시간이 시작시간보다 늦어야 합니다.');return}const type=getTeamTypeInfo();if(!type){alert('일정구분을 입력하세요.');return}const id=teamId.value||calUid(),old=calendarState.team.events.find(x=>x.id===id),data={id,startDate:teamStartDate.value,endDate:teamEndDate.value,startTime:teamStartTime.value,endTime:teamEndTime.value,teamType:type,title:teamTitle.value.trim(),members:teamMembers.value.trim(),location:teamLocation.value.trim(),detail:teamDetail.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};await upsertCalendar('team',data)})
+    async function upsertCalendar(type,data) {
+      if (calendarState[type].busy) return;
+      try { assertCalendarWritable(type); } catch (error) { alert(error.message); return; }
+      const existing = calendarState[type].events.some(event => event.id === data.id);
+      document.getElementById(type + 'Id').value = data.id;
+      calendarBusy(type, true); calendarNotice(type, '일정 저장 중…');
+      try {
+        const saved = await saveCalendarEvents(type, data);
+        const index = calendarState[type].events.findIndex(event => event.id === saved.id);
+        if (index >= 0) calendarState[type].events[index] = saved; else calendarState[type].events.push(saved);
+        calendarBusy(type, false); resetCalendarForm(type); renderCalendar(type); renderPortalHome();
+        calendarNotice(type, '');
+        showToast(existing ? '일정이 수정되었습니다.' : '일정이 등록되었습니다.');
+      } catch (error) {
+        calendarNotice(type, '일정 저장 실패: ' + error.message);
+        alert('일정을 저장하지 못했습니다. ' + error.message);
+      } finally { calendarBusy(type, false); }
+    }
+    function editCalendarEvent(type,id){if(calendarState[type].busy)return;const e=calendarState[type].events.find(x=>x.id===id);if(!e)return;if(type==='as'){asId.value=e.id;asStartDate.value=calGetStart(e);asEndDate.value=calGetEnd(e);setCustomSelect(yardSelect,yardCustom,e.yard||'HHI',['HHI','HSHI','HMD','SHI','HNW','KSB','DHS','DSS']);hullNo.value=e.hullNo||'';setCustomSelect(asType,asTypeCustom,e.asType||'자재불량',['자재불량','누설','용접불량','도장불량','자재파손','자재설치누락','생산오작','설계오작']);asDetail.value=e.asDetail||e.workDetail||'';workerInfo.value=e.workerInfo||'';setCustomSelect(carSelect,carCustom,e.carInfo||'96오 7790',['96오 7790','91무 2355']);asMemo.value=e.memo||'';asDeleteBtn.style.display='inline-block'}else{teamId.value=e.id;teamStartDate.value=calGetStart(e);teamEndDate.value=calGetEnd(e);teamStartTime.value=e.startTime||'09:00';teamEndTime.value=e.endTime||'18:00';setCustomSelect(teamType,teamTypeCustom,e.teamType||'연차계획',['연차계획','회사행사','사외교육','사내교육']);teamTitle.value=e.title||'';teamMembers.value=e.members||'';teamLocation.value=e.location||'';teamDetail.value=e.detail||'';teamDeleteBtn.style.display='inline-block'}window.scrollTo({top:0,behavior:'smooth'})}
+    async function deleteCalendarEvent(type) {
+      if (calendarState[type].busy) return;
+      if (!requirePortalLogin('일정 삭제')) return;
+      try { assertCalendarWritable(type); } catch (error) { alert(error.message); return; }
+      const id = document.getElementById(type + 'Id').value;
+      if (!id || !confirm('선택한 일정을 삭제하시겠습니까?')) return;
+      calendarBusy(type, true); calendarNotice(type, '일정 삭제 중…');
+      try {
+        await apiRequest(calendarPath(type) + '/' + encodeURIComponent(id), {method:'DELETE'});
+        calendarState[type].events = calendarState[type].events.filter(event => event.id !== id);
+        calendarBusy(type, false); resetCalendarForm(type); renderCalendar(type); renderPortalHome();
+        calendarNotice(type, ''); showToast('일정이 삭제되었습니다.');
+      } catch (error) {
+        calendarNotice(type, '일정 삭제 실패: ' + error.message);
+        alert('일정을 삭제하지 못했습니다. ' + error.message);
+      } finally { calendarBusy(type, false); }
+    }
+    function resetCalendarForm(type){if(calendarState[type].busy)return;document.getElementById(type+'Form').reset();document.getElementById(type+'Id').value='';document.getElementById(type+'DeleteBtn').style.display='none';if(type==='as'){yardSelect.value='HHI';yardCustom.style.display='none';asType.value='자재불량';asTypeCustom.style.display='none';carSelect.value='96오 7790';carCustom.style.display='none'}else{teamType.value='연차계획';teamTypeCustom.style.display='none';teamStartTime.value='09:00';teamEndTime.value='18:00'}}
     function getCalendarFiltered(type){const start=document.getElementById(type+'FilterStartDate').value,end=document.getElementById(type+'FilterEndDate').value,filter=document.getElementById(type+'FilterType').value;if(start&&end&&end<start){alert('조회 종료일은 시작일보다 빠를 수 없습니다.');return []}const presets=type==='as'?['자재불량','누설','용접불량','도장불량','자재파손','자재설치누락','생산오작','설계오작']:['연차계획','회사행사','사외교육','사내교육'];return calendarState[type].events.filter(e=>{const period=!start&&!end||rangesOverlapCal(calGetStart(e),calGetEnd(e),start||'0000-01-01',end||'9999-12-31'),v=type==='as'?e.asType:e.teamType,typeOk=filter==='전체'||(filter==='기타'?!presets.includes(v):v===filter);return period&&typeOk}).sort((a,b)=>calGetStart(a).localeCompare(calGetStart(b)))}
     function applyCalendarFilter(type){const rows=getCalendarFiltered(type),sum=document.getElementById(type+'FilterSummary'),box=document.getElementById(type+'FilteredList');if(!sum||!box)return;sum.textContent=`조회 결과: ${rows.length}건`;box.innerHTML=rows.length?'':'<div class="cal-empty">조회 조건에 해당하는 일정이 없습니다.</div>';rows.forEach(e=>box.appendChild(calendarItem(type,e)))}
     function resetCalendarFilter(type){document.getElementById(type+'FilterStartDate').value='';document.getElementById(type+'FilterEndDate').value='';document.getElementById(type+'FilterType').value='전체';applyCalendarFilter(type)}
 
 
     function updatePortalClock(){const d=new Date(),days=['일','월','화','수','목','금','토'];portalClockDate.textContent=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;portalClockTime.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
-    function navigatePortal(page,issueTab){document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')renderCalendar(page);if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
+    function navigatePortal(page,issueTab){document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')void refreshCalendar(page);if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
     function filterPortalMenu(){const q=menuSearch.value.trim().toLowerCase();document.querySelectorAll('.portal-sidebar .menu-item').forEach(x=>x.style.display=!q||x.textContent.toLowerCase().includes(q)?'flex':'none')}
     function renderPortalHome(){
       if(typeof issues==='undefined'||typeof calendarState==='undefined')return;
@@ -3439,8 +3585,7 @@ async function initializePortal() {
   renderStatistics();
   resetCalendarForm('as');
   resetCalendarForm('team');
-  renderCalendar('as');
-  renderCalendar('team');
+  await initializeCalendars();
   renderPortalHome();
   navigatePortal('home');
 }

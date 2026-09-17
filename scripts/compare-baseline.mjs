@@ -20,13 +20,15 @@ function between(text,a,b) {
   return text.slice(start,end).trim();
 }
 assert.equal(between(current,"    const AUTH_USERS_KEY","    const API_BASE_URL"),
-  between(original,"    const AUTH_USERS_KEY","    const STORAGE_KEY"),'Account/profile code changed');
+  between(original,"    const AUTH_USERS_KEY", original.includes('    const API_BASE_URL')
+    ? '    const API_BASE_URL' : '    const STORAGE_KEY'),'Account/profile code changed');
 for (const [start,end] of [
   ['    function compressImage(', '    function applyPhotoZoom('],
   ['    function buildHistoryNote(', "    document.getElementById('issueForm')"],
   ['    function getFilteredIssues(', '    function toggleIssueSelection('],
   ['    function renderDashboard(', '    function encodeSnapshotBase64('],
-  ["    const calendarState", 'async function initializePortal()'],
+  ['    function calendarPeriod(', "    document.getElementById('asForm')"],
+  ['    function getCalendarFiltered(', '    function updatePortalClock('],
 ]) assert.equal(between(current,start,end),between(original,start,end),'Unexpected change: '+start);
-console.log('PASS baseline diff: CSS and markup preserved except upload status/accept; accounts/profile, compression, history, filtering, dashboard/export, calendars unchanged.');
+console.log('PASS baseline diff: CSS and markup preserved except upload status/accept; accounts/profile, compression, history, filtering, dashboard/export, calendar display and filters unchanged.');
 console.log('Original SHA256: '+createHash('sha256').update(readFileSync(baseline)).digest('hex'));

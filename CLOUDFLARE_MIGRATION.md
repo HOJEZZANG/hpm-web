@@ -2,6 +2,46 @@
 
 ## 현재 작업 상태
 
+2026-09-17 AS 출장·팀 일정 작업을 재개했습니다. 시작 시 HEAD와 origin/main은
+84c38fe로 같았고, 일정 구현은 미커밋 상태였습니다. 원격 D1의 0001/0002/0003 적용 기록,
+일정 테이블 각 14개 컬럼, 기존 Worker d287879c-bc22-4e74-aa9e-9c0acbbb5d0a를 확인했습니다.
+0003_shared_calendars.sql은 2026-09-16 13:28:24 UTC에 이미 적용되어 재적용하지 않았습니다.
+재개 시 원격 문제점은 3건, AS·팀 일정은 각각 0건이며 조회 API와 CORS는 정상이었습니다.
+
+AS·팀 일정은 이제 D1에 단건 저장·수정·삭제합니다. 초기 조회나 이전 실패 시 쓰기를 차단하고
+재시도 버튼을 표시합니다. 일정 메뉴를 다시 열면 다른 PC의 변경 사항을 불러옵니다.
+localStorage의 asEvents/teamEvents는 첫 접속 시 한 번 이전하고 원본을 보존합니다.
+완료 표시는 두 목록의 저장 및 재조회가 모두 성공한 뒤 hpmCalendarsCloudMigrationV1에 기록합니다.
+ID 없는 구형 일정에는 내용 기반의 고정 ID를 부여하며 date/workDetail도 변환합니다.
+이전 요청의 ?migration=1은 INSERT ON CONFLICT DO NOTHING을 사용하므로 재시도나
+다른 PC의 오래된 백업이 같은 ID의 최신 D1 일정을 덮어쓰지 않습니다.
+발표용 HTML은 내장 일정만 조회하며 원격 이전·수정을 실행하지 않습니다.
+
+기존 일정이 들어 있는 각 브라우저에서 새 웹페이지를 열어야 그 브라우저의 실제 이전이 실행됩니다.
+배포 도구는 사용자 브라우저의 localStorage에 직접 접근할 수 없습니다.
+
+최종 Worker 배포 버전: 17adadb2-ba1c-4787-be43-51834242972e.
+검증 결과: 로컬 SQLite API 테스트 16개, 문법·설정 검사, Chromium 실제 DOM 검사,
+84c38fe 대비 CSS/HTML·계정·필터·일정 표시 보존 비교 모두 통과했습니다.
+원격에서는 health/문제점/AS/팀 조회 HTTP 200 및 CORS preflight를 확인하고,
+각 일정의 임시 UUID로 등록·수정·이전 재시도·조회·삭제를 검증했습니다.
+검증용 일정만 삭제했으며, 전후 문제점 3건의 전체 API 응답 SHA256은
+91bf5851240865f67ab6c131167818a3e9c399992d7fb9541ec0740339d43dbf로 일치합니다.
+원격 일정은 검증 전후 각각 0건입니다. 실제 브라우저 일정의 이전 완료를 뜻하지는 않습니다.
+
+일정 검증 재실행:
+
+~~~powershell
+npm.cmd test
+npm.cmd run check
+node scripts/browser-check.mjs 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+node scripts/check-remote-calendars.mjs
+# 임시 UUID 일정만 생성·수정한 뒤 정리하는 원격 쓰기 검증:
+node scripts/check-remote-calendars.mjs --write
+~~~
+
+아래는 문제점·사진 이전 당시의 기록입니다.
+
 로컬 프로젝트의 실제 파일을 수정했습니다. GitHub Pages는 단일 index.html,
 문제점은 D1, 사진은 비공개 R2, 통신은 Worker API를 사용합니다.
 기존 데이터 서비스의 SDK/클라이언트/조회/전체 저장/삭제 호출과 관련 메시지를 제거했습니다.
@@ -82,7 +122,7 @@ created_at은 수정 시 보존하고 updated_at은 서버가 갱신합니다.
 구형 조립1/2/3 → 조립 변환도 유지합니다.
 
 로그인·회원가입·마이페이지는 기존 localStorage/sessionStorage 방식입니다.
-AS 출장 및 팀 일정도 기존 브라우저 저장을 유지합니다.
+AS 출장 및 팀 일정은 D1을 사용하며, 기존 브라우저 저장 데이터는 1회 이전 후 백업으로 보존합니다.
 기존 CSS, 반응형 구조, 메뉴, 필터, PND 경고, 이력, 통계, 사진 확대를 보존했습니다.
 원본에는 CSV 내보내기와 JSON 가져오기/내보내기가 있었으며 이 기능들을 유지했습니다.
 원본에 CSV 가져오기 파서는 없었습니다.
@@ -95,6 +135,9 @@ AS 출장 및 팀 일정도 기존 브라우저 저장을 유지합니다.
 |---|---|
 | GET /api/health | SELECT 1 AS ok 실행; DB/R2 binding 상태. 정상 200, 연결 불가 503 |
 | GET /api/issues | {ok:true, issues:[...]} / updated_at·created_at 최신순 |
+| GET /api/as-events, /api/team-events | {ok:true, events:[...]} / 날짜순 공유 일정 |
+| PUT /api/as-events/:id, /api/team-events/:id | 단건 검증·UPSERT, 등록자·등록 시각 보존; ?migration=1이면 기존 행 보존 |
+| DELETE /api/as-events/:id, /api/team-events/:id | 지정한 일정 1건만 삭제; 없는 ID도 성공 |
 | PUT /api/issues/:id | 한 건 검증·UPSERT; {ok:true, issue, photosCleaned} |
 | DELETE /api/issues/:id | 단건 삭제 + 미참조 사진 정리 |
 | POST /api/issues/bulk-delete | {ids:[...]} / 1~100개; D1 batch로 삭제 |

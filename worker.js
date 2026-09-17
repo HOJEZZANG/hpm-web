@@ -237,6 +237,105 @@ async function uploadPhoto(request, env) {
   await env.PHOTOS.put(key, data, { httpMetadata: { contentType: detected[0] }, customMetadata: { issueId: id, category } });
   return json({ ok: true, key, url: photoUrl(key), contentType: detected[0] }, 201);
 }
+const calendarDefinitions = {
+  'as-events': {
+    fields: ['id', 'startDate', 'endDate', 'yard', 'hullNo', 'asType', 'asDetail', 'workerInfo', 'carInfo', 'memo', 'createdById', 'createdByName', 'createdAt', 'updatedAt'],
+    required: ['yard', 'asType', 'carInfo'],
+    list: 'SELECT * FROM as_events ORDER BY start_date, end_date, id',
+    get: 'SELECT * FROM as_events WHERE id = ?',
+    remove: 'DELETE FROM as_events WHERE id = ?',
+    upsert: `INSERT INTO as_events (
+      id, start_date, end_date, yard, hull_no, as_type, as_detail, worker_info, car_info, memo,
+      created_by_id, created_by_name, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      start_date=excluded.start_date, end_date=excluded.end_date, yard=excluded.yard,
+      hull_no=excluded.hull_no, as_type=excluded.as_type, as_detail=excluded.as_detail,
+      worker_info=excluded.worker_info, car_info=excluded.car_info, memo=excluded.memo,
+      updated_at=excluded.updated_at
+    RETURNING *`,
+  },
+  'team-events': {
+    fields: ['id', 'startDate', 'endDate', 'startTime', 'endTime', 'teamType', 'title', 'members', 'location', 'detail', 'createdById', 'createdByName', 'createdAt', 'updatedAt'],
+    required: ['teamType', 'title'],
+    list: 'SELECT * FROM team_events ORDER BY start_date, start_time, end_date, id',
+    get: 'SELECT * FROM team_events WHERE id = ?',
+    remove: 'DELETE FROM team_events WHERE id = ?',
+    upsert: `INSERT INTO team_events (
+      id, start_date, end_date, start_time, end_time, team_type, title, members, location, detail,
+      created_by_id, created_by_name, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      start_date=excluded.start_date, end_date=excluded.end_date,
+      start_time=excluded.start_time, end_time=excluded.end_time, team_type=excluded.team_type,
+      title=excluded.title, members=excluded.members, location=excluded.location, detail=excluded.detail,
+      updated_at=excluded.updated_at
+    RETURNING *`,
+  },
+};
+function calendarToClient(row, definition) {
+  const event = {};
+  for (const name of definition.fields) {
+    const column = name.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
+    event[name] = String(row[column] ?? '');
+  }
+  return event;
+}
+function validCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+async function calendarApi(request, env, collection, id) {
+  if (!env.DB) throw new ApiError(503, '데이터베이스 연결을 확인하세요.');
+  const definition = calendarDefinitions[collection];
+  if (!id && request.method === 'GET') {
+    const { results } = await env.DB.prepare(definition.list).all();
+    return json({ ok: true, events: results.map(row => calendarToClient(row, definition)) });
+  }
+  if (!validId(id)) throw new ApiError(400, '일정 ID가 올바르지 않습니다.');
+  if (request.method === 'DELETE') {
+    const result = await env.DB.prepare(definition.remove).bind(id).run();
+    return json({ ok: true, id, deleted: result.meta?.changes > 0 });
+  }
+  const body = await readJson(request);
+  if (!body || typeof body !== 'object' || Array.isArray(body) || (body.id !== undefined && body.id !== id)) {
+    throw new ApiError(400, '일정 데이터 또는 ID가 올바르지 않습니다.');
+  }
+  const event = {};
+  for (const name of definition.fields) {
+    const value = body[name] ?? '';
+    if (typeof value !== 'string' || value.length > 20000) throw new ApiError(400, '일정의 ' + name + ' 값을 확인하세요.');
+    event[name] = value;
+  }
+  event.id = id;
+  if (!validCalendarDate(event.startDate) || !validCalendarDate(event.endDate) || event.endDate < event.startDate) {
+    throw new ApiError(400, '시작일과 종료일을 올바르게 입력하세요.');
+  }
+  if (definition.required.some(name => !event[name].trim())) throw new ApiError(400, '일정 필수 항목을 입력하세요.');
+  if (collection === 'team-events') {
+    for (const name of ['startTime', 'endTime']) {
+      if (event[name] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(event[name])) throw new ApiError(400, '시간 형식이 올바르지 않습니다.');
+    }
+    if (!!event.startTime !== !!event.endTime ||
+        (event.startDate === event.endDate && event.startTime && event.endTime <= event.startTime)) {
+      throw new ApiError(400, '종료시간은 시작시간보다 늦어야 합니다.');
+    }
+  }
+  const now = new Date().toISOString();
+  if (event.createdAt && !Number.isFinite(Date.parse(event.createdAt))) throw new ApiError(400, '등록 시각이 올바르지 않습니다.');
+  event.createdAt = event.createdAt ? new Date(event.createdAt).toISOString() : now;
+  event.updatedAt = now;
+  // Import old browser backups without overwriting a newer shared record, including on retry.
+  const importOnly = new URL(request.url).searchParams.get('migration') === '1';
+  const sql = importOnly
+    ? definition.upsert.split('ON CONFLICT(id)')[0] + 'ON CONFLICT(id) DO NOTHING RETURNING *'
+    : definition.upsert;
+  let saved = await env.DB.prepare(sql).bind(...definition.fields.map(name => event[name])).first();
+  if (!saved && importOnly) saved = await env.DB.prepare(definition.get).bind(id).first();
+  if (!saved) throw new ApiError(409, '일정이 변경되었습니다. 다시 불러온 뒤 재시도하세요.');
+  return json({ ok: true, event: calendarToClient(saved, definition) });
+}
 async function route(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   const url = new URL(request.url), method = request.method;
@@ -248,6 +347,10 @@ async function route(request, env) {
     try { database = !!env.DB && (await env.DB.prepare('SELECT 1 AS ok').first())?.ok === 1; } catch {}
     const photos = !!env.PHOTOS;
     return json({ ok: database && photos, database, photos }, database && photos ? 200 : 503);
+  }
+  const calendarMatch = url.pathname.match(/^\/api\/(as-events|team-events)(?:\/([^/]+))?$/);
+  if (calendarMatch && ((!calendarMatch[2] && method === 'GET') || (calendarMatch[2] && ['PUT', 'DELETE'].includes(method)))) {
+    return calendarApi(request, env, calendarMatch[1], calendarMatch[2]);
   }
   if (url.pathname.startsWith('/api/photos/') && ['GET', 'DELETE'].includes(method)) {
     if (!env.PHOTOS) throw new ApiError(503, '사진 저장소 연결을 확인하세요.');
