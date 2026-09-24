@@ -336,12 +336,121 @@ async function calendarApi(request, env, collection, id) {
   if (!saved) throw new ApiError(409, '일정이 변경되었습니다. 다시 불러온 뒤 재시도하세요.');
   return json({ ok: true, event: calendarToClient(saved, definition) });
 }
+// Read-only fire integration. Mirrors AdminStatus.jsx at reference commit 7a6472a.
+// The original browser uses local dates; this Korean portal uses Asia/Seoul.
+const FIRE_OFFSET_MS = 9 * 60 * 60 * 1000;
+function fireTime(value) {
+  if (typeof value !== 'string' || !value.trim()) return NaN;
+  const date = value.trim();
+  // Legacy timestamps without a zone represent local Korean time.
+  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date + 'T00:00:00+09:00'
+    : /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(date) ? date + '+09:00' : date);
+}
+function fireIdentity(value) {
+  return typeof value === 'string' && value.length ? value : typeof value === 'number' && Number.isFinite(value) ? String(value) : null;
+}
+function fireAggregate(fires, history, year, month) {
+  const latest = new Map();
+  for (const entry of history) {
+    if (!entry || typeof entry !== 'object') continue;
+    const no = fireIdentity(entry.no), time = fireTime(entry.inspected_at);
+    const local = new Date(time + FIRE_OFFSET_MS);
+    if (no === null || !Number.isFinite(time) || local.getUTCFullYear() !== year || local.getUTCMonth() + 1 !== month) continue;
+    // Stable first row on equal timestamps, as in the source's stable sort.
+    if (!latest.has(no) || time > latest.get(no).time) latest.set(no, { time, status: entry.status });
+  }
+  const groups = new Map();
+  for (const fire of fires) {
+    if (!fire || typeof fire !== 'object' || Array.isArray(fire)) continue;
+    const company = typeof fire.company === 'string' && fire.company.trim() ? fire.company : '미지정';
+    if (!groups.has(company)) groups.set(company, { company, total: 0, normal: 0, abnormal: 0, pending: 0, completed: 0 });
+    const row = groups.get(company), checked = latest.get(fireIdentity(fire.no));
+    row.total++;
+    if (!checked) row.pending++;
+    else {
+      row.completed++;
+      if (checked.status === '정상') row.normal++;
+      if (checked.status === '이상') row.abnormal++;
+    }
+  }
+  const companies = [...groups.values()].map(({ completed, ...row }) => ({ ...row, inspectionRate: Math.round(completed / row.total * 100) }));
+  const summary = { total: 0, normal: 0, abnormal: 0, pending: 0, inspectionRate: 0 };
+  for (const row of companies) for (const field of ['total', 'normal', 'abnormal', 'pending']) summary[field] += row[field];
+  // Source subtotal deliberately counts only recognized statuses, unlike company rates.
+  summary.inspectionRate = summary.total ? Math.round((summary.normal + summary.abnormal) / summary.total * 100) : 0;
+  return { ok: true, year, month, companies, summary };
+}
+function fireFailure(kind, table, status = 0) {
+  // Never log remote bodies, URLs, headers, credentials or exception messages.
+  console.error('Fire status upstream failure', { kind, table, status });
+  return new ApiError(kind === 'timeout' ? 504 : 502, '소화기 점검 현황을 불러오지 못했습니다. 잠시 후 다시 시도하세요.');
+}
+async function fireRows(env, table, query, signal) {
+  const rows = [];
+  for (let offset = 0; offset < 50000;) {
+    const url = new URL('/rest/v1/' + table, env.FIRE_SUPABASE_URL);
+    url.search = new URLSearchParams({ ...query, limit: '1000', offset: String(offset) }).toString();
+    let response;
+    try {
+      response = await fetch(url, { method: 'GET', headers: {
+        apikey: env.FIRE_SUPABASE_KEY, Accept: 'application/json', Prefer: 'count=exact',
+      }, signal, redirect: 'manual' });
+    } catch { throw fireFailure(signal.aborted ? 'timeout' : 'network', table); }
+    // workerd supports manual/follow only. Never forward credentials to redirects.
+    if (response.status >= 300 && response.status < 400) throw fireFailure('unexpected_redirect', table, response.status);
+    if (!response.ok) {
+      const kind = [401, 403].includes(response.status) ? 'access_denied' : response.status >= 500 ? 'unavailable' : 'query_rejected';
+      throw fireFailure(kind, table, response.status);
+    }
+    let data;
+    try { data = await response.json(); }
+    catch { throw fireFailure(signal.aborted ? 'timeout' : 'invalid_json', table); }
+    if (!Array.isArray(data)) throw fireFailure('invalid_shape', table);
+    const range = response.headers.get('Content-Range') || '';
+    const totalText = range.split('/')[1];
+    if (!/^\d+$/.test(totalText || '')) throw fireFailure('invalid_range', table);
+    const total = Number(totalText);
+    if (total > 50000 || (data.length === 0 && offset < total)) throw fireFailure('incomplete_result', table);
+    rows.push(...data); offset += data.length;
+    if (offset >= total) return rows;
+  }
+  throw fireFailure('incomplete_result', table);
+}
+async function fireStatus(url, env) {
+  const yearText = url.searchParams.get('year'), monthText = url.searchParams.get('month');
+  if (url.searchParams.getAll('year').length !== 1 || url.searchParams.getAll('month').length !== 1 ||
+      !/^\d{4}$/.test(yearText || '') || Number(yearText) < 1900 || Number(yearText) > 9998 ||
+      !/^(0?[1-9]|1[0-2])$/.test(monthText || '')) throw new ApiError(400, '연도(1900~9998)와 월(1~12)을 올바르게 선택하세요.');
+  if (!env.FIRE_SUPABASE_URL || !env.FIRE_SUPABASE_KEY) throw new ApiError(503, '소화기 현황 연결 설정이 필요합니다. 관리자에게 문의하세요.');
+  let endpoint;
+  try { endpoint = new URL(env.FIRE_SUPABASE_URL); } catch {}
+  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.username || endpoint.password ||
+      endpoint.pathname !== '/' || endpoint.search || endpoint.hash || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.FIRE_SUPABASE_KEY)) {
+    throw new ApiError(503, '소화기 현황 연결 설정을 확인해 주세요.');
+  }
+  const year = Number(yearText), month = Number(monthText);
+  const start = new Date(Date.UTC(year, month - 1, 1) - FIRE_OFFSET_MS).toISOString();
+  const end = new Date(Date.UTC(year, month, 1) - FIRE_OFFSET_MS).toISOString();
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const [fires, history] = await Promise.all([
+      fireRows(env, 'fire_extinguishers', { select: 'no,company', order: 'no.asc' }, controller.signal),
+      fireRows(env, 'fire_inspection_history', { select: 'no,status,inspected_at', order: 'inspected_at.desc',
+        and: `(inspected_at.gte.${start},inspected_at.lt.${end})` }, controller.signal),
+    ]);
+    return json(fireAggregate(fires, history, year, month));
+  } finally { clearTimeout(timer); controller.abort(); }
+}
 async function route(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   const url = new URL(request.url), method = request.method;
   // CORS is not authentication. Existing browser accounts do not authenticate API calls.
   const origin = request.headers.get('Origin');
   if (origin && origin !== ALLOWED_ORIGIN && !['GET', 'HEAD'].includes(method)) throw new ApiError(403, '허용되지 않은 요청 출처입니다.');
+  if (url.pathname === '/api/fire-status') {
+    if (method !== 'GET') throw new ApiError(405, '소화기 현황은 조회만 가능합니다.');
+    return fireStatus(url, env);
+  }
   if (method === 'GET' && url.pathname === '/api/health') {
     let database = false;
     try { database = !!env.DB && (await env.DB.prepare('SELECT 1 AS ok').first())?.ok === 1; } catch {}

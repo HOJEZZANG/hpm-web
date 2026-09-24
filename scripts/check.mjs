@@ -26,7 +26,18 @@ function scan(dir) {
     if (['.git', 'node_modules', '.wrangler'].includes(entry.name)) continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) scan(path);
-    else assert.ok(!readFileSync(path, 'utf8').toLowerCase().includes(removedProvider), 'Removed provider reference: ' + path);
+    else {
+      let content = readFileSync(path, 'utf8');
+      assert.ok(!/sb_publishable_[A-Za-z0-9_-]{20,}/.test(content), 'Credential must not be stored: ' + path);
+      if (path === join(root, 'worker.js')) content = content.replace(/\/\/ Read-only fire integration\.[\s\S]*?(?=async function route\()/, '');
+      if (path === join(root, 'wrangler.jsonc')) {
+        const checked = JSON.parse(content);
+        assert.deepEqual(Object.keys(checked.vars || {}), ['FIRE_' + removedProvider.toUpperCase() + '_URL']);
+        delete checked.vars;
+        content = JSON.stringify(checked);
+      }
+      assert.ok(!content.toLowerCase().includes(removedProvider), 'Provider outside fire server integration: ' + path);
+    }
   }
 }
 scan(root);
@@ -41,4 +52,6 @@ for (const name of ['canDeleteIssue', 'compressImage', 'openPhotoLightbox', 'ren
   'savePortalUsers', 'saveCalendarEvents', 'renderMyPage', 'renderCalendar']) {
   assert.match(html, new RegExp('function ' + name + '\\('));
 }
-console.log('PASS: Worker and ' + scripts.length + ' inline scripts parse; deployment config; removed provider = 0; API wiring; preserved feature entry points.');
+assert.match(html, /data-page="fireStatus"/);
+assert.ok(!/<iframe\b/i.test(html));
+console.log('PASS: Worker and ' + scripts.length + ' inline scripts parse; deployment config; provider limited to fire server; no keys; API wiring; preserved feature entry points.');

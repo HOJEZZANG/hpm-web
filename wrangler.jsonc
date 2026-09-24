@@ -2,6 +2,9 @@
   "name": "hpmanagement-web",
   "main": "worker.js",
   "compatibility_date": "2026-09-15",
+  "vars": {
+    "FIRE_SUPABASE_URL": "https://hrkaurvlhfgtpalbbaic.supabase.co"
+  },
   "d1_databases": [
     {
       "binding": "DB",

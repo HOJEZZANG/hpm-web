@@ -1039,6 +1039,26 @@
     <button id="topLogoutBtn" class="top-logout-btn" onclick="logoutPortal()" style="display: inline-block;">로그아웃</button>
   </div>
 </div>
+<style>
+  .fire-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:20px}
+  .fire-controls label{display:block;margin-bottom:6px}
+  .fire-controls select{min-width:105px}
+  .fire-table-wrap{overflow-x:auto;padding:0 20px 20px}
+  #fireStatusTable{width:100%;min-width:540px;border-collapse:collapse}
+  #fireStatusTable th,#fireStatusTable td{padding:14px 12px;text-align:center;border-bottom:1px solid #dbe4ef}
+  #fireStatusTable th:first-child,#fireStatusTable td:first-child{text-align:left;overflow-wrap:anywhere;max-width:250px}
+  #fireStatusTable thead{background:#edf3fa;color:#203b61}
+  #fireStatusTable tfoot{background:#e3f2fd;font-weight:800}
+  #fireStatusTable .fire-normal{color:#00a844;font-weight:800}
+  #fireStatusTable .fire-abnormal{color:#f57c00;font-weight:800}
+  #fireStatusTable .fire-low{color:#c0392b;font-weight:800}
+  #fireStatusTable .fire-medium{color:#b85c00;font-weight:800}
+  #fireStatusTable .fire-high{color:#278638;font-weight:800}
+  .fire-notice{padding:20px;color:#526478}
+  #fireStatusPeriod{padding:0 20px;color:#526478}
+  #fireStatusRetry{margin-left:10px}
+  @media(max-width:600px){.fire-controls{padding:16px;gap:10px}.fire-controls .fire-source{width:100%;text-align:center}.fire-table-wrap{padding:0 12px 16px}#fireStatusTable th,#fireStatusTable td{padding:12px 8px}}
+</style>
 <aside class="portal-sidebar">
   <div class="menu-search-wrap"><input id="menuSearch" class="menu-search" placeholder="메뉴 검색..." oninput="filterPortalMenu()"></div>
   <div class="menu-caption">MENU</div>
@@ -1058,6 +1078,9 @@
       <button class="menu-item" data-page="team" onclick="navigatePortal('team')"><span class="menu-icon">📅</span>팀 캘린더</button>
     </div>
   </div>
+  <div class="menu-group"><div class="submenu">
+    <button class="menu-item" data-page="fireStatus" onclick="navigatePortal('fireStatus')"><span class="menu-icon">🧯</span>소화기 점검 현황</button>
+  </div></div>
   <div id="sidebarUserBox" class="menu-user-box"><strong>연제호님 로그인</strong>사용자 ID: jhyeon<br>본인이 등록한 문제점만 삭제할 수 있습니다.</div>
 </aside>
 <main class="portal-main">
@@ -1768,6 +1791,27 @@
 </section>
 
 </div>
+</section>
+
+<section id="fireStatusPage" class="portal-page">
+  <div class="page-crumb">🧯 안전관리 / 소화기 점검 현황</div>
+  <div class="module-banner"><h1>전체 소화기 점검 현황</h1><p>업체별 월간 점검 현황을 확인합니다. 등록과 점검은 기존 소화기 점검 시스템에서 진행해 주세요.</p></div>
+  <div class="card">
+    <div class="fire-controls">
+      <div><label for="fireStatusYear">연도</label><select id="fireStatusYear" onchange="void loadFireStatus()"></select></div>
+      <div><label for="fireStatusMonth">월</label><select id="fireStatusMonth" onchange="void loadFireStatus()"></select></div>
+      <button id="fireStatusRefresh" type="button" class="btn green" onclick="void loadFireStatus()">새로고침</button>
+      <a class="btn light fire-source" href="https://smart-factoryfirecheck.netlify.app/" target="_blank" rel="noopener noreferrer">소화기 점검 시스템 열기 ↗</a>
+    </div>
+    <p id="fireStatusPeriod"></p>
+    <div id="fireStatusMessage" class="fire-notice" role="status" aria-live="polite"><span id="fireStatusMessageText">조회할 연도와 월을 선택해 주세요.</span><button id="fireStatusRetry" type="button" class="btn light" hidden onclick="void loadFireStatus()">다시 시도</button></div>
+    <div id="fireStatusTableWrap" class="fire-table-wrap" hidden tabindex="0" role="region" aria-label="업체별 소화기 점검 현황, 작은 화면에서는 좌우로 스크롤하세요">
+      <table id="fireStatusTable"><caption class="fire-notice">업체별 현황 · 한국 시간 기준</caption>
+        <thead><tr><th scope="col">업체명</th><th scope="col">전체</th><th scope="col">정상</th><th scope="col">이상</th><th scope="col">미점검</th><th scope="col">점검률</th></tr></thead>
+        <tbody id="fireStatusRows"></tbody><tfoot id="fireStatusSummary"></tfoot>
+      </table>
+    </div>
+  </div>
 </section>
 
 <section id="asPage" class="portal-page">
@@ -3533,7 +3577,71 @@
 
 
     function updatePortalClock(){const d=new Date(),days=['일','월','화','수','목','금','토'];portalClockDate.textContent=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;portalClockTime.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
-    function navigatePortal(page,issueTab){document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')void refreshCalendar(page);if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
+    let fireStatusRequest = null;
+    function initializeFireStatus() {
+      const yearSelect = document.getElementById('fireStatusYear'), monthSelect = document.getElementById('fireStatusMonth');
+      if (yearSelect.options.length) return;
+      const parts = new Intl.DateTimeFormat('en', {timeZone:'Asia/Seoul',year:'numeric',month:'numeric'}).formatToParts(new Date());
+      const year = Number(parts.find(p=>p.type==='year').value), month = Number(parts.find(p=>p.type==='month').value);
+      for (let y=year; y>year-5; y--) yearSelect.add(new Option(y+'년', y));
+      for (let m=1; m<=12; m++) monthSelect.add(new Option(m+'월', m));
+      monthSelect.value = String(month);
+    }
+    function renderFireStatusRow(row, label) {
+      const tr = document.createElement('tr');
+      for (const [field, value] of Object.entries({company:label,total:row.total,normal:row.normal,abnormal:row.abnormal,pending:row.pending,inspectionRate:row.inspectionRate})) {
+        const cell = document.createElement(field==='company' ? 'th' : 'td');
+        if (field==='company') cell.scope = 'row';
+        cell.textContent = field==='inspectionRate' ? value+'%' : String(value);
+        if (field==='normal' || field==='abnormal') cell.className = 'fire-'+field;
+        if (field==='pending' && value>0) cell.className = 'fire-low';
+        if (field==='inspectionRate') cell.className = value>=90 ? 'fire-high' : value>=60 ? 'fire-medium' : 'fire-low';
+        tr.appendChild(cell);
+      }
+      return tr;
+    }
+    async function loadFireStatus() {
+      initializeFireStatus();
+      const year = Number(document.getElementById('fireStatusYear').value), month = Number(document.getElementById('fireStatusMonth').value);
+      const key = year+'-'+month;
+      if (fireStatusRequest?.key===key) return;
+      fireStatusRequest?.controller.abort();
+      const controller = new AbortController(), current = {key,controller};
+      fireStatusRequest = current;
+      const refresh = document.getElementById('fireStatusRefresh'), retry = document.getElementById('fireStatusRetry');
+      const message = document.getElementById('fireStatusMessage'), text = document.getElementById('fireStatusMessageText');
+      const wrap = document.getElementById('fireStatusTableWrap'), rows = document.getElementById('fireStatusRows'), summary = document.getElementById('fireStatusSummary');
+      refresh.disabled = true; retry.hidden = true; wrap.hidden = true; rows.replaceChildren(); summary.replaceChildren();
+      message.hidden = false; text.textContent = '점검 현황을 불러오는 중입니다…';
+      document.getElementById('fireStatusPeriod').textContent = year+'년 '+month+'월 · 한국 시간 기준';
+      document.getElementById('fireStatusPage').setAttribute('aria-busy','true');
+      const timer = setTimeout(()=>controller.abort(),20000);
+      try {
+        if (isPresentationMode()) throw new Error('offline');
+        const response = await fetch(API_BASE_URL+'/api/fire-status?year='+year+'&month='+month, {signal:controller.signal,cache:'no-store'});
+        const result = await response.json();
+        if (!response.ok || result.ok!==true || result.year!==year || result.month!==month || !Array.isArray(result.companies) || !result.summary) throw new Error('response');
+        const validRow = row => row && ['total','normal','abnormal','pending','inspectionRate'].every(k=>Number.isFinite(row[k]) && row[k]>=0);
+        if (!validRow(result.summary) || !result.companies.every(row=>typeof row.company==='string' && validRow(row))) throw new Error('shape');
+        if (fireStatusRequest!==current) return;
+        rows.replaceChildren(...result.companies.map(row=>renderFireStatusRow(row,row.company)));
+        summary.replaceChildren(renderFireStatusRow(result.summary,'전체 소계'));
+        wrap.hidden = false;
+        message.hidden = result.companies.length>0;
+        text.textContent = '등록된 소화기 데이터가 없습니다.';
+      } catch {
+        if (fireStatusRequest!==current) return;
+        text.textContent = isPresentationMode() ? '발표용 파일에서는 실시간 현황을 조회할 수 없습니다. 웹사이트에서 확인해 주세요.' : '소화기 점검 현황을 불러오지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요.';
+        retry.hidden = false;
+      } finally {
+        clearTimeout(timer);
+        if (fireStatusRequest===current) {
+          fireStatusRequest = null; refresh.disabled = false;
+          document.getElementById('fireStatusPage').setAttribute('aria-busy','false');
+        }
+      }
+    }
+    function navigatePortal(page,issueTab){document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
     function filterPortalMenu(){const q=menuSearch.value.trim().toLowerCase();document.querySelectorAll('.portal-sidebar .menu-item').forEach(x=>x.style.display=!q||x.textContent.toLowerCase().includes(q)?'flex':'none')}
     function renderPortalHome(){
       if(typeof issues==='undefined'||typeof calendarState==='undefined')return;

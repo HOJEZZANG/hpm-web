@@ -24,6 +24,8 @@ const legacyAs = [
 const legacyTeam = [{date:'2026-09-16',teamType:'회사행사',title:'이전 일정',startTime:'09:00',endTime:'18:00'}];
 let failCalendarId = 'as-fail', failCalendarWrites = false, failCalendarReads = false, calendarWrites = 0;
 let failWrite = false, failLoad = false, writeCount = 0, uploads = 0;
+let fireMode = 'success', holdFire = false;
+const heldFire = [];
 let offlineSnapshotHtml = '';
 let navigationPending = false;
 const errors = [], requests = [], dialogs = [];
@@ -54,7 +56,7 @@ try {
       Promise.resolve(handler(message.params, message.sessionId)).catch(error => {
         // Image requests may be cancelled by DOM replacement as well as navigation.
         if (message.method === 'Fetch.requestPaused' && error.message === 'Invalid InterceptionId.' &&
-            (navigationPending || message.params.resourceType === 'Image')) return;
+            (navigationPending || message.params.resourceType === 'Image' || message.params.request.url.includes('/api/fire-status'))) return;
         errors.push(message.method + ' ' + (message.params.request?.url || '') + ': ' + error.stack);
       });
     }
@@ -91,6 +93,15 @@ try {
     if (!request.url.startsWith(api)) return fulfill(requestId, '', 404, 'text/plain');
     const path = new URL(request.url).pathname;
     if (request.method === 'OPTIONS') return fulfill(requestId, '', 204);
+    if (path === '/api/fire-status') {
+      const params = new URL(request.url).searchParams;
+      const year = Number(params.get('year')), month = Number(params.get('month'));
+      const mode = fireMode;
+      if (holdFire) await new Promise(resolve=>heldFire.push(resolve));
+      if (mode==='error') return fulfill(requestId,JSON.stringify({ok:false,error:'조회 실패'}),502);
+      const summary = {total:mode==='empty'?0:3,normal:mode==='empty'?0:1,abnormal:0,pending:mode==='empty'?0:2,inspectionRate:mode==='empty'?0:33};
+      return fulfill(requestId,JSON.stringify({ok:true,year,month,companies:mode==='empty'?[]:[{company:'업체 <img src=x onerror=alert(1)>',...summary}],summary}));
+    }
     const calendarRoute = path.match(/^\/api\/(as|team)-events(?:\/([^/]+))?$/);
     if (calendarRoute) {
       const [,type,id] = calendarRoute;
@@ -287,6 +298,76 @@ try {
   await evaluate("document.querySelector('#afterPreviewGrid img').click()");
   assert.equal(await evaluate('photoLightboxImage.src'),photoUrl);
   await evaluate('closePhotoLightbox()');
+  // Exercise the existing auth flow, including restoration after a full reload.
+  await evaluate("openLoginModal('register'); authUserId.value='browser-user'; authDisplayName.value='브라우저 검사'; authPassword.value='test-only-password'; submitAuth()");
+  assert.equal(await evaluate('currentUser.id'),'browser-user');
+  assert.equal(await evaluate('JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY)).id'),'browser-user');
+  navigationPending = true;
+  await call('Page.reload');
+  await waitFor("typeof issuesLoaded!=='undefined' && issuesLoaded && calendarState.as.loaded && calendarState.team.loaded && !calendarInitialization");
+  navigationPending = false;
+  assert.equal(await evaluate('currentUser.id'),'browser-user');
+  await evaluate("navigatePortal('mypage')");
+  assert.equal(await evaluate("document.getElementById('mypagePage').classList.contains('active')"),true);
+  await evaluate('logoutPortal()');
+  assert.equal(await evaluate('currentUser'),null);
+  assert.equal(await evaluate('sessionStorage.getItem(AUTH_SESSION_KEY)'),null);
+  await evaluate("openLoginModal('login'); authUserId.value='browser-user'; authPassword.value='test-only-password'; submitAuth()");
+  assert.equal(await evaluate('currentUser.id'),'browser-user');
+  await evaluate("navigatePortal('issue','dashboard'); navigatePortal('issue','statistics')");
+  console.log('PASS auth: registration, login persistence after reload, my page, logout, login, dashboard and statistics.');
+  // Fire status uses the same portal navigation; all requests stay intercepted.
+  holdFire = true;
+  await evaluate("navigatePortal('fireStatus')");
+  await waitFor("fireStatusRequest!==null");
+  assert.equal(await evaluate("document.getElementById('fireStatusTableWrap').hidden"),true);
+  assert.equal(await evaluate("document.getElementById('fireStatusRefresh').disabled"),true);
+  const fireCount = () => requests.filter(r=>r.url.includes('/api/fire-status')).length;
+  const firstCount = fireCount();
+  await evaluate('void loadFireStatus(); void loadFireStatus()');
+  assert.equal(fireCount(),firstCount,'same month request must deduplicate');
+  holdFire = false; heldFire.splice(0).forEach(resolve=>resolve());
+  await waitFor("fireStatusRequest===null");
+  assert.equal(await evaluate("document.querySelectorAll('#fireStatusRows tr').length"),1);
+  assert.equal(await evaluate("document.querySelectorAll('#fireStatusRows img').length"),0,'company must render as text');
+  assert.match(await evaluate("document.getElementById('fireStatusSummary').textContent"),/전체 소계.*33%/);
+  // Rapid month changes abort stale requests and immediately hide old rows.
+  holdFire = true;
+  await evaluate("fireStatusMonth.value='1'; fireStatusMonth.dispatchEvent(new Event('change'))");
+  await waitFor("fireStatusRequest?.key.endsWith('-1')");
+  assert.equal(await evaluate("document.getElementById('fireStatusRows').children.length"),0);
+  await evaluate("fireStatusMonth.value='2'; fireStatusMonth.dispatchEvent(new Event('change'))");
+  await waitFor("fireStatusRequest?.key.endsWith('-2')");
+  holdFire = false; heldFire.splice(0).forEach(resolve=>resolve());
+  await waitFor('fireStatusRequest===null');
+  assert.match(await evaluate('fireStatusPeriod.textContent'),/2월/);
+  await evaluate("fireStatusYear.selectedIndex=1; fireStatusYear.dispatchEvent(new Event('change'))");
+  await waitFor('fireStatusRequest===null');
+  const lastFire = new URL(requests.filter(r=>r.url.includes('/api/fire-status')).at(-1).url);
+  assert.equal(lastFire.searchParams.get('year'),await evaluate('fireStatusYear.value'));
+  fireMode = 'empty';
+  await evaluate('loadFireStatus()');
+  assert.match(await evaluate('fireStatusMessageText.textContent'),/등록된 소화기 데이터가 없습니다/);
+  assert.match(await evaluate('fireStatusSummary.textContent'),/0%/);
+  fireMode = 'error';
+  await evaluate('loadFireStatus()');
+  assert.equal(await evaluate('fireStatusTableWrap.hidden'),true);
+  assert.equal(await evaluate('fireStatusRetry.hidden'),false);
+  fireMode = 'success';
+  await evaluate('fireStatusRetry.click()');
+  await waitFor('fireStatusRequest===null');
+  assert.equal(await evaluate('fireStatusRetry.hidden'),true);
+  const beforeReentry=fireCount();
+  await evaluate("navigatePortal('home'); navigatePortal('fireStatus')");
+  await waitFor('fireStatusRequest===null');
+  assert.equal(fireCount(),beforeReentry+1);
+  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate("fireStatusTableWrap.scrollWidth>fireStatusTableWrap.clientWidth"),true);
+  assert.equal(await evaluate("document.getElementById('fireStatusPage').getBoundingClientRect().width<=390"),true);
+  assert.equal(await evaluate("document.querySelector('[data-page=fireStatus]').getBoundingClientRect().width>0"),true);
+  assert.equal(await evaluate("document.querySelector('.fire-source').target"),'_blank');
+  await call('Emulation.clearDeviceMetricsOverride');
+  console.log('PASS fire UI: menu, loading, deduplication, stale-response protection, year/month, totals, empty/error/retry, text escaping, reentry and 390px mobile table.');
   // Export embeds R2 photos for offline presentation, and file mode cannot mutate D1.
   await evaluate("downloadBlob=(content,filename,type)=>{window.__exported={content,filename,type}}; presentationPassword.value='test1234'; presentationPasswordConfirm.value='test1234'; confirmPresentationExport()");
   offlineSnapshotHtml = await evaluate('window.__exported.content');
