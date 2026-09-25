@@ -25,6 +25,8 @@ const legacyAs = [
 const legacyTeam = [{date:'2026-09-16',teamType:'회사행사',title:'이전 일정',startTime:'09:00',endTime:'18:00'}];
 let failCalendarId = null, failCalendarWrites = false, failCalendarReads = false, calendarWrites = 0;
 let failCalendarImport=false;
+let holdCalendarWrite=false, acceptCalendarDiscard=true;
+const heldCalendarWrites=[];
 let failWrite = false, failLoad = false, writeCount = 0, uploads = 0;
 let fireMode = 'success', holdFire = false;
 const heldFire = [];
@@ -77,7 +79,7 @@ try {
   on('Runtime.exceptionThrown', ({ exceptionDetails }) => errors.push(exceptionDetails.exception?.description || exceptionDetails.text));
   on('Page.javascriptDialogOpening', async ({ message, type }) => {
     dialogs.push(message);
-    await call('Page.handleJavaScriptDialog', { accept:true });
+    await call('Page.handleJavaScriptDialog', { accept:message.includes('저장하지 않은 입력')?acceptCalendarDiscard:true });
   });
   const cors = [
     {name:'Access-Control-Allow-Origin',value:'https://hojezzang.github.io'},
@@ -120,6 +122,7 @@ try {
       const [,type,id] = calendarRoute;
       const events = calendarRecords[type];
       if (request.method === 'GET') return fulfill(requestId, JSON.stringify(failCalendarReads ? {ok:false,error:'일정 조회 실패'} : {ok:true,events:[...events.values()]}), failCalendarReads ? 500 : 200);
+      if(holdCalendarWrite)await new Promise(resolve=>heldCalendarWrites.push(resolve));
       if (failCalendarWrites || id === failCalendarId) return fulfill(requestId, JSON.stringify({ok:false,error:'일정 저장 실패 테스트'}),500);
       if (request.method === 'PUT') {
         calendarWrites++;
@@ -358,13 +361,84 @@ try {
   const exported=JSON.parse(await evaluate('window.__scheduleExport.content'));
   assert.equal(exported.app,'AS출장_팀캘린더');assert.equal(exported.version,1);assert.ok(exported.exportedAt);
   assert.ok(exported.asEvents.some(e=>e.id==='export-fresh'),'export must fetch current server data');
+  // Calendar-first UI: a real modal, safe draft handling and unchanged async persistence.
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await evaluate("navigatePortal('as');goCalendarToday('as')");await waitFor('!calendarState.as.busy');
+  assert.equal(await evaluate("document.querySelectorAll('.portal-sidebar [data-page=calendar]').length"),1);
+  assert.equal(await evaluate("document.querySelectorAll('.portal-sidebar [data-page=as],.portal-sidebar [data-page=team]').length"),0);
+  assert.equal(await evaluate('asEditor.open'),false);
+  assert.equal(await evaluate("asCalendar.clientWidth>document.getElementById('asPage').clientWidth*.9"),true);
+  assert.equal(await evaluate("document.querySelector('#asCalendar .today .cal-date-num').getAttribute('aria-current')"),'date');
+  assert.notEqual(await evaluate("getComputedStyle(document.querySelector('#asCalendar .sunday .cal-date-num')).color"),await evaluate("getComputedStyle(document.querySelector('#asCalendar .saturday .cal-date-num')).color"));
+  await evaluate("document.querySelector('#asCalendar .today .cal-date-num').click()");
+  assert.equal(await evaluate('asEditor.open'),true);assert.equal(await evaluate('asStartDate.value===calFmt(new Date()) && asEndDate.value===asStartDate.value'),true);
+  assert.equal(await evaluate("document.querySelector('#asCalendar .today').classList.contains('selected')"),true);
+  await evaluate("asMemo.value='미저장 입력'");acceptCalendarDiscard=false;
+  await evaluate("closeCalendarEditor('as')");assert.equal(await evaluate('asEditor.open'),true);assert.equal(await evaluate('asMemo.value'),'미저장 입력');
+  await evaluate("navigatePortal('team')");assert.equal(await evaluate("asPage.classList.contains('active')"),true);
+  await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  assert.equal(await evaluate('asEditor.open'),true);
+  acceptCalendarDiscard=true;await evaluate("closeCalendarEditor('as')");
+  assert.equal(await evaluate('asEditor.open'),false);
+  await evaluate("document.querySelector('#asPage .schedule-tabs button:nth-child(2)').click()");await waitFor('!calendarState.team.busy');
+  assert.equal(await evaluate("teamPage.classList.contains('active')"),true);
+  await evaluate("navigatePortal('home');document.querySelector('[data-page=calendar]').click()");await waitFor('!calendarState.team.busy');
+  assert.equal(await evaluate("teamPage.classList.contains('active')"),true,'unified menu remembers last tab');
+  await evaluate("document.querySelector('[data-calendar-new=team]').click();teamTitle.value='회사행사 - UI 확인';teamType.value='회사행사';teamMembers.value='참석자';teamLocation.value='회의실'");
+  assert.equal(await evaluate('teamEditor.open'),true);
+  failCalendarWrites=true;await evaluate("teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");await waitFor('!calendarState.team.busy');
+  assert.equal(await evaluate('teamEditor.open'),true);assert.equal(await evaluate('teamTitle.value'),'회사행사 - UI 확인');
+  assert.match(await evaluate('teamEditorStatus.textContent'),/저장 실패/);
+  const uiId=await evaluate('teamId.value');assert.equal(calendarRecords.team.has(uiId),false);
+  failCalendarWrites=false;holdCalendarWrite=true;
+  await evaluate("teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");await waitFor('calendarState.team.busy');
+  assert.equal(await evaluate('teamEditor.open && teamForm.querySelector("button[type=submit]").disabled'),true);
+  assert.equal(await evaluate('calendarState.team.events.some(e=>e.id===teamId.value)'),false);
+  await evaluate("teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));closeCalendarEditor('team')");
+  assert.equal(await evaluate('teamEditor.open'),true);
+  assert.equal(heldCalendarWrites.length,1,'repeat submit must not start a second write');
+  holdCalendarWrite=false;heldCalendarWrites.splice(0).forEach(resolve=>resolve());await waitFor('!calendarState.team.busy');
+  assert.equal(await evaluate('teamEditor.open'),false);assert.equal(calendarRecords.team.get(uiId).title,'회사행사 - UI 확인');
+  await evaluate('editCalendarEvent("team",'+JSON.stringify(uiId)+')');
+  assert.equal(await evaluate('teamTitle.value'),'회사행사 - UI 확인');
+  assert.equal(await evaluate('teamEditorSummary.querySelector("strong").textContent'),'UI 확인');
+  assert.equal(await evaluate('teamEditorSummary.textContent.includes("내용: -")'),false);
+  assert.equal(await evaluate('teamEditorSummary.querySelector(".schedule-badge").classList.contains("schedule-tone-orange")'),true);
+  await evaluate("teamTitle.value='긴 제목 '.repeat(40);teamMembers.value='긴 참석자 '.repeat(40);teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");await waitFor('!calendarState.team.busy');
+  await evaluate("refreshCalendar('team')");assert.equal(await evaluate('calendarState.team.events.find(e=>e.id==='+JSON.stringify(uiId)+').title'),calendarRecords.team.get(uiId).title);
+  for(const width of [1440,820,390,320]){
+    await call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<760});
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'page overflow at '+width);
+    assert.equal(await evaluate('teamCalendar.scrollWidth<=teamCalendar.clientWidth'),true,'calendar overflow at '+width);
+    await evaluate('editCalendarEvent("team",'+JSON.stringify(uiId)+')');
+    assert.equal(await evaluate('teamEditor.scrollWidth<=teamEditor.clientWidth'),true,'editor overflow at '+width);
+    assert.equal(await evaluate('teamEditor.getBoundingClientRect().width<=innerWidth'),true);
+    await evaluate("closeCalendarEditor('team')");
+  }
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  const deletionDate=calendarRecords.team.get(uiId).startDate;
+  await evaluate('editCalendarEvent("team",'+JSON.stringify(uiId)+')');holdCalendarWrite=true;
+  await evaluate("void deleteCalendarEvent('team')");await waitFor('calendarState.team.busy');
+  assert.equal(await evaluate('teamEditor.open && teamDeleteBtn.disabled'),true);assert.ok(calendarRecords.team.has(uiId));
+  holdCalendarWrite=false;heldCalendarWrites.splice(0).forEach(resolve=>resolve());await waitFor('!calendarState.team.busy');
+  assert.equal(await evaluate('teamEditor.open'),false);assert.equal(calendarRecords.team.has(uiId),false);
+  await evaluate("refreshCalendar('team')");assert.equal(await evaluate('calendarState.team.events.some(e=>e.id==='+JSON.stringify(uiId)+')'),false);
+  assert.ok(dialogs.some(message=>message.includes('이 일정을 삭제')&&message.includes('긴 제목')&&message.includes(deletionDate)));
+  assert.equal(await evaluate("calendarTone('team',{teamType:'unknown'})"),'schedule-tone-gray');
+  await evaluate("calendarState.team.current=new Date(2099,0,1);renderCalendar('team')");assert.equal(await evaluate('teamMonthEmpty.hidden'),false);
+  failCalendarReads=true;await evaluate("refreshCalendar('team')");assert.match(await evaluate('teamCloudStatus.textContent'),/조회 실패/);
+  assert.equal(await evaluate('teamCloudStatus.hidden'),false);failCalendarReads=false;
+  await evaluate('teamCloudStatus.querySelector("button").click()');await waitFor('!calendarInitialization && calendarState.team.loaded');
+  console.log('PASS calendar-first UI: unified navigation, modal create/edit, dirty close/Escape/navigation protection, failed save preservation, pending save/delete, badge/title presentation, empty/error/retry, refreshed CRUD, 1440/820/390/320px layouts.');
+  await evaluate("navigatePortal('as')");await waitFor('!calendarState.as.busy');
   await evaluate("sessionStorage.removeItem(AUTH_SESSION_KEY);currentUser=null;renderAuthState();syncModulesAfterAuth()");
   const anonymousWrites=calendarWrites;
   await evaluate("upsertCalendar('as',{id:'anonymous'});deleteCalendarEvent('as');chooseCalendarImport();closeLoginModal()");
   assert.equal(calendarWrites,anonymousWrites);assert.equal(await evaluate('asForm.querySelector("button[type=submit]").disabled'),true);
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#asPage .calendar-layout')).gridTemplateColumns.split(' ').length"),1);
-  assert.equal(await evaluate("document.querySelector('#asPage .calendar-scroll').scrollWidth>document.querySelector('#asPage .calendar-scroll').clientWidth"),true);
+  assert.equal(await evaluate("document.querySelector('#asPage .calendar-scroll').scrollWidth<=document.querySelector('#asPage .calendar-scroll').clientWidth"),true);
   await call('Emulation.clearDeviceMetricsOverride');
   console.log('PASS schedule UI: month-boundary spans, overlap/multi-type/custom filters, other inputs, date/time validation, XSS, preview/cancel/import/retry/conflicts, fresh export, logged-out write guards and mobile.');
 
