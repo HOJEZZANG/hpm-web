@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import worker from '../worker.js';
 import { buildSupplement } from '../scripts/prepare-migration.mjs';
+import {calendarBackup, planCalendarImport} from '../calendar-data.mjs';
 
 const asDraft = (id, extra = {}) => ({ id, startDate:'2026-09-16', endDate:'2026-09-17',
   yard:'HHI', hullNo:'HN-1', asType:'누설', asDetail:'작업 상세', workerInfo:'출장자',
@@ -12,6 +13,87 @@ const teamDraft = (id, extra = {}) => ({ id, startDate:'2026-09-16', endDate:'20
   startTime:'09:00', endTime:'18:00', teamType:'회사행사', title:'회의', members:'팀원',
   location:'회의실', detail:'상세', createdById:'owner', createdByName:'등록자', ...extra });
 const calendarSchema = readFileSync(new URL('../migrations/0003_shared_calendars.sql', import.meta.url), 'utf8');
+
+function backup(as=[],team=[]){return calendarBackup({as,team});}
+async function importBackup(env,data,mode='preview'){return request(env,'/api/calendars/import?mode='+mode,'POST',data);}
+test('calendar backup preview is read-only, insert is idempotent and export preserves fields/timestamps',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);
+  const data=backup([asDraft('as-one',{createdAt:'2026-01-01T00:00:00Z',updatedAt:'2026-02-01T00:00:00Z'})],[teamDraft('team-one')]);
+  const preview=await (await importBackup(env,data)).json();
+  assert.deepEqual(preview.report.as.newIds,['as-one']);assert.deepEqual(preview.report.team.newIds,['team-one']);
+  assert.equal(env.sqlite.prepare('SELECT COUNT(*) n FROM as_events').get().n,0);
+  const applied=await (await importBackup(env,data,'apply')).json();
+  assert.deepEqual(applied.report.as.insertedIds,['as-one']);assert.deepEqual(applied.report.team.insertedIds,['team-one']);
+  const retry=await (await importBackup(env,data,'apply')).json();
+  assert.deepEqual(retry.report.as.insertedIds,[]);assert.deepEqual(retry.report.as.duplicateIds,['as-one']);
+  const exported=(await (await request(env,'/api/calendars/export')).json()).backup;
+  assert.deepEqual(Object.keys(exported),['app','version','exportedAt','asEvents','teamEvents']);
+  assert.equal(exported.app,'AS출장_팀캘린더');assert.equal(exported.version,1);
+  assert.equal(exported.asEvents[0].updatedAt,'2026-02-01T00:00:00.000Z');
+  const reimport=await (await importBackup(env,exported)).json();assert.equal(reimport.report.as.conflicts.length,0);
+});
+test('calendar import preserves conflicts and D1-only rows while inserting other new IDs',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);
+  await request(env,'/api/as-events/conflict','PUT',asDraft('conflict',{memo:'existing'}));
+  await request(env,'/api/team-events/only-db','PUT',teamDraft('only-db'));
+  const old=(await (await request(env,'/api/as-events')).json()).events;
+  const result=await (await importBackup(env,backup([asDraft('conflict',{memo:'incoming'}),asDraft('new')]),'apply')).json();
+  assert.deepEqual(result.report.as.insertedIds,['new']);assert.deepEqual(result.report.as.conflicts[0].fields,['memo']);
+  assert.deepEqual((await (await request(env,'/api/as-events')).json()).events.find(row=>row.id==='conflict'),old[0]);
+  assert.equal((await (await request(env,'/api/team-events')).json()).events.length,1);
+});
+test('calendar import handles legacy fields and rejects invalid input before any write',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);
+  const legacy={id:'legacy',date:'2026-09-01',yard:'HHI',asType:'누설',carInfo:'96오 7790',workDetail:'legacy detail'};
+  assert.equal((await importBackup(env,backup([legacy]),'apply')).status,200);
+  const row=(await (await request(env,'/api/as-events')).json()).events[0];
+  assert.equal(row.startDate,'2026-09-01');assert.equal(row.endDate,row.startDate);assert.equal(row.asDetail,'legacy detail');
+  for(const data of [null,{},backup([asDraft('new')],[teamDraft('bad',{endTime:'01:00'})]),backup([asDraft('')]),backup([asDraft('bad',{createdAt:'bad'})]),{...backup(),version:2},backup(Array.from({length:501},()=>asDraft('limit')))]){
+    assert.equal((await importBackup(env,data,'apply')).status,400);
+  }
+  assert.equal(env.sqlite.prepare('SELECT COUNT(*) n FROM as_events').get().n,1);
+});
+test('duplicate IDs within a file: identical entries collapse, conflicting entries are all skipped',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);
+  const data=backup([asDraft('same'),asDraft('same'),asDraft('ambiguous'),asDraft('ambiguous',{memo:'different'}),asDraft('new')]);
+  const result=await (await importBackup(env,data,'apply')).json();
+  assert.equal(result.report.as.fileDuplicates,1);assert.deepEqual(result.report.as.insertedIds,['same','new']);
+  assert.equal(result.report.as.conflicts[0].reason,'file');
+  assert.equal(env.sqlite.prepare('SELECT COUNT(*) n FROM as_events').get().n,2);
+});
+test('concurrent insert between preview and commit is never overwritten',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);const batch=env.DB.batch.bind(env.DB);
+  env.DB.batch=async statements=>{
+    await request(env,'/api/as-events/race','PUT',asDraft('race',{memo:'other PC'}));
+    return batch(statements);
+  };
+  const result=await (await importBackup(env,backup([asDraft('race')]),'apply')).json();
+  assert.deepEqual(result.report.as.insertedIds,[]);assert.equal(result.report.as.conflicts[0].id,'race');
+  assert.equal(env.sqlite.prepare('SELECT memo FROM as_events WHERE id=?').get('race').memo,'other PC');
+});
+test('calendar batch failure rolls back both tables; database errors stay generic',async()=>{
+  const env=makeEnv();env.sqlite.exec(calendarSchema);const prepare=env.DB.prepare.bind(env.DB);
+  env.DB.prepare=sql=>{
+    const statement=prepare(sql);
+    if(sql.startsWith('INSERT INTO team_events'))statement.bind=(...args)=>({...statement,args,run:async()=>{throw new Error('PRIVATE SQL');}});
+    return statement;
+  };
+  const response=await importBackup(env,backup([asDraft('one')],[teamDraft('two')]),'apply');
+  assert.equal(response.status,500);assert.ok(!(await response.text()).includes('PRIVATE'));
+  assert.equal(env.sqlite.prepare('SELECT COUNT(*) n FROM as_events').get().n,0);
+  env.DB.prepare=()=>{throw new Error('PRIVATE SQL');};
+  const failed=await importBackup(env,backup());assert.equal(failed.status,500);assert.ok(!(await failed.text()).includes('PRIVATE'));
+});
+test('calendar backup shares CORS and binding checks; missing timestamps do not cause false conflicts',async()=>{
+  assert.equal((await importBackup({},backup())).status,503);
+  assert.equal((await request({},'/api/calendars/export')).status,503);
+  const env=makeEnv();env.sqlite.exec(calendarSchema);
+  const denied=await request(env,'/api/calendars/import','POST',backup(),{Origin:'https://evil.example'});assert.equal(denied.status,403);
+  assert.equal((await request(env,'/api/calendars/import','OPTIONS')).status,204);
+  assert.equal((await importBackup(env,backup(),'invalid')).status,400);
+  const current=asDraft('same',{createdAt:'2020-01-01T00:00:00Z',updatedAt:'2020-02-01T00:00:00Z'});
+  assert.deepEqual(planCalendarImport(backup([asDraft('same')]),{as:[current],team:[]}).report.as.duplicateIds,['same']);
+});
 
 for (const [collection, table, draftEvent] of [['as-events','as_events',asDraft], ['team-events','team_events',teamDraft]]) {
   test(collection + ': legacy migration retries preserve newer shared data', async () => {

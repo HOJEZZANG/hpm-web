@@ -12,8 +12,6 @@
           try { already = localStorage.getItem(markerKey) === snap.snapshotId; } catch(e) {}
 
           if (!already) {
-            try { if (localStorage.getItem('asEvents') === null) localStorage.setItem('asEvents', JSON.stringify(snap.asEvents || [])); } catch(e) {}
-            try { if (localStorage.getItem('teamEvents') === null) localStorage.setItem('teamEvents', JSON.stringify(snap.teamEvents || [])); } catch(e) {}
             try { localStorage.setItem('productionPortalUsersV1', JSON.stringify(snap.users || [])); } catch(e) {}
             try { localStorage.setItem(markerKey, snap.snapshotId); } catch(e) {}
           }
@@ -1025,6 +1023,19 @@
     .preflight-row strong{color:#273238}.preflight-row span{color:#68716e}
 
 </style>
+
+<style>
+.schedule-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.schedule-tabs button:last-child{margin-left:auto}
+.schedule-page .calendar-layout{grid-template-columns:minmax(290px,360px) minmax(0,1fr)}
+.schedule-page .calendar-layout>.card{min-width:0}.schedule-hint{font-size:12px;color:#657477;line-height:1.6}
+.calendar-scroll{overflow-x:auto}.schedule-page .cal-day{min-width:0}.schedule-page .cal-event{overflow-wrap:anywhere;cursor:pointer}.schedule-page .cal-item{overflow-wrap:anywhere;white-space:normal}
+.schedule-types{border:1px solid #d5e1df;border-radius:12px;padding:12px;margin-top:14px}.schedule-types legend{font-weight:700}.schedule-types small{font-weight:400;color:#657477}
+#asFilterTypes{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}#asFilterTypes label{display:flex;align-items:center;gap:6px;margin:0}#asFilterTypes input{width:auto}
+.schedule-count{font-weight:800}.schedule-backup{margin-top:20px}.schedule-backup-body{padding:18px}.schedule-backup-body p{line-height:1.7;color:#58666b}
+.schedule-import-dialog{width:min(680px,calc(100% - 32px));max-height:85vh;overflow:auto;border:1px solid #cbd9d5;border-radius:16px;padding:24px;color:#253b38}.schedule-import-dialog::backdrop{background:#10201bbb}.schedule-import-dialog h2{margin-top:0}.schedule-import-dialog li{overflow-wrap:anywhere;margin:8px 0}
+@media(max-width:1100px){.schedule-page .calendar-layout{grid-template-columns:1fr}}
+@media(max-width:600px){.schedule-page .calendar-grid{min-width:560px}.schedule-page .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-top{flex-wrap:wrap}.schedule-tabs .btn{font-size:12px;padding:10px}.schedule-backup-body .btns{flex-wrap:wrap}}
+</style>
 </head>
 <body>
 <div class="portal-topbar">
@@ -1814,68 +1825,110 @@
   </div>
 </section>
 
-<section id="asPage" class="portal-page">
-  <div class="page-crumb">🧳 출장·일정 관리 / AS출장 캘린더</div>
-  <div class="module-banner"><h1>AS출장 관리</h1><p>출장 기간, YARD/HULL NO., AS 유형, 작업상세와 출장자·차량 정보를 달력 기준으로 관리합니다.</p></div>
-  <div class="calendar-layout">
-    <div class="card sticky">
-      <div class="card-head"><h2>AS출장 내용 입력</h2><span class="badge green">AS</span></div>
-      <form id="asForm" class="calendar-form">
-        <input type="hidden" id="asId" value="">
-        <div class="row"><div><label class="required">출장 시작일</label><input type="date" id="asStartDate" required=""></div><div><label class="required">출장 종료일</label><input type="date" id="asEndDate" required=""></div></div>
-        <label class="required">YARD</label>
-        <select id="yardSelect" onchange="toggleCustomYard()" required=""><option>HHI</option><option>HSHI</option><option>HMD</option><option>SHI</option><option>HNW</option><option>KSB</option><option>DHS</option><option>DSS</option><option value="기타">기타(직접입력)</option></select>
-        <input type="text" id="yardCustom" placeholder="YARD를 직접 입력하세요" style="display:none;margin-top:8px">
-        <label class="required">HULL NO.</label><input type="text" id="hullNo" placeholder="예: S1234" required="">
-        <label class="required">AS구분</label>
-        <select id="asType" onchange="toggleCustomAsType()" required=""><option>자재불량</option><option>누설</option><option>용접불량</option><option>도장불량</option><option>자재파손</option><option>자재설치누락</option><option>생산오작</option><option>설계오작</option><option value="기타">기타(직접입력)</option></select>
-        <input type="text" id="asTypeCustom" placeholder="AS구분을 직접 입력하세요" style="display:none;margin-top:8px">
-        <label class="required">AS작업상세</label><textarea id="asDetail" placeholder="AS 작업 상세내용을 입력하세요" required=""></textarea>
-        <label class="required">출장자정보</label><input type="text" id="workerInfo" placeholder="예: 홍길동, 김철수" required="">
-        <label>차량정보</label><select id="carSelect" onchange="toggleCustomCar()"><option>96오 7790</option><option>91무 2355</option><option value="기타">기타(직접입력)</option></select>
-        <input type="text" id="carCustom" placeholder="차량정보를 직접 입력하세요" style="display:none;margin-top:8px">
-        <label>비고</label><textarea id="asMemo" placeholder="추가 메모"></textarea>
-        <div class="owner-note">저장 시 로그인 사용자가 등록 이력에 기록됩니다.</div>
-        <div class="btns"><button type="submit" class="btn green">저장</button><button type="button" class="btn light" onclick="resetCalendarForm('as')">초기화</button><button type="button" id="asDeleteBtn" class="btn danger" style="display:none" onclick="deleteCalendarEvent('as')">삭제</button></div>
-      </form>
-    </div>
-    <div class="card">
-      <div class="calendar-area"><div class="cal-top"><h3 id="asMonthTitle">2026년 8월</h3><div class="cal-nav"><button onclick="moveCalendarMonth('as',-1)">이전</button><button onclick="goCalendarToday('as')">오늘</button><button onclick="moveCalendarMonth('as',1)">다음</button></div></div><div id="asCalendar" class="calendar-grid"><div class="cal-day-name">일</div><div class="cal-day-name">월</div><div class="cal-day-name">화</div><div class="cal-day-name">수</div><div class="cal-day-name">목</div><div class="cal-day-name">금</div><div class="cal-day-name">토</div><div class="cal-day other"><div class="cal-date-num">26</div></div><div class="cal-day other"><div class="cal-date-num">27</div></div><div class="cal-day other"><div class="cal-date-num">28</div></div><div class="cal-day other"><div class="cal-date-num">29</div></div><div class="cal-day other"><div class="cal-date-num">30</div></div><div class="cal-day other"><div class="cal-date-num">31</div></div><div class="cal-day"><div class="cal-date-num">1</div></div><div class="cal-day"><div class="cal-date-num">2</div></div><div class="cal-day"><div class="cal-date-num">3</div></div><div class="cal-day"><div class="cal-date-num">4</div></div><div class="cal-day"><div class="cal-date-num">5</div></div><div class="cal-day"><div class="cal-date-num">6</div></div><div class="cal-day"><div class="cal-date-num">7</div></div><div class="cal-day"><div class="cal-date-num">8</div></div><div class="cal-day"><div class="cal-date-num">9</div></div><div class="cal-day"><div class="cal-date-num">10</div></div><div class="cal-day"><div class="cal-date-num">11</div></div><div class="cal-day today"><div class="cal-date-num">12</div></div><div class="cal-day"><div class="cal-date-num">13</div></div><div class="cal-day"><div class="cal-date-num">14</div></div><div class="cal-day"><div class="cal-date-num">15</div></div><div class="cal-day"><div class="cal-date-num">16</div></div><div class="cal-day"><div class="cal-date-num">17</div></div><div class="cal-day"><div class="cal-date-num">18</div></div><div class="cal-day"><div class="cal-date-num">19</div></div><div class="cal-day"><div class="cal-date-num">20</div></div><div class="cal-day"><div class="cal-date-num">21</div></div><div class="cal-day"><div class="cal-date-num">22</div></div><div class="cal-day"><div class="cal-date-num">23</div></div><div class="cal-day"><div class="cal-date-num">24</div></div><div class="cal-day"><div class="cal-date-num">25</div></div><div class="cal-day"><div class="cal-date-num">26</div></div><div class="cal-day"><div class="cal-date-num">27</div></div><div class="cal-day"><div class="cal-date-num">28</div></div><div class="cal-day"><div class="cal-date-num">29</div></div><div class="cal-day"><div class="cal-date-num">30</div></div><div class="cal-day"><div class="cal-date-num">31</div></div><div class="cal-day other"><div class="cal-date-num">1</div></div><div class="cal-day other"><div class="cal-date-num">2</div></div><div class="cal-day other"><div class="cal-date-num">3</div></div><div class="cal-day other"><div class="cal-date-num">4</div></div><div class="cal-day other"><div class="cal-date-num">5</div></div></div></div>
-      <div class="cal-list-section"><h3>기간별 AS출장 조회</h3><div class="row three"><div><label>조회 시작일</label><input type="date" id="asFilterStartDate"></div><div><label>조회 종료일</label><input type="date" id="asFilterEndDate"></div><div><label>AS구분</label><select id="asFilterType"><option value="전체">전체</option><option>자재불량</option><option>누설</option><option>용접불량</option><option>도장불량</option><option>자재파손</option><option>자재설치누락</option><option>생산오작</option><option>설계오작</option><option value="기타">기타</option></select></div></div><div class="btns"><button class="btn green small" onclick="applyCalendarFilter('as')">조회</button><button class="btn light small" onclick="resetCalendarFilter('as')">조회 초기화</button></div><div id="asFilterSummary" style="margin:14px 0 10px;font-weight:900">조회 결과: 0건</div><div id="asFilteredList"><div class="cal-empty">조회 조건에 해당하는 일정이 없습니다.</div></div></div>
-      <div class="cal-list-section"><h3>전체 AS출장 일정 목록</h3><div id="asList"><div class="cal-empty">등록된 일정이 없습니다.</div></div></div>
-    </div>
-  </div>
-</section>
+<section id="asPage" class="portal-page schedule-page">
+ <div class="page-crumb">📅 출장·일정 관리 / AS출장 캘린더</div>
+ <div class="module-banner"><h1>AS출장 · 팀 일정 관리</h1><p>출장과 팀 일정을 달력으로 확인하고, 모든 PC에서 같은 일정을 함께 관리합니다.</p></div>
+ <nav class="schedule-tabs" aria-label="일정 선택"><button class="btn green" onclick="navigatePortal('as')" aria-current="page">AS출장 캘린더</button><button class="btn light" onclick="navigatePortal('team')" >팀 캘린더</button><button class="btn light" onclick="void refreshCalendar('as')">새로고침</button></nav>
+ <div class="calendar-layout">
+ <div class="card"><div class="card-head"><h2>AS출장 내용 입력</h2><span class="badge green">AS</span></div><form id="asForm" class="calendar-form">
+            <input type="hidden" id="asId" />
+            <div class="row">
+              <div><label>출장 시작일</label><input type="date" id="asStartDate" required /></div>
+              <div><label>출장 종료일</label><input type="date" id="asEndDate" required /></div>
+            </div>
+            <label>YARD</label>
+            <select id="yardSelect" onchange="toggleCustomYard()" required>
+              <option value="HHI">HHI</option>
+              <option value="HSHI">HSHI</option>
+              <option value="HMD">HMD</option>
+              <option value="SHI">SHI</option>
+              <option value="HNW">HNW</option>
+              <option value="KSB">KSB</option>
+              <option value="DHS">DHS</option>
+              <option value="DSS">DSS</option>
+              <option value="기타">기타(직접입력)</option>
+            </select>
+            <input type="text" id="yardCustom" placeholder="YARD를 직접 입력하세요" style="display:none; margin-top:8px;" />
+            <label>HULL NO.</label><input type="text" id="hullNo" placeholder="예: S1234" required />
+            <label>AS구분</label>
+            <select id="asType" onchange="toggleCustomAsType()" required>
+              <option value="자재불량">자재불량</option>
+              <option value="누설">누설</option>
+              <option value="용접불량">용접불량</option>
+              <option value="도장불량">도장불량</option>
+              <option value="자재파손">자재파손</option>
+              <option value="자재설치누락">자재설치누락</option>
+              <option value="생산오작">생산오작</option>
+              <option value="설계오작">설계오작</option>
+              <option value="기타">기타(직접입력)</option>
+            </select>
+            <input type="text" id="asTypeCustom" placeholder="AS구분을 직접 입력하세요" style="display:none; margin-top:8px;" />
+            <label>AS작업상세</label><textarea id="asDetail" placeholder="AS 작업 상세내용을 입력하세요" required></textarea>
+            <label>출장자정보</label><input type="text" id="workerInfo" placeholder="예: 홍길동, 김철수" required />
+            <label>차량정보</label>
+            <select id="carSelect" onchange="toggleCustomCar()">
+              <option value="96오 7790">96오 7790</option>
+              <option value="91무 2355">91무 2355</option>
+              <option value="기타">기타(직접입력)</option>
+            </select>
+            <input type="text" id="carCustom" placeholder="차량정보를 직접 입력하세요" style="display:none; margin-top:8px;" />
+            <label>비고</label><textarea id="asMemo" placeholder="추가 메모"></textarea>
+            <div class="btns">
+              <button type="submit" class="btn green">저장</button>
+              <button type="button" class="btn light" onclick="resetCalendarForm('as')">초기화</button>
+              <button type="button" id="asDeleteBtn" class="btn danger" style="display:none" onclick="deleteCalendarEvent('as')">삭제</button>
+            </div>
+          <p class="owner-note">로그인 후 등록·수정·삭제할 수 있습니다. 저장한 일정은 모든 PC에서 공유됩니다.</p></form></div>
+ <div class="card"><div class="calendar-area"><div class="cal-top"><h3 id="asMonthTitle"></h3><div class="cal-nav"><button onclick="moveCalendarMonth('as',-1)">이전</button><button onclick="goCalendarToday('as')">오늘</button><button onclick="moveCalendarMonth('as',1)">다음</button></div></div><p class="schedule-hint">날짜를 선택하면 입력 기간이 설정됩니다. 일정을 선택하면 상세내용을 확인하고 수정할 수 있습니다.</p><div class="calendar-scroll" tabindex="0" aria-label="월별 달력"><div id="asCalendar" class="calendar-grid"></div></div></div>
+ <div class="cal-list-section"><h3>기간별 AS출장 조회</h3><div class="row"><div><label for="asFilterStartDate">조회 시작일</label><input type="date" id="asFilterStartDate"></div><div><label for="asFilterEndDate">조회 종료일</label><input type="date" id="asFilterEndDate"></div></div><fieldset class="schedule-types"><legend>AS구분 <small>(중복 선택 가능)</small></legend><div id="asFilterTypes"><label><input type="checkbox" value="전체" checked onchange="handleAsFilterAll(this)">전체</label><label><input type="checkbox" value="자재불량" onchange="handleAsFilterType(this)">자재불량</label><label><input type="checkbox" value="누설" onchange="handleAsFilterType(this)">누설</label><label><input type="checkbox" value="용접불량" onchange="handleAsFilterType(this)">용접불량</label><label><input type="checkbox" value="도장불량" onchange="handleAsFilterType(this)">도장불량</label><label><input type="checkbox" value="자재파손" onchange="handleAsFilterType(this)">자재파손</label><label><input type="checkbox" value="자재설치누락" onchange="handleAsFilterType(this)">자재설치누락</label><label><input type="checkbox" value="생산오작" onchange="handleAsFilterType(this)">생산오작</label><label><input type="checkbox" value="설계오작" onchange="handleAsFilterType(this)">설계오작</label><label><input type="checkbox" value="기타" onchange="handleAsFilterType(this)">기타</label></div></fieldset><div class="btns"><button class="btn green small" onclick="applyCalendarFilter('as')">조회</button><button class="btn light small" onclick="resetCalendarFilter('as')">조회 초기화</button></div><p id="asFilterSummary" class="schedule-count" role="status"></p><div id="asFilteredList"></div></div>
+ <div class="cal-list-section"><h3>전체 AS출장 목록</h3><div id="asList"></div></div></div></div>
+ <div class="card schedule-backup"><div class="card-head"><h2>일정 데이터 백업 / 가져오기</h2><span class="badge green">JSON</span></div><div class="schedule-backup-body"><p>다른 PC에서도 같은 주소로 접속하면 저장된 일정이 표시됩니다. 백업 파일을 가져올 때는 신규 일정만 추가하고 기존 일정과 충돌 항목은 보존합니다.</p><div class="btns"><button class="btn green" data-calendar-transfer onclick="void exportCalendarData()">전체 일정 내보내기</button><button class="btn light" data-calendar-import onclick="chooseCalendarImport()">JSON 가져오기</button></div><p class="calendar-transfer-status" role="status" aria-live="polite"></p></div></div>
+ </section>
 
 
-<section id="teamPage" class="portal-page">
-  <div class="page-crumb">📅 출장·일정 관리 / 팀 캘린더</div>
-  <div class="module-banner"><h1>팀 일정 관리</h1><p>연차계획, 회사행사, 사내·외 교육 등의 팀 일정을 달력에서 등록하고 기간별로 조회합니다.</p></div>
-  <div class="calendar-layout">
-    <div class="card sticky">
-      <div class="card-head"><h2>팀 일정 입력</h2><span class="badge purple">TEAM</span></div>
-      <form id="teamForm" class="calendar-form">
-        <input type="hidden" id="teamId" value="">
-        <div class="row"><div><label class="required">시작일자</label><input type="date" id="teamStartDate" required=""></div><div><label class="required">종료일자</label><input type="date" id="teamEndDate" required=""></div></div>
-        <div class="row"><div><label class="required">시작시간</label><input type="time" id="teamStartTime" value="09:00" required=""></div><div><label class="required">종료시간</label><input type="time" id="teamEndTime" value="18:00" required=""></div></div>
-        <label class="required">일정구분</label><select id="teamType" onchange="toggleCustomTeamType()" required=""><option>연차계획</option><option>회사행사</option><option>사외교육</option><option>사내교육</option><option value="기타">기타(직접입력)</option></select>
-        <input type="text" id="teamTypeCustom" placeholder="일정구분을 직접 입력하세요" style="display:none;margin-top:8px">
-        <label class="required">일정명</label><input type="text" id="teamTitle" placeholder="예: 홍길동 연차 / 안전교육" required="">
-        <label>대상자 / 참석자</label><input type="text" id="teamMembers" placeholder="예: 전체 / 홍길동">
-        <label>장소</label><input type="text" id="teamLocation" placeholder="예: 회의실, 교육장">
-        <label>상세내용</label><textarea id="teamDetail" placeholder="팀 일정 상세내용"></textarea>
-        <div class="owner-note">저장 시 로그인 사용자가 등록 이력에 기록됩니다.</div>
-        <div class="btns"><button type="submit" class="btn purple" style="background:#7c3aed;color:white">저장</button><button type="button" class="btn light" onclick="resetCalendarForm('team')">초기화</button><button type="button" id="teamDeleteBtn" class="btn danger" style="display:none" onclick="deleteCalendarEvent('team')">삭제</button></div>
-      </form>
-    </div>
-    <div class="card">
-      <div class="calendar-area"><div class="cal-top"><h3 id="teamMonthTitle">2026년 8월</h3><div class="cal-nav"><button onclick="moveCalendarMonth('team',-1)">이전</button><button onclick="goCalendarToday('team')">오늘</button><button onclick="moveCalendarMonth('team',1)">다음</button></div></div><div id="teamCalendar" class="calendar-grid"><div class="cal-day-name">일</div><div class="cal-day-name">월</div><div class="cal-day-name">화</div><div class="cal-day-name">수</div><div class="cal-day-name">목</div><div class="cal-day-name">금</div><div class="cal-day-name">토</div><div class="cal-day other"><div class="cal-date-num">26</div></div><div class="cal-day other"><div class="cal-date-num">27</div></div><div class="cal-day other"><div class="cal-date-num">28</div></div><div class="cal-day other"><div class="cal-date-num">29</div></div><div class="cal-day other"><div class="cal-date-num">30</div></div><div class="cal-day other"><div class="cal-date-num">31</div></div><div class="cal-day"><div class="cal-date-num">1</div></div><div class="cal-day"><div class="cal-date-num">2</div></div><div class="cal-day"><div class="cal-date-num">3</div></div><div class="cal-day"><div class="cal-date-num">4</div></div><div class="cal-day"><div class="cal-date-num">5</div></div><div class="cal-day"><div class="cal-date-num">6</div></div><div class="cal-day"><div class="cal-date-num">7</div></div><div class="cal-day"><div class="cal-date-num">8</div></div><div class="cal-day"><div class="cal-date-num">9</div></div><div class="cal-day"><div class="cal-date-num">10</div></div><div class="cal-day"><div class="cal-date-num">11</div></div><div class="cal-day today"><div class="cal-date-num">12</div></div><div class="cal-day"><div class="cal-date-num">13</div></div><div class="cal-day"><div class="cal-date-num">14</div></div><div class="cal-day"><div class="cal-date-num">15</div></div><div class="cal-day"><div class="cal-date-num">16</div></div><div class="cal-day"><div class="cal-date-num">17</div></div><div class="cal-day"><div class="cal-date-num">18</div></div><div class="cal-day"><div class="cal-date-num">19</div></div><div class="cal-day"><div class="cal-date-num">20</div></div><div class="cal-day"><div class="cal-date-num">21</div></div><div class="cal-day"><div class="cal-date-num">22</div></div><div class="cal-day"><div class="cal-date-num">23</div></div><div class="cal-day"><div class="cal-date-num">24</div></div><div class="cal-day"><div class="cal-date-num">25</div></div><div class="cal-day"><div class="cal-date-num">26</div></div><div class="cal-day"><div class="cal-date-num">27</div></div><div class="cal-day"><div class="cal-date-num">28</div></div><div class="cal-day"><div class="cal-date-num">29</div></div><div class="cal-day"><div class="cal-date-num">30</div></div><div class="cal-day"><div class="cal-date-num">31</div></div><div class="cal-day other"><div class="cal-date-num">1</div></div><div class="cal-day other"><div class="cal-date-num">2</div></div><div class="cal-day other"><div class="cal-date-num">3</div></div><div class="cal-day other"><div class="cal-date-num">4</div></div><div class="cal-day other"><div class="cal-date-num">5</div></div></div></div>
-      <div class="cal-list-section"><h3>기간별 일정 조회</h3><div class="row three"><div><label>조회 시작일</label><input type="date" id="teamFilterStartDate"></div><div><label>조회 종료일</label><input type="date" id="teamFilterEndDate"></div><div><label>일정구분</label><select id="teamFilterType"><option value="전체">전체</option><option>연차계획</option><option>회사행사</option><option>사외교육</option><option>사내교육</option><option value="기타">기타</option></select></div></div><div class="btns"><button class="btn primary small" onclick="applyCalendarFilter('team')">조회</button><button class="btn light small" onclick="resetCalendarFilter('team')">조회 초기화</button></div><div id="teamFilterSummary" style="margin:14px 0 10px;font-weight:900">조회 결과: 0건</div><div id="teamFilteredList"><div class="cal-empty">조회 조건에 해당하는 일정이 없습니다.</div></div></div>
-      <div class="cal-list-section"><h3>전체 팀 일정 목록</h3><div id="teamList"><div class="cal-empty">등록된 일정이 없습니다.</div></div></div>
-    </div>
-  </div>
-</section>
+<section id="teamPage" class="portal-page schedule-page">
+ <div class="page-crumb">📅 출장·일정 관리 / 팀 캘린더</div>
+ <div class="module-banner"><h1>AS출장 · 팀 일정 관리</h1><p>출장과 팀 일정을 달력으로 확인하고, 모든 PC에서 같은 일정을 함께 관리합니다.</p></div>
+ <nav class="schedule-tabs" aria-label="일정 선택"><button class="btn light" onclick="navigatePortal('as')" >AS출장 캘린더</button><button class="btn green" onclick="navigatePortal('team')" aria-current="page">팀 캘린더</button><button class="btn light" onclick="void refreshCalendar('team')">새로고침</button></nav>
+ <div class="calendar-layout">
+ <div class="card"><div class="card-head"><h2>팀 일정 입력</h2><span class="badge purple">TEAM</span></div><form id="teamForm" class="calendar-form">
+            <input type="hidden" id="teamId" />
+            <div class="row">
+              <div><label>시작일자</label><input type="date" id="teamStartDate" required /></div>
+              <div><label>종료일자</label><input type="date" id="teamEndDate" required /></div>
+            </div>
+            <div class="row">
+              <div><label>시작시간</label><input type="time" id="teamStartTime" value="09:00" required /></div>
+              <div><label>종료시간</label><input type="time" id="teamEndTime" value="18:00" required /></div>
+            </div>
+            <label>일정구분</label>
+            <select id="teamType" onchange="toggleCustomTeamType()" required>
+              <option value="연차계획">연차계획</option>
+              <option value="회사행사">회사행사</option>
+              <option value="사외교육">사외교육</option>
+              <option value="사내교육">사내교육</option>
+              <option value="기타">기타(직접입력)</option>
+            </select>
+            <input type="text" id="teamTypeCustom" placeholder="일정구분을 직접 입력하세요" style="display:none; margin-top:8px;" />
+            <label>일정명</label><input type="text" id="teamTitle" placeholder="예: 홍길동 연차 / 안전교육" required />
+            <label>대상자 / 참석자</label><input type="text" id="teamMembers" placeholder="예: 전체 / 홍길동" />
+            <label>장소</label><input type="text" id="teamLocation" placeholder="예: 회의실, 교육장" />
+            <label>상세내용</label><textarea id="teamDetail" placeholder="팀 일정 상세내용"></textarea>
+            <div class="btns">
+              <button type="submit" class="btn primary">저장</button>
+              <button type="button" class="btn light" onclick="resetCalendarForm('team')">초기화</button>
+              <button type="button" id="teamDeleteBtn" class="btn danger" style="display:none" onclick="deleteCalendarEvent('team')">삭제</button>
+            </div>
+          <p class="owner-note">로그인 후 등록·수정·삭제할 수 있습니다. 저장한 일정은 모든 PC에서 공유됩니다.</p></form></div>
+ <div class="card"><div class="calendar-area"><div class="cal-top"><h3 id="teamMonthTitle"></h3><div class="cal-nav"><button onclick="moveCalendarMonth('team',-1)">이전</button><button onclick="goCalendarToday('team')">오늘</button><button onclick="moveCalendarMonth('team',1)">다음</button></div></div><p class="schedule-hint">날짜를 선택하면 입력 기간이 설정됩니다. 일정을 선택하면 상세내용을 확인하고 수정할 수 있습니다.</p><div class="calendar-scroll" tabindex="0" aria-label="월별 달력"><div id="teamCalendar" class="calendar-grid"></div></div></div>
+ <div class="cal-list-section"><h3>기간별 팀 일정 조회</h3><div class="row"><div><label for="teamFilterStartDate">조회 시작일</label><input type="date" id="teamFilterStartDate"></div><div><label for="teamFilterEndDate">조회 종료일</label><input type="date" id="teamFilterEndDate"></div></div><label for="teamFilterType">일정구분</label><select id="teamFilterType"><option>전체</option><option>연차계획</option><option>회사행사</option><option>사외교육</option><option>사내교육</option><option>기타</option></select><div class="btns"><button class="btn green small" onclick="applyCalendarFilter('team')">조회</button><button class="btn light small" onclick="resetCalendarFilter('team')">조회 초기화</button></div><p id="teamFilterSummary" class="schedule-count" role="status"></p><div id="teamFilteredList"></div></div>
+ <div class="cal-list-section"><h3>전체 팀 일정 목록</h3><div id="teamList"></div></div></div></div>
+ <div class="card schedule-backup"><div class="card-head"><h2>일정 데이터 백업 / 가져오기</h2><span class="badge green">JSON</span></div><div class="schedule-backup-body"><p>다른 PC에서도 같은 주소로 접속하면 저장된 일정이 표시됩니다. 백업 파일을 가져올 때는 신규 일정만 추가하고 기존 일정과 충돌 항목은 보존합니다.</p><div class="btns"><button class="btn green" data-calendar-transfer onclick="void exportCalendarData()">전체 일정 내보내기</button><button class="btn light" data-calendar-import onclick="chooseCalendarImport()">JSON 가져오기</button></div><p class="calendar-transfer-status" role="status" aria-live="polite"></p></div></div>
+ </section>
 
+
+<input id="calendarImportFile" type="file" accept=".json,application/json" hidden onchange="void previewCalendarImport(this)">
+<dialog id="calendarImportDialog" class="schedule-import-dialog" aria-labelledby="calendarImportTitle"><h2 id="calendarImportTitle">일정 가져오기 미리보기</h2><p>신규 ID만 추가합니다. 중복과 충돌 항목은 덮어쓰지 않습니다.</p><div id="calendarImportSummary"></div><div id="calendarImportConflicts"></div><p id="calendarImportMessage" role="status"></p><div class="btns"><button id="calendarImportConfirm" class="btn green" onclick="void confirmCalendarImport()">신규 일정만 저장</button><button id="calendarImportCancel" class="btn light" onclick="closeCalendarImport()">닫기</button></div></dialog>
 </main>
 
 <div class="auth-modal" id="authModal" onclick="if(event.target===this) closeLoginModal()">
@@ -2174,6 +2227,7 @@
   }
 }
     function syncModulesAfterAuth() {
+      if (typeof updateCalendarControls === 'function') updateCalendarControls();
       if (typeof updateCurrentUserUI === 'function') updateCurrentUserUI();
       if (typeof applyFilters === 'function') applyFilters(false);
       if (typeof renderPortalHome === 'function') renderPortalHome();
@@ -3289,7 +3343,7 @@
       }
       clone.querySelector('#authModal')?.classList.remove('show'); clone.querySelector('#presentationExportModal')?.classList.remove('show'); clone.querySelector('#photoLightbox')?.classList.remove('show'); clone.querySelector('#toast')?.classList.remove('show'); clone.querySelectorAll('#hpmEmbeddedSnapshot').forEach(el=>el.remove());
       const bootScript=document.createElement('script'); bootScript.id='hpmEmbeddedSnapshot';
-      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{if(localStorage.getItem('asEvents')===null)localStorage.setItem('asEvents',JSON.stringify(snap.asEvents||[]))}catch(e){}try{if(localStorage.getItem('teamEvents')===null)localStorage.setItem('teamEvents',JSON.stringify(snap.teamEvents||[]))}catch(e){}try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
+      bootScript.textContent=`(function(){try{const binary=atob(${JSON.stringify(encoded)});const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));const snap=JSON.parse(new TextDecoder().decode(bytes));window.__HPM_PRESENTATION_SNAPSHOT__=snap;const markerKey='hpmPresentationSnapshotAppliedV1';let already=false;try{already=localStorage.getItem(markerKey)===snap.snapshotId}catch(e){}if(!already){try{localStorage.setItem('productionPortalUsersV1',JSON.stringify(snap.users||[]))}catch(e){}try{localStorage.setItem(markerKey,snap.snapshotId)}catch(e){}}try{sessionStorage.removeItem('productionPortalSessionV1')}catch(e){}}catch(e){console.error('HPM 발표용 데이터 복원 실패:',e)}})();`;
       clone.querySelector('head')?.insertBefore(bootScript,clone.querySelector('head').firstChild);
       const finalHtml='<!DOCTYPE html>\n'+clone.outerHTML,d=new Date(),stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
       downloadBlob(finalHtml,`HPM_생산관리_발표용_${stamp}.html`,'text/html;charset=utf-8'); closePresentationExportModal(); showToast(`발표용 HTML 생성 완료 · 문제 ${normalizedIssues.length}건 · 계정 ${portableUsers.length}개 · 로그인 ID ${currentUser.id}`);
@@ -3374,8 +3428,8 @@
       as:{current:new Date(),events:[],loaded:false,busy:false},
       team:{current:new Date(),events:[],loaded:false,busy:false}
     };
-    const CALENDAR_MIGRATION_KEY = 'hpmCalendarsCloudMigrationV1';
     let calendarInitialization = null;
+    let calendarTransferBusy = false, pendingCalendarImport = null;
     function calendarPath(type) {
       if (!['as', 'team'].includes(type)) throw new Error('지원하지 않는 일정입니다.');
       return '/api/' + type + '-events';
@@ -3409,11 +3463,20 @@
     }
     function calendarBusy(type, busy) {
       calendarState[type].busy = busy;
+      updateCalendarControls();
+    }
+    function updateCalendarControls() {
+      for (const type of ['as','team']) {
       document.querySelectorAll('#' + type + 'Form input, #' + type + 'Form select, #' + type + 'Form textarea, #' + type + 'Form button')
-        .forEach(control => { control.disabled = busy || !calendarState[type].loaded || isPresentationMode(); });
+        .forEach(control => { control.disabled = calendarState[type].busy || calendarTransferBusy || !calendarState[type].loaded || !currentUser || isPresentationMode(); });
+      }
+      document.querySelectorAll('[data-calendar-import]').forEach(button=>button.disabled=calendarTransferBusy||!currentUser||isPresentationMode());
+      document.querySelectorAll('[data-calendar-transfer]').forEach(button=>button.disabled=calendarTransferBusy||isPresentationMode());
     }
     function assertCalendarWritable(type) {
       if (isPresentationMode()) throw new Error('발표용 파일의 일정은 조회 전용입니다. 웹사이트에서 변경하세요.');
+      if (!currentUser) throw new Error('일정을 변경하려면 로그인하세요.');
+      if (calendarTransferBusy) throw new Error('일정 가져오기·내보내기가 진행 중입니다.');
       if (!calendarState[type].loaded) throw new Error('D1 일정을 먼저 불러와야 합니다. 다시 불러오기를 눌러 주세요.');
     }
     async function loadCalendarEvents(type) {
@@ -3427,23 +3490,13 @@
       if (!Array.isArray(result.events)) throw new Error('일정 목록 응답이 올바르지 않습니다.');
       return result.events.map(event => normalizeCalendarEvent(type, event));
     }
-    async function saveCalendarEvents(type, data, importOnly = false) {
-      const result = await apiRequest(calendarPath(type) + '/' + encodeURIComponent(data.id) + (importOnly ? '?migration=1' : ''), {
+    async function saveCalendarEvents(type, data) {
+      if (!currentUser || isPresentationMode()) throw new Error('로그인 후 웹사이트에서 일정을 저장하세요.');
+      const result = await apiRequest(calendarPath(type) + '/' + encodeURIComponent(data.id), {
         method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
       });
       if (!result.event || result.event.id !== data.id) throw new Error('일정 저장 응답이 올바르지 않습니다.');
       return normalizeCalendarEvent(type, result.event);
-    }
-    function readLocalCalendarMigration(type) {
-      const raw = localStorage.getItem(type + 'Events');
-      const events = raw === null ? [] : JSON.parse(raw);
-      if (!Array.isArray(events)) throw new Error('기존 ' + type + ' 일정 백업 형식을 확인하세요.');
-      return events.map(value => {
-        const event = normalizeCalendarEvent(type, value);
-        // Deterministic legacy IDs make retries safe without rewriting the original backup.
-        event.id ||= 'legacy-' + type + '-' + sha256Portable(JSON.stringify(event)).slice(0, 40);
-        return event;
-      });
     }
     async function initializeCalendars() {
       if (calendarInitialization) return calendarInitialization;
@@ -3453,23 +3506,7 @@
           calendarBusy(type, true); calendarNotice(type, '공유 일정 불러오는 중…');
         }
         try {
-          const migrateAndLoad = async () => {
-            let lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
-            if (!isPresentationMode() && localStorage.getItem(CALENDAR_MIGRATION_KEY) !== 'done') {
-              const legacy = { as:readLocalCalendarMigration('as'), team:readLocalCalendarMigration('team') };
-              for (const type of ['as', 'team']) {
-                calendarNotice(type, '기존 일정 D1 이전 중…');
-                for (const event of legacy[type]) await saveCalendarEvents(type, event, true);
-              }
-              // Verify both reads before marking the entire migration complete.
-              lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
-              localStorage.setItem(CALENDAR_MIGRATION_KEY, 'done');
-            }
-            return lists;
-          };
-          const lists = !isPresentationMode() && navigator.locks
-            ? await navigator.locks.request(CALENDAR_MIGRATION_KEY, migrateAndLoad)
-            : await migrateAndLoad();
+          const lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
           ['as', 'team'].forEach((type, index) => {
             calendarState[type].events = lists[index]; calendarState[type].loaded = true;
             calendarNotice(type, isPresentationMode() ? '발표용 일정 · 조회 전용' : '');
@@ -3477,7 +3514,7 @@
         } catch (error) {
           for (const type of ['as', 'team']) {
             calendarState[type].loaded = false;
-            calendarNotice(type, '공유 일정 로드/이전 실패: ' + error.message + ' 기존 브라우저 일정은 삭제되지 않았습니다.', true);
+            calendarNotice(type, '공유 일정 조회 실패: ' + error.message, true);
           }
         } finally {
           for (const type of ['as', 'team']) { calendarBusy(type, false); renderCalendar(type); }
@@ -3515,7 +3552,11 @@
     function moveCalendarMonth(type,diff){const d=calendarState[type].current;calendarState[type].current=new Date(d.getFullYear(),d.getMonth()+diff,1);renderCalendar(type)}
     function goCalendarToday(type){calendarState[type].current=new Date();renderCalendar(type)}
     function renderCalendar(type){
-      if (!calendarState[type].loaded) return;
+      if (!calendarState[type].loaded) {
+        for (const suffix of ['Calendar','List','FilteredList']) document.getElementById(type+suffix).replaceChildren();
+        document.getElementById(type+'FilterSummary').textContent='공유 일정을 불러와 주세요.';
+        return;
+      }
       const current=calendarState[type].current,y=current.getFullYear(),m=current.getMonth();
       document.getElementById(type+'MonthTitle').textContent=`${y}년 ${m+1}월`;
       const box=document.getElementById(type+'Calendar');if(!box)return;box.innerHTML='';
@@ -3524,14 +3565,13 @@
       for(let i=0;i<42;i++){
         const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i),date=calFmt(d),cell=document.createElement('div');
         cell.className='cal-day'+(d.getMonth()!==m?' other':'')+(date===today?' today':''); cell.innerHTML=`<div class="cal-date-num">${d.getDate()}</div>`; cell.onclick=()=>setCalendarDate(type,date);
-        calendarState[type].events.filter(e=>calInRange(date,calGetStart(e),calGetEnd(e))).forEach(e=>{const ev=document.createElement('div');ev.className='cal-event '+type;ev.innerHTML=type==='as'?`<b>${escapePortal(e.asType||'미분류')}</b><small>${escapePortal(e.yard||'-')} / ${escapePortal(e.hullNo||'-')}</small>`:`<b>${escapePortal(e.teamType||'일정')}</b><small>${escapePortal(e.startTime||'')} ${escapePortal(e.title||'')}</small>`;ev.onclick=x=>{x.stopPropagation();editCalendarEvent(type,e.id)};cell.appendChild(ev)});box.appendChild(cell)
+        calendarState[type].events.filter(e=>calInRange(date,calGetStart(e),calGetEnd(e))).forEach(e=>{const ev=document.createElement('div');ev.dataset.eventId=e.id;ev.className='cal-event '+type;ev.innerHTML=type==='as'?`<b>${escapePortal(e.asType||'미분류')}</b><small>${escapePortal(e.yard||'-')} / ${escapePortal(e.hullNo||'-')}</small>`:`<b>${escapePortal(e.teamType||'일정')}</b><small>${escapePortal(e.startTime||'')} ${escapePortal(e.title||'')}</small>`;ev.onclick=x=>{x.stopPropagation();editCalendarEvent(type,e.id)};cell.appendChild(ev)});box.appendChild(cell)
       }
       renderCalendarList(type);applyCalendarFilter(type);
     }
     function setCalendarDate(type,date){if(calendarState[type].busy)return;if(type==='as'){asStartDate.value=date;asEndDate.value=date}else{teamStartDate.value=date;teamEndDate.value=date}}
     function calendarPeriod(e,type){if(type==='as')return `${calGetStart(e)} ~ ${calGetEnd(e)}`;const sd=calGetStart(e),ed=calGetEnd(e),st=e.startTime||'',et=e.endTime||'';return sd===ed?`${sd} ${st}${et?' ~ '+et:''}`:`${sd} ${st} ~ ${ed} ${et}`}
     function renderCalendarList(type){const box=document.getElementById(type+'List');if(!box)return;const rows=[...calendarState[type].events].sort((a,b)=>calGetStart(a).localeCompare(calGetStart(b)));box.innerHTML=rows.length?'':'<div class="cal-empty">등록된 일정이 없습니다.</div>';rows.forEach(e=>box.appendChild(calendarItem(type,e)))}
-    function calendarItem(type,e){const div=document.createElement('div');div.className='cal-item';div.onclick=()=>editCalendarEvent(type,e.id);div.innerHTML=type==='as'?`<strong>${calendarPeriod(e,type)} | ${escapePortal(e.asType||'미분류')} · ${escapePortal(e.yard||'-')} / ${escapePortal(e.hullNo||'-')}</strong><span>작업상세: ${escapePortal(e.asDetail||e.workDetail||'-')} · 출장자: ${escapePortal(e.workerInfo||'-')} · 등록자: ${escapePortal(e.createdByName||'-')}</span>`:`<strong>${calendarPeriod(e,type)} | ${escapePortal(e.teamType||'-')} - ${escapePortal(e.title||'-')}</strong><span>대상: ${escapePortal(e.members||'-')} · 장소: ${escapePortal(e.location||'-')} · 등록자: ${escapePortal(e.createdByName||'-')}</span>`;return div}
     document.getElementById('asForm').addEventListener('submit',async function(e){e.preventDefault();if(calendarState.as.busy)return;if(!requirePortalLogin('AS출장 저장'))return;if(asEndDate.value<asStartDate.value){alert('출장 종료일은 시작일보다 빠를 수 없습니다.');return}const yard=getYardInfo(),type=getAsTypeInfo(),car=getCarInfo();if(!yard||!type||!car){alert('직접입력 항목을 확인하세요.');return}const id=asId.value||calUid(),old=calendarState.as.events.find(x=>x.id===id),data={id,startDate:asStartDate.value,endDate:asEndDate.value,yard,hullNo:hullNo.value.trim(),asType:type,asDetail:asDetail.value.trim(),workerInfo:workerInfo.value.trim(),carInfo:car,memo:asMemo.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};await upsertCalendar('as',data)})
     document.getElementById('teamForm').addEventListener('submit',async function(e){e.preventDefault();if(calendarState.team.busy)return;if(!requirePortalLogin('팀 일정 저장'))return;if(teamEndDate.value<teamStartDate.value){alert('종료일자는 시작일자보다 빠를 수 없습니다.');return}if(teamStartDate.value===teamEndDate.value&&teamEndTime.value<=teamStartTime.value){alert('같은 날짜에서는 종료시간이 시작시간보다 늦어야 합니다.');return}const type=getTeamTypeInfo();if(!type){alert('일정구분을 입력하세요.');return}const id=teamId.value||calUid(),old=calendarState.team.events.find(x=>x.id===id),data={id,startDate:teamStartDate.value,endDate:teamEndDate.value,startTime:teamStartTime.value,endTime:teamEndTime.value,teamType:type,title:teamTitle.value.trim(),members:teamMembers.value.trim(),location:teamLocation.value.trim(),detail:teamDetail.value.trim(),createdById:old?.createdById||currentUser.id,createdByName:old?.createdByName||currentUser.name,updatedAt:new Date().toISOString()};await upsertCalendar('team',data)})
     async function upsertCalendar(type,data) {
@@ -3571,10 +3611,108 @@
       } finally { calendarBusy(type, false); }
     }
     function resetCalendarForm(type){if(calendarState[type].busy)return;document.getElementById(type+'Form').reset();document.getElementById(type+'Id').value='';document.getElementById(type+'DeleteBtn').style.display='none';if(type==='as'){yardSelect.value='HHI';yardCustom.style.display='none';asType.value='자재불량';asTypeCustom.style.display='none';carSelect.value='96오 7790';carCustom.style.display='none'}else{teamType.value='연차계획';teamTypeCustom.style.display='none';teamStartTime.value='09:00';teamEndTime.value='18:00'}}
-    function getCalendarFiltered(type){const start=document.getElementById(type+'FilterStartDate').value,end=document.getElementById(type+'FilterEndDate').value,filter=document.getElementById(type+'FilterType').value;if(start&&end&&end<start){alert('조회 종료일은 시작일보다 빠를 수 없습니다.');return []}const presets=type==='as'?['자재불량','누설','용접불량','도장불량','자재파손','자재설치누락','생산오작','설계오작']:['연차계획','회사행사','사외교육','사내교육'];return calendarState[type].events.filter(e=>{const period=!start&&!end||rangesOverlapCal(calGetStart(e),calGetEnd(e),start||'0000-01-01',end||'9999-12-31'),v=type==='as'?e.asType:e.teamType,typeOk=filter==='전체'||(filter==='기타'?!presets.includes(v):v===filter);return period&&typeOk}).sort((a,b)=>calGetStart(a).localeCompare(calGetStart(b)))}
-    function applyCalendarFilter(type){const rows=getCalendarFiltered(type),sum=document.getElementById(type+'FilterSummary'),box=document.getElementById(type+'FilteredList');if(!sum||!box)return;sum.textContent=`조회 결과: ${rows.length}건`;box.innerHTML=rows.length?'':'<div class="cal-empty">조회 조건에 해당하는 일정이 없습니다.</div>';rows.forEach(e=>box.appendChild(calendarItem(type,e)))}
-    function resetCalendarFilter(type){document.getElementById(type+'FilterStartDate').value='';document.getElementById(type+'FilterEndDate').value='';document.getElementById(type+'FilterType').value='전체';applyCalendarFilter(type)}
-
+    function getSelectedAsFilterTypes(){return [...document.querySelectorAll('#asFilterTypes input:checked')].map(input=>input.value);}
+    function handleAsFilterAll(input){if(input.checked)document.querySelectorAll('#asFilterTypes input').forEach(box=>box.checked=box.value==='전체');else if(!getSelectedAsFilterTypes().length)input.checked=true;}
+    function handleAsFilterType(){const all=document.querySelector('#asFilterTypes input[value="전체"]');all.checked=!getSelectedAsFilterTypes().some(value=>value!=='전체');}
+    function getCalendarFiltered(type){
+      const start=document.getElementById(type+'FilterStartDate').value,end=document.getElementById(type+'FilterEndDate').value;
+      if(start&&end&&end<start){alert('조회 종료일은 시작일보다 빠를 수 없습니다.');return null;}
+      const selected=type==='as'?getSelectedAsFilterTypes():[document.getElementById('teamFilterType').value];
+      const presets=type==='as'?['자재불량','누설','용접불량','도장불량','자재파손','자재설치누락','생산오작','설계오작']:['연차계획','회사행사','사외교육','사내교육'];
+      return calendarState[type].events.filter(event=>{
+        const value=type==='as'?event.asType:event.teamType;
+        return rangesOverlapCal(calGetStart(event),calGetEnd(event),start||'0000-01-01',end||'9999-12-31') &&
+          (!selected.length||selected.includes('전체')||selected.some(item=>item==='기타'?!presets.includes(value):value===item));
+      }).sort((a,b)=>calGetStart(a).localeCompare(calGetStart(b))||(a.startTime||'').localeCompare(b.startTime||''));
+    }
+    function applyCalendarFilter(type){
+      const rows=getCalendarFiltered(type);if(!rows)return;
+      document.getElementById(type+'FilterSummary').textContent='조회 결과: '+rows.length+'건';
+      const box=document.getElementById(type+'FilteredList');box.replaceChildren(...rows.map(event=>calendarItem(type,event)));
+      if(!rows.length){const empty=document.createElement('p');empty.className='cal-empty';empty.textContent='조회 조건에 해당하는 일정이 없습니다.';box.append(empty);}
+    }
+    function resetCalendarFilter(type){
+      document.getElementById(type+'FilterStartDate').value='';document.getElementById(type+'FilterEndDate').value='';
+      if(type==='as')document.querySelectorAll('#asFilterTypes input').forEach(box=>box.checked=box.value==='전체');
+      else document.getElementById('teamFilterType').value='전체';
+      applyCalendarFilter(type);
+    }
+    function calendarItem(type,event){
+      const box=document.createElement('button');box.type='button';box.className='cal-item';box.style.width='100%';box.style.textAlign='left';
+      box.onclick=()=>editCalendarEvent(type,event.id);
+      const title=document.createElement('strong'),details=document.createElement('span');
+      title.textContent=calendarPeriod(event,type)+' | '+(type==='as'?(event.asType||'미분류')+' · '+(event.yard||'-')+' / '+(event.hullNo||'-'):(event.teamType||'일정')+' - '+(event.title||''));
+      details.textContent=type==='as'?'AS작업상세: '+(event.asDetail||event.workDetail||'-')+' · 출장자: '+(event.workerInfo||'-')+' · 차량: '+(event.carInfo||'-')+' · 비고: '+(event.memo||'-'):
+        '대상: '+(event.members||'-')+' · 장소: '+(event.location||'-')+' · 내용: '+(event.detail||'-');
+      box.append(title,details);return box;
+    }
+    function calendarTransferMessage(message){document.querySelectorAll('.calendar-transfer-status').forEach(el=>el.textContent=message);}
+    function setCalendarTransferBusy(busy){calendarTransferBusy=busy;updateCalendarControls();}
+    function calendarTransferAllowed(){
+      if(isPresentationMode()){alert('발표용 일정은 조회 전용입니다. 웹사이트에서 백업·가져오기를 이용하세요.');return false;}
+      if(calendarTransferBusy||calendarState.as.busy||calendarState.team.busy){alert('진행 중인 일정 요청이 끝난 후 다시 시도하세요.');return false;}
+      return true;
+    }
+    async function exportCalendarData(){
+      if(!calendarTransferAllowed())return;
+      setCalendarTransferBusy(true);calendarTransferMessage('최신 공유 일정을 읽어 백업하는 중…');
+      try{
+        const result=await apiRequest('/api/calendars/export');
+        if(!result.backup||result.backup.app!=='AS출장_팀캘린더'||!Array.isArray(result.backup.asEvents)||!Array.isArray(result.backup.teamEvents))throw new Error('백업 응답이 올바르지 않습니다.');
+        downloadBlob(JSON.stringify(result.backup,null,2),'AS출장_팀캘린더_데이터백업_'+calFmt(new Date()).replaceAll('-','')+'.json','application/json;charset=utf-8');
+        calendarTransferMessage('전체 일정 백업 완료: AS '+result.backup.asEvents.length+'건 / 팀 '+result.backup.teamEvents.length+'건');
+      }catch(error){calendarTransferMessage('백업 실패: '+error.message);}finally{setCalendarTransferBusy(false);}
+    }
+    function chooseCalendarImport(){
+      if(!requirePortalLogin('일정 가져오기')||!calendarTransferAllowed())return;
+      document.getElementById('calendarImportFile').click();
+    }
+    function showCalendarImportReport(report){
+      const summary=document.getElementById('calendarImportSummary'),conflicts=document.getElementById('calendarImportConflicts');summary.replaceChildren();conflicts.replaceChildren();
+      for(const type of ['as','team']){
+        const row=report[type],label=type==='as'?'AS출장':'팀 일정',line=document.createElement('p');
+        line.textContent=label+': 파일 '+row.input+'건 · 현재 '+row.current+'건 · 신규 '+row.newIds.length+'건 · 중복 '+row.duplicateIds.length+'건 · 충돌 '+row.conflicts.length+'건'+(row.fileDuplicates?' · 파일 내 중복 '+row.fileDuplicates+'건':'')+(row.insertedIds?' · 저장 '+row.insertedIds.length+'건':'');summary.append(line);
+        if(row.conflicts.length){const title=document.createElement('strong');title.textContent=label+' 충돌 ID (기존 데이터 보존)';const list=document.createElement('ul');
+          for(const conflict of row.conflicts){const li=document.createElement('li');li.textContent=conflict.id+' · '+(conflict.reason==='file'?'파일 내부에서 같은 ID의 내용이 다릅니다.':conflict.fields.join(', '));list.append(li);}conflicts.append(title,list);}
+      }
+    }
+    async function previewCalendarImport(input){
+      const file=input.files?.[0];input.value='';
+      if(!file||!requirePortalLogin('일정 가져오기')||!calendarTransferAllowed())return;
+      setCalendarTransferBusy(true);pendingCalendarImport=null;calendarTransferMessage('파일과 현재 공유 일정을 비교하는 중…');
+      try{
+        if(file.size>1024*1024)throw new Error('백업 파일은 1MB 이하여야 합니다.');
+        const backup=JSON.parse((await file.text()).replace(/^\uFEFF/,''));
+        const result=await apiRequest('/api/calendars/import?mode=preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(backup)});
+        pendingCalendarImport={backup,report:result.report};showCalendarImportReport(result.report);
+        document.getElementById('calendarImportMessage').textContent='확인 후 신규 일정만 저장합니다. 충돌 항목은 자동 덮어쓰지 않습니다.';
+        document.getElementById('calendarImportConfirm').disabled=!['as','team'].some(type=>result.report[type].newIds.length);
+        document.getElementById('calendarImportDialog').showModal();calendarTransferMessage('가져오기 전 비교 완료. 확인을 기다립니다.');
+      }catch(error){calendarTransferMessage('가져오기 검사 실패: '+error.message);}finally{setCalendarTransferBusy(false);}
+    }
+    function closeCalendarImport(){if(calendarTransferBusy)return;pendingCalendarImport=null;document.getElementById('calendarImportDialog').close();}
+    document.getElementById('calendarImportDialog').addEventListener('cancel',event=>{if(calendarTransferBusy)event.preventDefault();else pendingCalendarImport=null;});
+    async function confirmCalendarImport(){
+      if(!pendingCalendarImport||!requirePortalLogin('일정 가져오기')||!calendarTransferAllowed())return;
+      const {backup,report}=pendingCalendarImport;
+      // Only IDs approved as new in the preview may be submitted. Server rechecks them.
+      const payload={app:'AS출장_팀캘린더',version:1};
+      for(const type of ['as','team'])payload[type+'Events']=backup[type+'Events'].filter(event=>report[type].newIds.includes(event.id));
+      setCalendarTransferBusy(true);document.getElementById('calendarImportConfirm').disabled=true;document.getElementById('calendarImportCancel').disabled=true;
+      document.getElementById('calendarImportMessage').textContent='신규 일정 저장 중…';
+      let applied=false;
+      try{
+        const result=await apiRequest('/api/calendars/import?mode=apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        applied=true;pendingCalendarImport=null;
+        for(const type of ['as','team'])result.report[type].conflicts.push(...report[type].conflicts);
+        showCalendarImportReport(result.report);
+        const count=['as','team'].reduce((n,type)=>n+result.report[type].insertedIds.length,0);
+        document.getElementById('calendarImportMessage').textContent='신규 '+count+'건 저장 완료. 중복·충돌 및 기존 일정은 보존했습니다.';
+        await initializeCalendars();
+        calendarTransferMessage('신규 '+count+'건 저장 완료.'+(!calendarState.as.loaded||!calendarState.team.loaded?' 조회에 실패했습니다. 새로고침으로 저장 결과를 확인하세요.':''));
+      }catch(error){document.getElementById('calendarImportMessage').textContent=(applied?'저장은 완료됐으나 조회에 실패했습니다. ':'가져오기 결과를 확인하지 못했습니다. 다시 시도해도 같은 ID는 중복 저장되지 않습니다. ')+error.message;}
+      finally{setCalendarTransferBusy(false);document.getElementById('calendarImportCancel').disabled=false;document.getElementById('calendarImportConfirm').disabled=!pendingCalendarImport;}
+    }
 
     function updatePortalClock(){const d=new Date(),days=['일','월','화','수','목','금','토'];portalClockDate.textContent=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;portalClockTime.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
     let fireStatusRequest = null;

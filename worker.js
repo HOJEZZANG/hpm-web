@@ -1,3 +1,4 @@
+import { normalizeCalendar, planCalendarImport, calendarBackup } from './calendar-data.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -244,6 +245,11 @@ const calendarDefinitions = {
     list: 'SELECT * FROM as_events ORDER BY start_date, end_date, id',
     get: 'SELECT * FROM as_events WHERE id = ?',
     remove: 'DELETE FROM as_events WHERE id = ?',
+    insertOnly: `INSERT INTO as_events (
+      id, start_date, end_date, yard, hull_no, as_type, as_detail, worker_info, car_info, memo,
+      created_by_id, created_by_name, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING RETURNING *`,
     upsert: `INSERT INTO as_events (
       id, start_date, end_date, yard, hull_no, as_type, as_detail, worker_info, car_info, memo,
       created_by_id, created_by_name, created_at, updated_at
@@ -261,6 +267,11 @@ const calendarDefinitions = {
     list: 'SELECT * FROM team_events ORDER BY start_date, start_time, end_date, id',
     get: 'SELECT * FROM team_events WHERE id = ?',
     remove: 'DELETE FROM team_events WHERE id = ?',
+    insertOnly: `INSERT INTO team_events (
+      id, start_date, end_date, start_time, end_time, team_type, title, members, location, detail,
+      created_by_id, created_by_name, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING RETURNING *`,
     upsert: `INSERT INTO team_events (
       id, start_date, end_date, start_time, end_time, team_type, title, members, location, detail,
       created_by_id, created_by_name, created_at, updated_at
@@ -281,10 +292,42 @@ function calendarToClient(row, definition) {
   }
   return event;
 }
-function validCalendarDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00.000Z');
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+async function readCalendars(env) {
+  const current={};
+  for(const type of ['as','team']) {
+    const definition=calendarDefinitions[type+'-events'];
+    const {results}=await env.DB.prepare(definition.list).all();
+    current[type]=results.map(row=>calendarToClient(row,definition));
+  }
+  return current;
+}
+async function calendarBackupApi(request, env) {
+  if(!env.DB) throw new ApiError(503,'데이터베이스 연결을 확인하세요.');
+  if(request.method==='GET') return json({ok:true,backup:calendarBackup(await readCalendars(env))});
+  const backup=await readJson(request);
+  const mode=new URL(request.url).searchParams.get('mode')||'preview';
+  if(!['preview','apply'].includes(mode)) throw new ApiError(400,'가져오기 방식을 확인하세요.');
+  const before=await readCalendars(env);
+  let plan;
+  try{plan=planCalendarImport(backup,before);}catch(error){throw new ApiError(400,error.message);}
+  if(mode==='preview') return json({ok:true,dryRun:true,report:plan.report});
+  const now=new Date().toISOString();
+  const statements=plan.candidates.map(({type,event})=>{
+    const definition=calendarDefinitions[type+'-events'];
+    const saved={...event,createdAt:event.createdAt||now,updatedAt:event.updatedAt||event.createdAt||now};
+    return env.DB.prepare(definition.insertOnly).bind(...definition.fields.map(name=>saved[name]));
+  });
+  // D1 batches execute transactionally, including both calendar tables.
+  const results=statements.length?await env.DB.batch(statements):[];
+  const inserted={as:[],team:[]};
+  results.forEach((result,index)=>{if(result.meta?.changes>0){const row=plan.candidates[index];inserted[row.type].push(row.event.id);}});
+  // Re-read after DO NOTHING to report concurrent inserts as duplicates or conflicts.
+  const current=await readCalendars(env), after=planCalendarImport(backup,current).report;
+  for(const type of ['as','team']) {
+    after[type].insertedIds=inserted[type];
+    after[type].duplicateIds=after[type].duplicateIds.filter(id=>!inserted[type].includes(id));
+  }
+  return json({ok:true,dryRun:false,report:after});
 }
 async function calendarApi(request, env, collection, id) {
   if (!env.DB) throw new ApiError(503, '데이터베이스 연결을 확인하세요.');
@@ -302,35 +345,16 @@ async function calendarApi(request, env, collection, id) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || (body.id !== undefined && body.id !== id)) {
     throw new ApiError(400, '일정 데이터 또는 ID가 올바르지 않습니다.');
   }
-  const event = {};
-  for (const name of definition.fields) {
-    const value = body[name] ?? '';
-    if (typeof value !== 'string' || value.length > 20000) throw new ApiError(400, '일정의 ' + name + ' 값을 확인하세요.');
-    event[name] = value;
-  }
-  event.id = id;
-  if (!validCalendarDate(event.startDate) || !validCalendarDate(event.endDate) || event.endDate < event.startDate) {
-    throw new ApiError(400, '시작일과 종료일을 올바르게 입력하세요.');
-  }
-  if (definition.required.some(name => !event[name].trim())) throw new ApiError(400, '일정 필수 항목을 입력하세요.');
-  if (collection === 'team-events') {
-    for (const name of ['startTime', 'endTime']) {
-      if (event[name] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(event[name])) throw new ApiError(400, '시간 형식이 올바르지 않습니다.');
-    }
-    if (!!event.startTime !== !!event.endTime ||
-        (event.startDate === event.endDate && event.startTime && event.endTime <= event.startTime)) {
-      throw new ApiError(400, '종료시간은 시작시간보다 늦어야 합니다.');
-    }
-  }
+  let event;
+  try { event=normalizeCalendar(collection==='as-events'?'as':'team',body,id); }
+  catch(error) { throw new ApiError(400,error.message); }
   const now = new Date().toISOString();
   if (event.createdAt && !Number.isFinite(Date.parse(event.createdAt))) throw new ApiError(400, '등록 시각이 올바르지 않습니다.');
   event.createdAt = event.createdAt ? new Date(event.createdAt).toISOString() : now;
   event.updatedAt = now;
   // Import old browser backups without overwriting a newer shared record, including on retry.
   const importOnly = new URL(request.url).searchParams.get('migration') === '1';
-  const sql = importOnly
-    ? definition.upsert.split('ON CONFLICT(id)')[0] + 'ON CONFLICT(id) DO NOTHING RETURNING *'
-    : definition.upsert;
+  const sql = importOnly ? definition.insertOnly : definition.upsert;
   let saved = await env.DB.prepare(sql).bind(...definition.fields.map(name => event[name])).first();
   if (!saved && importOnly) saved = await env.DB.prepare(definition.get).bind(id).first();
   if (!saved) throw new ApiError(409, '일정이 변경되었습니다. 다시 불러온 뒤 재시도하세요.');
@@ -451,6 +475,8 @@ async function route(request, env) {
     if (method !== 'GET') throw new ApiError(405, '소화기 현황은 조회만 가능합니다.');
     return fireStatus(url, env);
   }
+  if ((url.pathname==='/api/calendars/export' && method==='GET') ||
+      (url.pathname==='/api/calendars/import' && method==='POST')) return calendarBackupApi(request,env);
   if (method === 'GET' && url.pathname === '/api/health') {
     let database = false;
     try { database = !!env.DB && (await env.DB.prepare('SELECT 1 AS ok').first())?.ok === 1; } catch {}

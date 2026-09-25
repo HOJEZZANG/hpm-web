@@ -12,6 +12,8 @@ for (const [index, match] of scripts.entries()) {
 }
 const worker = spawnSync(process.execPath, ['--check', join(root, 'worker.js')], { encoding: 'utf8' });
 assert.equal(worker.status, 0, worker.stderr);
+const calendar = spawnSync(process.execPath, ['--check', join(root, 'calendar-data.mjs')], { encoding: 'utf8' });
+assert.equal(calendar.status, 0, calendar.stderr);
 const config = JSON.parse(readFileSync(join(root, 'wrangler.jsonc'), 'utf8'));
 assert.equal(config.name, 'hpmanagement-web');
 assert.equal(config.main, 'worker.js');
@@ -49,9 +51,13 @@ assert.match(html, /await saveIssue\(data\)/);
 assert.match(html, /await apiRequest\('\/api\/issues\/bulk-delete'/);
 for (const name of ['canDeleteIssue', 'compressImage', 'openPhotoLightbox', 'renderHistoryTimeline',
   'renderDashboard', 'renderStatistics', 'exportCsv', 'confirmPresentationExport', 'submitAuth',
-  'savePortalUsers', 'saveCalendarEvents', 'renderMyPage', 'renderCalendar']) {
+  'savePortalUsers', 'saveCalendarEvents', 'renderMyPage', 'renderCalendar', 'updatePortalClock']) {
   assert.match(html, new RegExp('function ' + name + '\\('));
 }
 assert.match(html, /data-page="fireStatus"/);
+assert.match(html, /id="asFilterTypes"/);
+assert.match(html, /\/api\/calendars\/import\?mode=preview/);
+assert.ok(!html.includes('readLocalCalendarMigration'));
+assert.ok(!/localStorage\.(?:getItem|setItem)\(['"](?:as|team)Events/.test(html));
 assert.ok(!/<iframe\b/i.test(html));
 console.log('PASS: Worker and ' + scripts.length + ' inline scripts parse; deployment config; provider limited to fire server; no keys; API wiring; preserved feature entry points.');

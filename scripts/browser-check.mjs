@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import {calendarBackup, planCalendarImport, normalizeCalendar} from '../calendar-data.mjs';
 
 const executable = process.argv[2];
 if (!executable) throw new Error('Usage: node scripts/browser-check.mjs <path-to-chrome-or-edge>');
@@ -22,7 +23,8 @@ const legacyAs = [
   {id:'as-fail',startDate:'2026-09-17',endDate:'2026-09-17',yard:'HHI',asType:'누설',carInfo:'96오 7790'},
 ];
 const legacyTeam = [{date:'2026-09-16',teamType:'회사행사',title:'이전 일정',startTime:'09:00',endTime:'18:00'}];
-let failCalendarId = 'as-fail', failCalendarWrites = false, failCalendarReads = false, calendarWrites = 0;
+let failCalendarId = null, failCalendarWrites = false, failCalendarReads = false, calendarWrites = 0;
+let failCalendarImport=false;
 let failWrite = false, failLoad = false, writeCount = 0, uploads = 0;
 let fireMode = 'success', holdFire = false;
 const heldFire = [];
@@ -93,6 +95,17 @@ try {
     if (!request.url.startsWith(api)) return fulfill(requestId, '', 404, 'text/plain');
     const path = new URL(request.url).pathname;
     if (request.method === 'OPTIONS') return fulfill(requestId, '', 204);
+    if (path==='/api/calendars/export') return fulfill(requestId,JSON.stringify({ok:true,backup:calendarBackup({as:[...calendarRecords.as.values()],team:[...calendarRecords.team.values()]})}));
+    if (path==='/api/calendars/import') {
+      if(failCalendarImport)return fulfill(requestId,JSON.stringify({ok:false,error:'가져오기 실패 테스트'}),500);
+      const payload=JSON.parse(request.postData),current={as:[...calendarRecords.as.values()],team:[...calendarRecords.team.values()]};
+      const plan=planCalendarImport(payload,current),apply=new URL(request.url).searchParams.get('mode')==='apply';
+      const inserted={as:[],team:[]};
+      if(apply)for(const {type,event} of plan.candidates){calendarRecords[type].set(event.id,{...event,createdAt:event.createdAt||new Date().toISOString(),updatedAt:event.updatedAt||new Date().toISOString()});inserted[type].push(event.id);calendarWrites++;}
+      const report=apply?planCalendarImport(payload,{as:[...calendarRecords.as.values()],team:[...calendarRecords.team.values()]}).report:plan.report;
+      if(apply)for(const type of ['as','team']){report[type].insertedIds=inserted[type];report[type].duplicateIds=report[type].duplicateIds.filter(id=>!inserted[type].includes(id));}
+      return fulfill(requestId,JSON.stringify({ok:true,dryRun:!apply,report}));
+    }
     if (path === '/api/fire-status') {
       const params = new URL(request.url).searchParams;
       const year = Number(params.get('year')), month = Number(params.get('month'));
@@ -169,7 +182,7 @@ try {
       if (await evaluate(expression)) return;
       await new Promise(resolve=>setTimeout(resolve,50));
     }
-    throw new Error('Timed out: '+expression);
+    throw new Error('Timed out: '+expression+'\n'+errors.join('\n'));
   }
   await call('Page.addScriptToEvaluateOnNewDocument', {source:
     "if (!localStorage.getItem('calendarTestSeeded')) { localStorage.setItem('asEvents', " + JSON.stringify(JSON.stringify(legacyAs)) + "); localStorage.setItem('teamEvents', " + JSON.stringify(JSON.stringify(legacyTeam)) + "); localStorage.setItem('calendarTestSeeded','yes'); }"
@@ -178,22 +191,14 @@ try {
   await call('Page.navigate',{url:site});
   await waitFor("typeof issuesLoaded !== 'undefined' && issuesLoaded && document.getElementById('homePage').classList.contains('active')");
   navigationPending = false;
-  assert.equal(await evaluate('calendarState.as.loaded'),false);
-  assert.equal(await evaluate('localStorage.getItem(CALENDAR_MIGRATION_KEY)'),null);
+  assert.equal(await evaluate('calendarState.as.loaded'),true);
   assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('asEvents')")),legacyAs);
   assert.deepEqual(JSON.parse(await evaluate("localStorage.getItem('teamEvents')")),legacyTeam);
-  assert.equal(calendarRecords.as.size,1);
-  calendarRecords.as.get('as-legacy').memo = '다른 PC에서 수정한 일정';
-  failCalendarId = null;
+  assert.equal(calendarRecords.as.size,0);assert.equal(calendarRecords.team.size,0);
+  assert.equal(calendarWrites,0,'local browser backups must never auto-import');
+  assert.equal(await evaluate('asForm.querySelector("button[type=submit]").disabled'),true);
   await evaluate('initializeCalendars()');
-  assert.equal(await evaluate('localStorage.getItem(CALENDAR_MIGRATION_KEY)'),'done');
-  assert.equal(calendarRecords.as.size,2); assert.equal(calendarRecords.team.size,1);
-  assert.match([...calendarRecords.team.keys()][0],/^legacy-team-/);
-  assert.equal(calendarRecords.as.get('as-legacy').asDetail,'기존 상세');
-  assert.equal(calendarRecords.as.get('as-legacy').memo,'다른 PC에서 수정한 일정');
-  const migratedWrites = calendarWrites;
-  await evaluate('initializeCalendars()');
-  assert.equal(calendarWrites,migratedWrites);
+  assert.equal(calendarWrites,0);
   await evaluate("currentUser={id:'browser-user',name:'브라우저 검사',team:'검사팀'}; renderAuthState(); syncModulesAfterAuth();");
   assert.equal(await evaluate('issues.length'),0);
   await evaluate("title.value='브라우저 등록'; processPnd.value='2026-09-15'; issueForm.dispatchEvent(new Event('submit',{cancelable:true,bubbles:true}));");
@@ -298,6 +303,71 @@ try {
   await evaluate("document.querySelector('#afterPreviewGrid img').click()");
   assert.equal(await evaluate('photoLightboxImage.src'),photoUrl);
   await evaluate('closePhotoLightbox()');
+  // Reference calendar features and safe backup flow, against shared mock API state.
+  const schedule=(id,extra={})=>normalizeCalendar('as',{id,startDate:'2026-09-30',endDate:'2026-10-02',yard:'HHI',hullNo:'HN-1',asType:'누설',carInfo:'96오 7790',asDetail:'<img src=x onerror=alert(1)>',...extra});
+  calendarRecords.as.set('range',schedule('range'));
+  calendarRecords.as.set('same',schedule('same',{startDate:'2026-09-10',endDate:'2026-09-10',asType:'용접불량'}));
+  calendarRecords.as.set('custom',schedule('custom',{asType:'직접 유형',yard:'직접 YARD',carInfo:'직접 차량'}));
+  await evaluate("initializeCalendars(); navigatePortal('as')");
+  await waitFor('calendarState.as.loaded && !calendarState.as.busy && !calendarInitialization');
+  await evaluate("calendarState.as.current=new Date(2026,9,1);renderCalendar('as')");
+  assert.equal(await evaluate("document.querySelectorAll('#asCalendar [data-event-id=range]').length"),3,'multi-day span must include both months');
+  await evaluate("asFilterStartDate.value='2026-10-01';asFilterEndDate.value='2026-10-01';document.querySelectorAll('#asFilterTypes input').forEach(b=>b.checked=['누설','용접불량'].includes(b.value));applyCalendarFilter('as')");
+  assert.deepEqual(await evaluate("getCalendarFiltered('as').map(e=>e.id)"),['range']);
+  await evaluate("asFilterStartDate.value='';asFilterEndDate.value='';applyCalendarFilter('as')");
+  assert.deepEqual(await evaluate("getCalendarFiltered('as').map(e=>e.id)"),['same','range']);
+  await evaluate("document.querySelectorAll('#asFilterTypes input').forEach(b=>b.checked=b.value==='기타');applyCalendarFilter('as')");
+  assert.deepEqual(await evaluate("getCalendarFiltered('as').map(e=>e.id)"),['custom']);
+  assert.equal(await evaluate("document.querySelectorAll('#asList img').length"),0,'schedule input must not become HTML');
+  await evaluate("editCalendarEvent('as','custom')");
+  assert.equal(await evaluate('yardSelect.value'),'기타');assert.equal(await evaluate('yardCustom.value'),'직접 YARD');
+  assert.equal(await evaluate('asTypeCustom.value'),'직접 유형');assert.equal(await evaluate('carCustom.value'),'직접 차량');
+  const beforeValidation=calendarWrites;
+  await evaluate("asEndDate.value='2020-01-01';asForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+  assert.equal(calendarWrites,beforeValidation);
+  await evaluate("editCalendarEvent('as','custom');yardCustom.value='';asForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+  assert.equal(calendarWrites,beforeValidation);
+  await evaluate("editCalendarEvent('as','custom');asMemo.value='custom saved';asForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+  await waitFor('!calendarState.as.busy');assert.equal(calendarRecords.as.get('custom').memo,'custom saved');
+  await evaluate("resetCalendarForm('team');teamStartDate.value='2026-09-30';teamEndDate.value='2026-09-30';teamStartTime.value='12:00';teamEndTime.value='11:00';teamTitle.value='time validation';teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+  assert.equal(calendarWrites,beforeValidation+1);
+  await evaluate("teamEndDate.value='2026-10-02';teamType.value='기타';toggleCustomTeamType();teamTypeCustom.value='외부 일정';teamForm.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+  await waitFor('!calendarState.team.busy');
+  assert.ok([...calendarRecords.team.values()].some(e=>e.teamType==='외부 일정'));
+  await evaluate("teamFilterType.value='기타';teamFilterStartDate.value='2026-10-01';teamFilterEndDate.value='2026-10-01';applyCalendarFilter('team')");
+  assert.equal(await evaluate("getCalendarFiltered('team').length"),1);
+  const incoming=calendarBackup({as:[schedule('import-new'),schedule('range',{memo:'conflict'}),calendarRecords.as.get('same')],team:[]});
+  const preview=()=>evaluate('previewCalendarImport({files:[new File(['+JSON.stringify(JSON.stringify(incoming))+'],"backup.json",{type:"application/json"})],value:""})');
+  const beforeImport=calendarWrites;
+  await preview();assert.equal(await evaluate('calendarImportDialog.open'),true);
+  assert.deepEqual(await evaluate('pendingCalendarImport.report.as.newIds'),['import-new']);
+  assert.equal(await evaluate('pendingCalendarImport.report.as.duplicateIds.length'),1);
+  assert.equal(await evaluate('pendingCalendarImport.report.as.conflicts[0].id'),'range');
+  assert.equal(calendarWrites,beforeImport);
+  await evaluate('closeCalendarImport()');assert.equal(calendarWrites,beforeImport);
+  await preview();failCalendarImport=true;await evaluate('confirmCalendarImport()');
+  assert.equal(calendarWrites,beforeImport);assert.equal(await evaluate('calendarState.as.events.some(e=>e.id==="import-new")'),false);
+  failCalendarImport=false;await evaluate('confirmCalendarImport()');
+  assert.equal(calendarWrites,beforeImport+1);assert.equal(calendarRecords.as.get('range').memo,'');
+  assert.equal(await evaluate('calendarState.as.events.some(e=>e.id==="import-new")'),true);
+  await evaluate('closeCalendarImport()');await preview();
+  assert.equal(await evaluate('calendarImportConfirm.disabled'),true);
+  await evaluate('closeCalendarImport()');
+  calendarRecords.as.set('export-fresh',schedule('export-fresh'));
+  await evaluate('downloadBlob=(content,filename,type)=>{window.__scheduleExport={content,filename,type}};exportCalendarData()');
+  const exported=JSON.parse(await evaluate('window.__scheduleExport.content'));
+  assert.equal(exported.app,'AS출장_팀캘린더');assert.equal(exported.version,1);assert.ok(exported.exportedAt);
+  assert.ok(exported.asEvents.some(e=>e.id==='export-fresh'),'export must fetch current server data');
+  await evaluate("sessionStorage.removeItem(AUTH_SESSION_KEY);currentUser=null;renderAuthState();syncModulesAfterAuth()");
+  const anonymousWrites=calendarWrites;
+  await evaluate("upsertCalendar('as',{id:'anonymous'});deleteCalendarEvent('as');chooseCalendarImport();closeLoginModal()");
+  assert.equal(calendarWrites,anonymousWrites);assert.equal(await evaluate('asForm.querySelector("button[type=submit]").disabled'),true);
+  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('#asPage .calendar-layout')).gridTemplateColumns.split(' ').length"),1);
+  assert.equal(await evaluate("document.querySelector('#asPage .calendar-scroll').scrollWidth>document.querySelector('#asPage .calendar-scroll').clientWidth"),true);
+  await call('Emulation.clearDeviceMetricsOverride');
+  console.log('PASS schedule UI: month-boundary spans, overlap/multi-type/custom filters, other inputs, date/time validation, XSS, preview/cancel/import/retry/conflicts, fresh export, logged-out write guards and mobile.');
+
   // Exercise the existing auth flow, including restoration after a full reload.
   await evaluate("openLoginModal('register'); authUserId.value='browser-user'; authDisplayName.value='브라우저 검사'; authPassword.value='test-only-password'; submitAuth()");
   assert.equal(await evaluate('currentUser.id'),'browser-user');
@@ -387,7 +457,7 @@ try {
   assert.ok(dialogs.some(message=>message.includes('저장하지 못했습니다')));
   console.log('PASS browser: initialize, create, reload, edit, failed save/delete, compress/upload, preview/lightbox, photo save, mixed-owner bulk delete, load failure lock, samples, legacy JSON import, after photos, offline presentation export and write lock.');
   console.log('Intercepted requests: '+requests.length+'; no production API requests forwarded.');
-  console.log('PASS calendars: partial migration failure/retry, deterministic IDs, completion flag, unchanged local backups, CRUD, failure preservation, cross-PC reads, offline snapshot.');
+  console.log('PASS calendars: no automatic local import, unchanged local backups, CRUD, failure preservation, cross-PC reads, offline snapshot.');
   await call('Page.close');
   await send('Browser.close');
 } finally {

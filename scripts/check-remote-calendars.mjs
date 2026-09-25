@@ -26,6 +26,20 @@ async function snapshot() {
 }
 assert.equal((await request('/api/health')).database, true);
 const before = await snapshot();
+const exported = (await request('/api/calendars/export')).backup;
+assert.equal(exported.app, 'AS출장_팀캘린더');
+assert.equal(exported.version, 1);
+assert.ok(Number.isFinite(Date.parse(exported.exportedAt)));
+assert.deepEqual([...exported.asEvents].sort((a,b)=>a.id.localeCompare(b.id)), before['as-events']);
+assert.deepEqual([...exported.teamEvents].sort((a,b)=>a.id.localeCompare(b.id)), before['team-events']);
+const preview = await request('/api/calendars/import?mode=preview', 'POST', exported);
+assert.equal(preview.dryRun, true);
+for (const [type,key] of [['as','as-events'],['team','team-events']]) {
+  assert.equal(preview.report[type].newIds.length, 0);
+  assert.equal(preview.report[type].conflicts.length, 0);
+  assert.equal(preview.report[type].duplicateIds.length, before[key].length);
+}
+console.log('PASS remote JSON export format, all stored fields and duplicate-only dry-run');
 for (const collection of collections) {
   console.log(JSON.stringify({collection, status:200, count:before[collection].length,
     sha256:createHash('sha256').update(JSON.stringify(before[collection])).digest('hex')}));
