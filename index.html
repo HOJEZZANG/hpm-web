@@ -1059,6 +1059,9 @@
   </div>
 </div>
 <style>
+  .fire-heading{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin-bottom:7px;position:relative;z-index:1}
+  #fireStatusPage .fire-heading h1{margin:0;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+  .fire-factory-badge{display:inline-flex;flex-shrink:0;padding:4px 10px;border:1px solid var(--hpm-line);border-radius:999px;background:var(--hpm-bg);color:var(--hpm-green-dark);font-size:12px;font-weight:700;line-height:1.5;white-space:nowrap}
   .fire-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:20px}
   .fire-controls label{display:block;margin-bottom:6px}
   .fire-controls select{min-width:105px}
@@ -1097,7 +1100,7 @@
     </div>
   </div>
   <div class="menu-group"><div class="submenu">
-    <button class="menu-item" data-page="fireStatus" onclick="navigatePortal('fireStatus')"><span class="menu-icon">🧯</span>소화기 점검 현황</button>
+    <button class="menu-item" data-page="fireStatus" onclick="navigatePortal('fireStatus')"><span class="menu-icon">🧯</span>AHU 소화기 점검 현황</button>
   </div></div>
   <div id="sidebarUserBox" class="menu-user-box"><strong>연제호님 로그인</strong>사용자 ID: jhyeon<br>본인이 등록한 문제점만 삭제할 수 있습니다.</div>
 </aside>
@@ -1812,8 +1815,8 @@
 </section>
 
 <section id="fireStatusPage" class="portal-page">
-  <div class="page-crumb">🧯 안전관리 / 소화기 점검 현황</div>
-  <div class="module-banner"><h1>전체 소화기 점검 현황</h1><p>업체별 월간 점검 현황을 확인합니다. 등록과 점검은 기존 소화기 점검 시스템에서 진행해 주세요.</p></div>
+  <div class="page-crumb">🧯 안전관리 / AHU 소화기 점검 현황</div>
+  <div class="module-banner"><div class="fire-heading"><h1 id="fireStatusTitle">AHU 공장 전체 소화기 점검 현황</h1><span class="fire-factory-badge">AHU 공장</span></div><p>업체별 월간 점검 현황을 확인합니다. 등록과 점검은 기존 소화기 점검 시스템에서 진행해 주세요.</p></div>
   <div class="card">
     <div class="fire-controls">
       <div><label for="fireStatusYear">연도</label><select id="fireStatusYear" onchange="void loadFireStatus()"></select></div>
@@ -3832,7 +3835,7 @@
       const wrap = document.getElementById('fireStatusTableWrap'), rows = document.getElementById('fireStatusRows'), summary = document.getElementById('fireStatusSummary');
       refresh.disabled = true; retry.hidden = true; wrap.hidden = true; rows.replaceChildren(); summary.replaceChildren();
       message.hidden = false; text.textContent = '점검 현황을 불러오는 중입니다…';
-      document.getElementById('fireStatusPeriod').textContent = year+'년 '+month+'월 · 한국 시간 기준';
+      document.getElementById('fireStatusPeriod').textContent = year+'년 '+month+'월 '+document.getElementById('fireStatusTitle').textContent;
       document.getElementById('fireStatusPage').setAttribute('aria-busy','true');
       const timer = setTimeout(()=>controller.abort(),20000);
       try {
