@@ -10,8 +10,16 @@ import {calendarBackup, planCalendarImport, normalizeCalendar} from '../calendar
 const executable = process.argv[2];
 if (!executable) throw new Error('Usage: node scripts/browser-check.mjs <path-to-chrome-or-edge>');
 const profile = mkdtempSync(join(tmpdir(), 'hpm-browser-check-'));
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const site = 'https://hojezzang.github.io/hpm-web/';
+const localHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+let html = localHtml;
+if (process.argv.includes('--deployed')) {
+  const response = await fetch(site+'?check='+Date.now(), {cache:'no-store',signal:AbortSignal.timeout(30000)});
+  assert.equal(response.status, 200);
+  html = await response.text();
+  assert.equal(html.replace(/\r\n/g,'\n'), localHtml.replace(/\r\n/g,'\n'), 'Deployed HTML must match the checked working copy');
+  console.log('PASS deployed GitHub Pages HTML matches the working copy; browser checks use this response with mocked APIs.');
+}
 const api = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const photoKey = 'issues/browser-one/before/test.png';
 const photoUrl = api + '/api/photos/' + photoKey;
@@ -460,6 +468,47 @@ try {
   assert.equal(await evaluate('currentUser.id'),'browser-user');
   await evaluate("navigatePortal('issue','dashboard'); navigatePortal('issue','statistics')");
   console.log('PASS auth: registration, login persistence after reload, my page, logout, login, dashboard and statistics.');
+  // Independent menu groups must work at desktop, narrow sidebar and mobile widths.
+  for (const width of [1440, 900, 760, 390, 320]) {
+    await call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<=760});
+    for (const id of ['issueSubmenu','calendarSubmenu','fireStatusSubmenu']) {
+      const parent = `document.querySelector('[aria-controls="${id}"]')`;
+      assert.equal(await evaluate(`${parent}.getBoundingClientRect().width>0`),true);
+      await evaluate(`setPortalMenuExpanded(${parent},true)`);
+      const otherStates = await evaluate(`Array.from(document.querySelectorAll('.submenu')).filter(x=>x.id!=='${id}').map(x=>x.hidden)`);
+      await evaluate(`${parent}.click()`);
+      assert.equal(await evaluate(`${parent}.getAttribute('aria-expanded')`),'false');
+      assert.equal(await evaluate(`document.getElementById('${id}').getBoundingClientRect().height`),0);
+      assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.submenu')).filter(x=>x.id!=='${id}').map(x=>x.hidden)`),otherStates);
+      await evaluate(`${parent}.click()`);
+      assert.equal(await evaluate(`document.getElementById('${id}').getBoundingClientRect().height>0`),true);
+    }
+    assert.equal(await evaluate(`calendarSubmenu.parentElement!==fireStatusSubmenu.parentElement && calendarSubmenu.getBoundingClientRect().bottom<fireStatusSubmenu.getBoundingClientRect().top`),true);
+    assert.equal(await evaluate(`document.querySelector('.portal-sidebar').scrollWidth<=document.querySelector('.portal-sidebar').clientWidth`),true);
+    await evaluate(`document.querySelector('[data-page="fireStatus"]').click()`);
+    await waitFor('fireStatusRequest===null');
+    assert.equal(await evaluate(`document.querySelector('.portal-page.active').id`),'fireStatusPage');
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-page="fireStatus"]')).backgroundColor`),'rgb(228, 125, 66)');
+    await evaluate(`document.querySelector('[aria-controls="fireStatusSubmenu"]').click(); navigatePortal('home'); navigatePortal('fireStatus')`);
+    await waitFor('fireStatusRequest===null');
+    assert.equal(await evaluate(`fireStatusSubmenu.hidden`),false);
+    assert.equal(await evaluate(`document.querySelector('[aria-controls="fireStatusSubmenu"]').getAttribute('aria-expanded')`),'true');
+    for (const tab of ['dashboard','manage','statistics']) {
+      await evaluate(`document.querySelector('[data-issue-tab="${tab}"]').click()`);
+      assert.equal(await evaluate(`document.querySelector('.portal-page.active').id`),'issuePage');
+      assert.equal(await evaluate(`document.querySelector('.menu-item.active').dataset.issueTab`),tab);
+    }
+    await evaluate(`document.querySelector('[data-page="calendar"]').click()`);
+    assert.equal(await evaluate(`['asPage','teamPage'].includes(document.querySelector('.portal-page.active').id)`),true);
+    assert.equal(await evaluate(`document.querySelector('[data-page="fireStatus"]').classList.contains('active')`),false);
+  }
+  await call('Emulation.clearDeviceMetricsOverride');
+  await evaluate(`document.querySelector('[aria-controls="fireStatusSubmenu"]').click(); menuSearch.value='AHU'; filterPortalMenu()`);
+  assert.equal(await evaluate('fireStatusSubmenu.hidden'),false);
+  await evaluate(`menuSearch.value='공장동'; filterPortalMenu()`);
+  assert.equal(await evaluate(`document.querySelector('[data-page="fireStatus"]').style.display`),'flex');
+  await evaluate(`menuSearch.value=''; filterPortalMenu()`);
+  console.log('PASS sidebar: independent collapse/expand, separated connectors, AHU click, auto expansion, orange active state, search and issue/calendar navigation at 1440/900/760/390/320px.');
   // Fire status uses the same portal navigation; all requests stay intercepted.
   holdFire = true;
   await evaluate("navigatePortal('fireStatus')");

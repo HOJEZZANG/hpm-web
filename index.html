@@ -498,7 +498,11 @@
     .menu-icon { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; background:#e6effa; flex:0 0 auto; font-size:13px; }
     .menu-group { margin:6px 0; }
     .menu-parent { justify-content:space-between; }
-    .menu-parent .left { display:flex; align-items:center; gap:9px; }
+    .menu-parent .left { display:flex; align-items:center; gap:9px; min-width:0; }
+    .menu-parent .menu-label { min-width:0; word-break:keep-all; overflow-wrap:anywhere; }
+    .menu-chevron { flex:0 0 auto; transition:transform .15s ease; }
+    .menu-parent[aria-expanded="false"] .menu-chevron { transform:rotate(-90deg); }
+    .menu-group > .submenu[hidden] { display:none; }
     .submenu { margin:0 10px 8px 19px; border-left:1px solid #bfd4ef; padding-left:8px; }
     .submenu .menu-item { width:calc(100% - 2px); margin:2px 0; padding:9px 10px; font-size:13px; }
     .menu-user-box { margin:14px 10px; padding:12px; border:1px solid #d7e3f2; background:white; border-radius:13px; font-size:12px; color:#64748b; line-height:1.55; }
@@ -978,6 +982,9 @@
       .portal-brand{padding:5px;min-width:0}
       .brand-mark{width:43px;height:43px;font-size:12px}
       .portal-sidebar{margin-top:68px;width:100%;background:var(--hpm-ink)}
+      .portal-sidebar .menu-parent{display:flex}
+      .portal-sidebar .submenu{display:block;overflow-x:visible;padding:0 0 0 8px}
+      .portal-sidebar .submenu .menu-item{min-width:0}
       .portal-main{margin-left:0;padding:16px 12px 24px}
       .home-hero{min-height:215px;padding:30px 23px;background:linear-gradient(135deg,var(--hpm-green),var(--hpm-ink))}
     }
@@ -1086,22 +1093,25 @@
   <div class="menu-caption">MENU</div>
   <button class="menu-item" data-page="home" onclick="navigatePortal('home')"><span class="menu-icon">🏠</span>Home</button>
   <div class="menu-group">
-    <button class="menu-parent"><span class="left"><span class="menu-icon">🛠</span>공정 문제점 관리</span><span>⌄</span></button>
-    <div class="submenu">
+    <button type="button" class="menu-parent" aria-expanded="true" aria-controls="issueSubmenu" onclick="togglePortalMenu(this)"><span class="left"><span class="menu-icon">🛠</span><span class="menu-label">공정 문제점 관리</span></span><span class="menu-chevron" aria-hidden="true">⌄</span></button>
+    <div id="issueSubmenu" class="submenu">
       <button class="menu-item" data-page="issue" data-issue-tab="dashboard" onclick="navigatePortal('issue','dashboard')"><span class="menu-icon">📊</span>현황 대시보드</button>
       <button class="menu-item active" data-page="issue" data-issue-tab="manage" onclick="navigatePortal('issue','manage')"><span class="menu-icon">📝</span>문제 등록·Feedback</button>
       <button class="menu-item" data-page="issue" data-issue-tab="statistics" onclick="navigatePortal('issue','statistics')"><span class="menu-icon">📈</span>통계·개선자료</button>
     </div>
   </div>
   <div class="menu-group">
-    <button class="menu-parent"><span class="left"><span class="menu-icon">📁</span>출장·일정 관리</span><span>⌄</span></button>
-    <div class="submenu">
+    <button type="button" class="menu-parent" aria-expanded="true" aria-controls="calendarSubmenu" onclick="togglePortalMenu(this)"><span class="left"><span class="menu-icon">📁</span><span class="menu-label">출장·일정 관리</span></span><span class="menu-chevron" aria-hidden="true">⌄</span></button>
+    <div id="calendarSubmenu" class="submenu">
       <button class="menu-item" data-page="calendar" onclick="navigatePortal('calendar')"><span class="menu-icon">📅</span>출장·일정 캘린더</button>
     </div>
   </div>
-  <div class="menu-group"><div class="submenu">
-    <button class="menu-item" data-page="fireStatus" onclick="navigatePortal('fireStatus')"><span class="menu-icon">🧯</span>AHU 소화기 점검 현황</button>
-  </div></div>
+  <div class="menu-group">
+    <button type="button" class="menu-parent" aria-expanded="true" aria-controls="fireStatusSubmenu" onclick="togglePortalMenu(this)"><span class="left"><span class="menu-icon">🧯</span><span class="menu-label">공장동 소화기 점검 현황</span></span><span class="menu-chevron" aria-hidden="true">⌄</span></button>
+    <div id="fireStatusSubmenu" class="submenu">
+      <button class="menu-item" data-page="fireStatus" onclick="navigatePortal('fireStatus')"><span class="menu-icon">🏭</span>AHU 공장</button>
+    </div>
+  </div>
   <div id="sidebarUserBox" class="menu-user-box"><strong>연제호님 로그인</strong>사용자 ID: jhyeon<br>본인이 등록한 문제점만 삭제할 수 있습니다.</div>
 </aside>
 <main class="portal-main">
@@ -3863,8 +3873,24 @@
         }
       }
     }
-    function navigatePortal(page,issueTab){if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team']){if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return;}if(page==='as'||page==='team')lastCalendarTab=page;document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',(b.dataset.page===page||(b.dataset.page==='calendar'&&(page==='as'||page==='team')))&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
-    function filterPortalMenu(){const q=menuSearch.value.trim().toLowerCase();document.querySelectorAll('.portal-sidebar .menu-item').forEach(x=>x.style.display=!q||x.textContent.toLowerCase().includes(q)?'flex':'none')}
+    function navigatePortal(page,issueTab){if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team']){if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return;}if(page==='as'||page==='team')lastCalendarTab=page;document.querySelectorAll('.portal-page').forEach(p=>p.classList.remove('active'));const target=document.getElementById(page+'Page');if(target)target.classList.add('active');document.querySelectorAll('.menu-item[data-page]').forEach(b=>b.classList.toggle('active',(b.dataset.page===page||(b.dataset.page==='calendar'&&(page==='as'||page==='team')))&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'dashboard'))));document.querySelectorAll('.menu-group').forEach(group=>{if(group.querySelector('.menu-item.active'))setPortalMenuExpanded(group.querySelector('.menu-parent'),true)});if(page==='issue')switchIssueTab(issueTab||'dashboard');if(page==='as'||page==='team')void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();window.scrollTo({top:0,behavior:'smooth'})}
+    function setPortalMenuExpanded(button, expanded) {
+      const submenu = document.getElementById(button.getAttribute('aria-controls'));
+      button.setAttribute('aria-expanded', String(expanded));
+      submenu.hidden = !expanded;
+    }
+    function togglePortalMenu(button) {
+      setPortalMenuExpanded(button, button.getAttribute('aria-expanded') !== 'true');
+    }
+    function filterPortalMenu() {
+      const q = menuSearch.value.trim().toLowerCase();
+      document.querySelectorAll('.portal-sidebar .menu-item').forEach(item=>{
+        const parent = item.closest('.menu-group')?.querySelector('.menu-parent');
+        const matches = !q || (item.textContent+' '+(parent?.textContent||'')).toLowerCase().includes(q);
+        item.style.display = matches ? 'flex' : 'none';
+        if (q && matches && parent) setPortalMenuExpanded(parent, true);
+      });
+    }
     function renderPortalHome(){
       if(typeof issues==='undefined'||typeof calendarState==='undefined')return;
       const today=calFmt(new Date()),month=today.slice(0,7),open=issues.filter(x=>!closedStatuses.includes(x.status));
