@@ -1,3 +1,4 @@
+import {makeEnv,TOKEN} from "./support/env.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -179,44 +180,10 @@ test('calendar migration is repeatable, preserves issue records, and calendar ID
 const origin = 'https://hojezzang.github.io';
 const base = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const schema = readFileSync(new URL('../migrations/0001_cloudflare_schema.sql', import.meta.url), 'utf8');
-export function makeEnv(legacyPayload = false) {
-  const sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(legacyPayload ? schema.replace('  id TEXT PRIMARY KEY NOT NULL,', '  id TEXT PRIMARY KEY NOT NULL,\n  payload TEXT NOT NULL,') : schema);
-  const objects = new Map();
-  const env = {
-    sqlite, objects,
-    DB: {
-      prepare(sql) {
-        const statement = {
-          args: [],
-          bind(...args) { return { ...statement, args }; },
-          async first() { return sqlite.prepare(sql).get(...this.args) || null; },
-          async all() { return { results: sqlite.prepare(sql).all(...this.args), success: true }; },
-          async run() { const result = sqlite.prepare(sql).run(...this.args); return { success: true, meta: { changes: Number(result.changes) } }; },
-        };
-        return statement;
-      },
-      async batch(statements) {
-        sqlite.exec('BEGIN');
-        try { const results = []; for (const statement of statements) results.push(await statement.run()); sqlite.exec('COMMIT'); return results; }
-        catch (error) { sqlite.exec('ROLLBACK'); throw error; }
-      },
-    },
-    PHOTOS: {
-      async put(key, data, options = {}) { objects.set(key, { bytes: new Uint8Array(data), type: options.httpMetadata?.contentType }); },
-      async head(key) { return objects.has(key) ? { key } : null; },
-      async get(key) {
-        const object = objects.get(key); if (!object) return null;
-        return { body: object.bytes, httpEtag: '"test-etag"', writeHttpMetadata(headers) { headers.set('Content-Type', object.type); } };
-      },
-      async delete(key) { objects.delete(key); },
-    },
-  };
-  return env;
-}
+export {makeEnv} from "./support/env.mjs";
 async function request(env, path, method = 'GET', body, headers = {}) {
   const response = await worker.fetch(new Request(base + path, {
-    method, headers: { Origin: origin, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
+    method, headers: { Origin: origin, Authorization: "Bearer "+TOKEN, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
     ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
   }), env);
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), origin);
@@ -227,7 +194,7 @@ async function put(env, id, extra = {}) { return request(env, '/api/issues/' + i
 async function upload(env, { type = 'image/png', bytes = new Uint8Array([137,80,78,71,13,10,26,10,0]), issueId = 'one', category = 'before' } = {}) {
   const form = new FormData(); form.append('file', new File([bytes], '../../untrusted.png', { type }));
   form.append('issueId', issueId); form.append('category', category);
-  const response = await worker.fetch(new Request(base + '/api/photos', { method: 'POST', headers: { Origin: origin }, body: form }), env);
+  const response = await worker.fetch(new Request(base + '/api/photos', { method: 'POST', headers: { Origin: origin, Authorization: "Bearer "+TOKEN }, body: form }), env);
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), origin);
   return response;
 }
@@ -255,7 +222,7 @@ test('UPSERT all fields, bound SQL, preserved creation and normalized reads', as
     history:[{ at:createdAt, status:'접수', actor:'등록자', note:'등록' }] };
   assert.equal((await put(env, 'one', fields)).status, 200);
   const row = env.sqlite.prepare('SELECT * FROM issues WHERE id = ?').get('one');
-  assert.equal(Object.keys(row).length, 32);
+  assert.equal(Object.keys(row).length, 38);
   assert.equal(row.reporter_id, 'owner'); assert.equal(row.followup_flag, 1); assert.equal(row.sample, 1);
   assert.equal(row.project_no, fields.projectNo); assert.equal(typeof row.history, 'string');
   assert.equal((await put(env, 'one', { ...fields, createdAt:'2030-01-01', title:'수정' })).status, 200);

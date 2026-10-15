@@ -1,11 +1,14 @@
 import { normalizeCalendar, planCalendarImport, calendarBackup } from './calendar-data.mjs';
+import { businessApi } from './business/api.mjs';
+import { authenticate, authApi } from './business/auth.mjs';
+import { BusinessError } from './business/domain.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const corsHeaders = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Expose-Headers': 'ETag',
   'Vary': 'Origin',
 };
@@ -58,6 +61,7 @@ function readablePhotos(value) {
 function toIssue(row) {
   const issue = {};
   for (const [camel, snake] of Object.entries(fields)) issue[camel] = String(row[snake] ?? row[camel] ?? '');
+  for(const key of ['yard','hullNo','productNo','remark','part','factory']) issue[key]=String(row[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())]??row[key]??'');
   issue.registerDate ||= issue.occurDate;
   issue.product ||= '미분류'; issue.status ||= '접수'; issue.priority ||= '보통';
   issue.updatedAt ||= issue.createdAt;
@@ -177,9 +181,11 @@ async function cleanupPhotos(env, candidates) {
     return true;
   } catch { console.error('Photo cleanup failed; unreferenced objects may remain.'); return false; }
 }
-async function saveIssue(request, env, id) {
-  const issue = validateIssue(await readJson(request), id);
+async function saveIssue(request, env, id, user) {
+  const body = await readJson(request), issue = validateIssue(body, id);
   const old = await env.DB.prepare('SELECT * FROM issues WHERE id = ?').bind(id).first();
+  issue.reporterId = old ? old.reporter_id || '' : user.id;
+  issue.reporter = old ? old.reporter || '' : user.name;
   for (const key of new Set([...issue.images, ...issue.afterImages])) {
     if (!await env.PHOTOS.head(key)) throw new ApiError(400, '사진이 존재하지 않습니다. 사진을 다시 선택하세요.');
   }
@@ -198,9 +204,16 @@ async function saveIssue(request, env, id) {
   ];
   // Older installations require payload; retain the column and supply normalized JSON.
   if (hasLegacyPayload) values.push(JSON.stringify({ ...issue, createdAt: created, updatedAt: now }));
-  await env.DB.prepare(hasLegacyPayload ? UPSERT_ISSUE_WITH_PAYLOAD : UPSERT_ISSUE).bind(...values).run();
+  const extra = body;
+  const supplemental = ['yard','hullNo','productNo','remark','part','factory'];
+  for (const key of supplemental) if (extra[key] != null && (typeof extra[key] !== 'string' || extra[key].length > 1000)) throw new ApiError(400, '추가 필드를 확인하세요.');
+  const savedExtras = Object.fromEntries(supplemental.map(key=>[key,extra[key] ?? old?.[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())] ?? '']));
+  await env.DB.batch([
+    env.DB.prepare(hasLegacyPayload ? UPSERT_ISSUE_WITH_PAYLOAD : UPSERT_ISSUE).bind(...values),
+    env.DB.prepare('UPDATE issues SET yard=?,hull_no=?,product_no=?,remark=?,part=?,factory=? WHERE id=?').bind(...supplemental.map(k=>savedExtras[k]),id),
+  ]);
   const photosCleaned = await cleanupPhotos(env, rowPhotoKeys(old));
-  return json({ ok: true, issue: toIssue({ ...issue, created_at: created, updated_at: now }), photosCleaned });
+  return json({ ok: true, issue: {...toIssue({ ...issue, created_at: created, updated_at: now }),...savedExtras}, photosCleaned });
 }
 async function deleteIssues(env, ids) {
   const rows = [];
@@ -468,21 +481,26 @@ async function fireStatus(url, env) {
 async function route(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   const url = new URL(request.url), method = request.method;
-  // CORS is not authentication. Existing browser accounts do not authenticate API calls.
+  // CORS is separate from authentication; all record and file APIs require a server session.
   const origin = request.headers.get('Origin');
   if (origin && origin !== ALLOWED_ORIGIN && !['GET', 'HEAD'].includes(method)) throw new ApiError(403, '허용되지 않은 요청 출처입니다.');
   if (url.pathname === '/api/fire-status') {
     if (method !== 'GET') throw new ApiError(405, '소화기 현황은 조회만 가능합니다.');
     return fireStatus(url, env);
   }
+  if (url.pathname.startsWith('/api/auth/')) return json({ok:true,...await authApi(request,env)});
+  if (url.pathname === '/api/health' && method === 'GET') {
+    let database=false;try{database=!!env.DB&&(await env.DB.prepare('SELECT 1 AS ok').first())?.ok===1;}catch{}
+    return json({ok:database&&!!env.PHOTOS,database,photos:!!env.PHOTOS},database&&env.PHOTOS?200:503);
+  }
+  const user=await authenticate(request,env);
+  if (url.pathname.startsWith('/api/business/')) {
+    const result=await businessApi(request,env,user);
+    if(result instanceof Response){const headers=new Headers(result.headers);for(const [k,v] of Object.entries(corsHeaders))headers.set(k,v);return new Response(result.body,{status:result.status,headers});}
+    return json({ok:true,...result});
+  }
   if ((url.pathname==='/api/calendars/export' && method==='GET') ||
       (url.pathname==='/api/calendars/import' && method==='POST')) return calendarBackupApi(request,env);
-  if (method === 'GET' && url.pathname === '/api/health') {
-    let database = false;
-    try { database = !!env.DB && (await env.DB.prepare('SELECT 1 AS ok').first())?.ok === 1; } catch {}
-    const photos = !!env.PHOTOS;
-    return json({ ok: database && photos, database, photos }, database && photos ? 200 : 503);
-  }
   const calendarMatch = url.pathname.match(/^\/api\/(as-events|team-events)(?:\/([^/]+))?$/);
   if (calendarMatch && ((!calendarMatch[2] && method === 'GET') || (calendarMatch[2] && ['PUT', 'DELETE'].includes(method)))) {
     return calendarApi(request, env, calendarMatch[1], calendarMatch[2]);
@@ -503,7 +521,7 @@ async function route(request, env) {
     const headers = new Headers(corsHeaders);
     object.writeHttpMetadata(headers);
     headers.set('ETag', object.httpEtag);
-    headers.set('Cache-Control', 'private, max-age=300, must-revalidate');
+    headers.set('Cache-Control', 'private, no-store');
     headers.set('X-Content-Type-Options', 'nosniff');
     if (request.headers.get('If-None-Match') === object.httpEtag) return new Response(null, { status: 304, headers });
     return new Response(object.body, { headers });
@@ -524,9 +542,11 @@ async function route(request, env) {
       if (!Array.isArray(body?.ids) || !body.ids.length || body.ids.length > 100 || body.ids.some(id => !validId(id))) {
         throw new ApiError(400, '삭제할 ID를 1~100개 지정하세요.');
       }
+      for(const id of body.ids){const row=await env.DB.prepare('SELECT reporter_id FROM issues WHERE id=?').bind(id).first();if(row&&user.role!=='admin'&&row.reporter_id!==user.id)throw new ApiError(403,'본인이 등록한 문제점만 삭제할 수 있습니다.');}
       return deleteIssues(env, [...new Set(body.ids)]);
     }
-    return method === 'PUT' ? saveIssue(request, env, issueMatch[1]) : deleteIssues(env, [issueMatch[1]]);
+    if(method==='DELETE'){const row=await env.DB.prepare('SELECT reporter_id FROM issues WHERE id=?').bind(issueMatch[1]).first();if(row&&user.role!=='admin'&&row.reporter_id!==user.id)throw new ApiError(403,'본인이 등록한 문제점만 삭제할 수 있습니다.');}
+    return method === 'PUT' ? saveIssue(request.clone(), env, issueMatch[1],user) : deleteIssues(env, [issueMatch[1]]);
   }
   throw new ApiError(404, '요청한 API를 찾을 수 없습니다.');
 }
@@ -534,7 +554,7 @@ export default {
   async fetch(request, env) {
     try { return await route(request, env); }
     catch (error) {
-      if (error instanceof ApiError) return json({ ok: false, error: error.message }, error.status);
+      if (error instanceof ApiError || error instanceof BusinessError) return json({ ok: false, error: error.message }, error.status);
       console.error('Worker request failed. Check database schema and storage bindings.');
       return json({ ok: false, error: '서버 처리 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.' }, 500);
     }

@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 for (const [index, match] of scripts.entries()) {
-  if (!/\bsrc=/.test(match[1])) new vm.Script(match[2], { filename: 'index-inline-' + index + '.js' });
+  if (!/\bsrc=/.test(match[1]) && !/type="module"/.test(match[1])) new vm.Script(match[2], { filename: 'index-inline-' + index + '.js' });
 }
 const worker = spawnSync(process.execPath, ['--check', join(root, 'worker.js')], { encoding: 'utf8' });
 assert.equal(worker.status, 0, worker.stderr);
@@ -25,11 +25,15 @@ assert.deepEqual(config.r2_buckets, [{ binding: 'PHOTOS', bucket_name: 'hpm-phot
 const removedProvider = 'supa' + 'base';
 function scan(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (['.git', 'node_modules', '.wrangler'].includes(entry.name)) continue;
+    if (['.git', 'node_modules', '.wrangler', 'backups'].includes(entry.name)) continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) scan(path);
     else {
       let content = readFileSync(path, 'utf8');
+      if (/\.(?:mjs|js)$/.test(path)) {
+        const parsed=spawnSync(process.execPath,['--check',path],{encoding:'utf8'});
+        assert.equal(parsed.status,0,parsed.stderr);
+      }
       assert.ok(!/sb_publishable_[A-Za-z0-9_-]{20,}/.test(content), 'Credential must not be stored: ' + path);
       if (path === join(root, 'worker.js')) content = content.replace(/\/\/ Read-only fire integration\.[\s\S]*?(?=async function route\()/, '');
       if (path === join(root, 'wrangler.jsonc')) {

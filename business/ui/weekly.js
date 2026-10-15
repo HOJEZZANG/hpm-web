@@ -1,0 +1,4 @@
+import {collection,today} from './common.js';
+export const init=root=>collection(root,{type:'weekly',title:'주간 이슈관리',description:'한국 시간(Asia/Seoul) 기준 ISO 주차 · 월요일 시작 · 연초/연말에는 ISO 주차 연도가 달력 연도와 다를 수 있습니다.',weekly:true,remove:true,
+  fields:[['date','등록 주차 기준일','date',{required:true,value:today()}],['part','파트','select',{values:['1 PART','2 PART','3 PART']}],['product','제품','text',{required:true,max:200}],['manager','담당자','text',{required:true,max:100}],['pnd','PND (자유 입력)'],['problem','문제점','textarea',{required:true,wide:true}],['plan','계획','textarea'],['action','실행','textarea'],['remark','특이사항','textarea',{wide:true}]],
+  columns:[{label:'ISO 주차',key:'key'},{label:'파트',key:'part'},{label:'제품',key:'product'},{label:'문제점',key:'problem'},{label:'담당자',key:'manager'},{label:'PND',key:'pnd'},{label:'계획',key:'plan'},{label:'실행',key:'action'},{label:'특이사항',key:'remark'}]});
