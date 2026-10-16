@@ -55,10 +55,11 @@ assert.match(html, /await saveIssue\(data\)/);
 assert.match(html, /await apiRequest\('\/api\/issues\/bulk-delete'/);
 for (const name of ['canDeleteIssue', 'compressImage', 'openPhotoLightbox', 'renderHistoryTimeline',
   'renderDashboard', 'renderStatistics', 'exportCsv', 'confirmPresentationExport', 'submitAuth',
-  'savePortalUsers', 'saveCalendarEvents', 'renderMyPage', 'renderCalendar', 'updatePortalClock']) {
+  'saveCalendarEvents', 'renderMyPage', 'renderCalendar', 'updatePortalClock']) {
   assert.match(html, new RegExp('function ' + name + '\\('));
 }
-assert.match(html, /data-page="fireStatus"/);
+assert.match(readFileSync(join(root,'business/ui/navigation.js'),'utf8'), /'fireStatus'/);
+for(const retired of ['loadSessionUser','loadPortalUsers','savePortalUsers','sha256Portable','legacyFallbackPortalHash','verifyPortalPassword','generateIssueNo','normalizedUser','sidebarUserBox','presentationPassword','presentationUserId','addSampleData'])assert.ok(!html.includes(retired),'Retired auth/UI code: '+retired);
 assert.match(html, /id="asFilterTypes"/);
 assert.match(html, /\/api\/calendars\/import\?mode=preview/);
 assert.ok(!html.includes('readLocalCalendarMigration'));

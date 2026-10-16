@@ -1,7 +1,7 @@
 import { normalizeCalendar, planCalendarImport, calendarBackup } from './calendar-data.mjs';
 import { businessApi } from './business/api.mjs';
 import { authenticate, authApi } from './business/auth.mjs';
-import { BusinessError } from './business/domain.mjs';
+import { BusinessError, koreanToday, date as businessDate } from './business/domain.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -62,7 +62,6 @@ function toIssue(row) {
   const issue = {};
   for (const [camel, snake] of Object.entries(fields)) issue[camel] = String(row[snake] ?? row[camel] ?? '');
   for(const key of ['yard','hullNo','productNo','remark','part','factory']) issue[key]=String(row[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())]??row[key]??'');
-  issue.registerDate ||= issue.occurDate;
   issue.product ||= '미분류'; issue.status ||= '접수'; issue.priority ||= '보통';
   issue.updatedAt ||= issue.createdAt;
   if (/^조립[123]$/.test(issue.process)) issue.process = '조립';
@@ -96,7 +95,7 @@ async function readJson(request) {
   try { return JSON.parse(new TextDecoder().decode(bytes)); }
   catch { throw new ApiError(400, '올바른 JSON 형식이 아닙니다.'); }
 }
-function validateIssue(body, id) {
+function validateIssue(body, id, old) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || !validId(id) || (body.id !== undefined && body.id !== id)) {
     throw new ApiError(400, '문제점 ID 또는 데이터 형식이 올바르지 않습니다.');
   }
@@ -106,15 +105,20 @@ function validateIssue(body, id) {
     if (typeof value !== 'string' || value.length > 20000) throw new ApiError(400, camel + ' 값이 올바르지 않습니다.');
     issue[camel] = value;
   }
-  if (!issue.title.trim()) throw new ApiError(400, '문제점 제목이 필요합니다.');
+  if (!issue.title.trim() && !issue.description.trim()) throw new ApiError(400, '문제점 상세내용을 입력하세요.');
+  if (!issue.title.trim()) issue.title=issue.description.trim().replace(/\s+/g,' ').slice(0,100);
+  for (const key of ['occurDate','registerDate','processPnd','deliveryDate','dueDate','completedDate']) {
+    if (issue[key] && issue[key]!==old?.[fields[key]]) businessDate(issue[key],key);
+  }
   issue.id = id;
   issue.followupFlag = bool(body.followupFlag); issue.sample = bool(body.sample);
   for (const name of ['images', 'afterImages']) {
     const photos = body[name] ?? [];
-    if (!Array.isArray(photos) || photos.length > 3 || photos.some(p => !photoKey(p))) {
+    const legacy=array(old?.[name==='images'?'images':'after_images']);
+    if (!Array.isArray(photos) || photos.length > 3 || photos.some(p => !photoKey(p) && !(typeof p==='string'&&p.startsWith('data:image/')&&legacy.includes(p)))) {
       throw new ApiError(400, '사진은 항목별 최대 3개의 Worker 사진 주소여야 합니다.');
     }
-    issue[name] = photos.map(photoKey);
+    issue[name] = photos.map(p=>photoKey(p)||p);
   }
   const history = body.history ?? [];
   if (!Array.isArray(history) || history.length > 2000 || history.some(h => !h || typeof h !== 'object' || Array.isArray(h))) {
@@ -137,11 +141,11 @@ const UPSERT_ISSUE = `INSERT INTO issues (
   verifier, prevention, followup_flag, images, after_images, created_at, updated_at, history, sample
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
-  issue_no=excluded.issue_no, occur_date=excluded.occur_date, register_date=excluded.register_date,
+  issue_no=issues.issue_no, occur_date=excluded.occur_date, register_date=excluded.register_date,
   product=excluded.product, project_no=excluded.project_no, process_pnd=excluded.process_pnd,
   delivery_date=excluded.delivery_date, process=excluded.process, issue_type=excluded.issue_type,
   title=excluded.title, description=excluded.description, finder=excluded.finder,
-  reporter=excluded.reporter, reporter_id=excluded.reporter_id, responsible_dept=excluded.responsible_dept,
+  reporter=issues.reporter, reporter_id=issues.reporter_id, responsible_dept=excluded.responsible_dept,
   status=excluded.status, priority=excluded.priority, due_date=excluded.due_date,
   feedback_owner=excluded.feedback_owner, cause_feedback=excluded.cause_feedback,
   action_detail=excluded.action_detail, completed_date=excluded.completed_date,
@@ -155,17 +159,17 @@ const UPSERT_ISSUE_WITH_PAYLOAD = `INSERT INTO issues (
   verifier, prevention, followup_flag, images, after_images, created_at, updated_at, history, sample, payload
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
-  issue_no=excluded.issue_no, occur_date=excluded.occur_date, register_date=excluded.register_date,
+  issue_no=issues.issue_no, occur_date=excluded.occur_date, register_date=excluded.register_date,
   product=excluded.product, project_no=excluded.project_no, process_pnd=excluded.process_pnd,
   delivery_date=excluded.delivery_date, process=excluded.process, issue_type=excluded.issue_type,
   title=excluded.title, description=excluded.description, finder=excluded.finder,
-  reporter=excluded.reporter, reporter_id=excluded.reporter_id, responsible_dept=excluded.responsible_dept,
+  reporter=issues.reporter, reporter_id=issues.reporter_id, responsible_dept=excluded.responsible_dept,
   status=excluded.status, priority=excluded.priority, due_date=excluded.due_date,
   feedback_owner=excluded.feedback_owner, cause_feedback=excluded.cause_feedback,
   action_detail=excluded.action_detail, completed_date=excluded.completed_date,
   verifier=excluded.verifier, prevention=excluded.prevention, followup_flag=excluded.followup_flag,
   images=excluded.images, after_images=excluded.after_images, updated_at=excluded.updated_at,
-  history=excluded.history, sample=excluded.sample, payload=excluded.payload`;
+  history=excluded.history, sample=excluded.sample, payload=json_set(excluded.payload,'$.reporter',issues.reporter,'$.reporterId',issues.reporter_id,'$.issueNo',issues.issue_no,'$.createdAt',issues.created_at)`;
 function rowPhotoKeys(row) {
   return [...array(row?.images), ...array(row?.after_images ?? row?.afterImages)].map(photoKey).filter(Boolean);
 }
@@ -182,19 +186,26 @@ async function cleanupPhotos(env, candidates) {
   } catch { console.error('Photo cleanup failed; unreferenced objects may remain.'); return false; }
 }
 async function saveIssue(request, env, id, user) {
-  const body = await readJson(request), issue = validateIssue(body, id);
+  const body = await readJson(request);
+  if (!body || typeof body!=='object' || Array.isArray(body)) throw new ApiError(400,'문제점 데이터를 확인하세요.');
   const old = await env.DB.prepare('SELECT * FROM issues WHERE id = ?').bind(id).first();
+  const previous=old ? {...Object.fromEntries(Object.entries(fields).map(([key,column])=>[key,old[column]??''])),followupFlag:bool(old.followup_flag),sample:bool(old.sample),images:array(old.images),afterImages:array(old.after_images),history:array(old.history)} : {occurDate:koreanToday()};
+  const issue = validateIssue({...previous,...body}, id, old);
+  // The primary-key namespace makes the number stable on retry and unique for new records.
+  // Existing management numbers are immutable, including legacy formats.
+  issue.issueNo = old ? old.issue_no || '' : 'HPM-'+id;
+  if(!old&&await env.DB.prepare('SELECT id FROM issues WHERE issue_no=? AND id<>? LIMIT 1').bind(issue.issueNo,id).first())throw new ApiError(409,'이미 사용 중인 관리번호입니다. 새로 작성에서 서버 관리번호를 다시 발급받으세요.');
   issue.reporterId = old ? old.reporter_id || '' : user.id;
   issue.reporter = old ? old.reporter || '' : user.name;
   for (const key of new Set([...issue.images, ...issue.afterImages])) {
-    if (!await env.PHOTOS.head(key)) throw new ApiError(400, '사진이 존재하지 않습니다. 사진을 다시 선택하세요.');
+    if (photoKey(key) && !await env.PHOTOS.head(key)) throw new ApiError(400, '사진이 존재하지 않습니다. 사진을 다시 선택하세요.');
   }
   const now = new Date().toISOString();
   const created = old?.created_at ?? (issue.createdAt && Number.isFinite(Date.parse(issue.createdAt)) ? new Date(issue.createdAt).toISOString() : now);
   const columns = await env.DB.prepare('PRAGMA table_info(issues)').all();
   const hasLegacyPayload = columns.results.some(column => column.name === 'payload');
   const values = [
-    id, issue.issueNo, issue.occurDate, issue.registerDate || issue.occurDate, issue.product,
+    id, issue.issueNo, issue.occurDate, issue.registerDate, issue.product,
     issue.projectNo, issue.processPnd, issue.deliveryDate, issue.process, issue.issueType, issue.title,
     issue.description, issue.finder, issue.reporter, issue.reporterId, issue.responsibleDept,
     issue.status || '접수', issue.priority || '보통', issue.dueDate, issue.feedbackOwner, issue.causeFeedback,
@@ -202,18 +213,20 @@ async function saveIssue(request, env, id, user) {
     JSON.stringify(issue.images), JSON.stringify(issue.afterImages), created, now,
     JSON.stringify(issue.history), Number(issue.sample),
   ];
-  // Older installations require payload; retain the column and supply normalized JSON.
-  if (hasLegacyPayload) values.push(JSON.stringify({ ...issue, createdAt: created, updatedAt: now }));
   const extra = body;
   const supplemental = ['yard','hullNo','productNo','remark','part','factory'];
   for (const key of supplemental) if (extra[key] != null && (typeof extra[key] !== 'string' || extra[key].length > 1000)) throw new ApiError(400, '추가 필드를 확인하세요.');
   const savedExtras = Object.fromEntries(supplemental.map(key=>[key,extra[key] ?? old?.[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())] ?? '']));
+  // Preserve unknown legacy payload keys as well as the normalized columns.
+  let previousPayload={};try{const value=JSON.parse(old?.payload||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))previousPayload=value;}catch{}
+  if (hasLegacyPayload) values.push(JSON.stringify({...previousPayload,...issue,...savedExtras,createdAt:created,updatedAt:now}));
   await env.DB.batch([
     env.DB.prepare(hasLegacyPayload ? UPSERT_ISSUE_WITH_PAYLOAD : UPSERT_ISSUE).bind(...values),
     env.DB.prepare('UPDATE issues SET yard=?,hull_no=?,product_no=?,remark=?,part=?,factory=? WHERE id=?').bind(...supplemental.map(k=>savedExtras[k]),id),
   ]);
   const photosCleaned = await cleanupPhotos(env, rowPhotoKeys(old));
-  return json({ ok: true, issue: {...toIssue({ ...issue, created_at: created, updated_at: now }),...savedExtras}, photosCleaned });
+  const saved=await env.DB.prepare('SELECT * FROM issues WHERE id=?').bind(id).first();
+  return json({ ok: true, issue:toIssue(saved), photosCleaned });
 }
 async function deleteIssues(env, ids) {
   const rows = [];
@@ -531,6 +544,9 @@ async function route(request, env) {
     const { results } = await env.DB.prepare("SELECT * FROM issues ORDER BY COALESCE(NULLIF(updated_at, ''), created_at, '') DESC, id DESC").all();
     return json({ ok: true, issues: results.map(toIssue) });
   }
+  if (url.pathname==='/api/issues/draft' && method==='GET') {
+    const id=crypto.randomUUID();return json({ok:true,id,issueNo:'HPM-'+id,date:koreanToday(),reporter:user.name});
+  }
   const issueMatch = url.pathname.match(/^\/api\/issues\/([A-Za-z0-9_-]{1,128})$/);
   if ((url.pathname === '/api/photos' && method === 'POST') ||
       (url.pathname === '/api/issues/bulk-delete' && method === 'POST') ||
@@ -554,7 +570,7 @@ export default {
   async fetch(request, env) {
     try { return await route(request, env); }
     catch (error) {
-      if (error instanceof ApiError || error instanceof BusinessError) return json({ ok: false, error: error.message }, error.status);
+      if (error instanceof ApiError || error instanceof BusinessError) return json({ ok: false, error: error.message,code:error.code||(error.status===403?'FORBIDDEN':undefined) }, error.status);
       console.error('Worker request failed. Check database schema and storage bindings.');
       return json({ ok: false, error: '서버 처리 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.' }, 500);
     }

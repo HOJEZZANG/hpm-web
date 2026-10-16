@@ -9,11 +9,15 @@ export async function passwordHash(password,salt){
 }
 export function constantEqual(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0;}
 const safeAccount=r=>({...JSON.parse(r.profile||'{}'),id:r.id,name:r.name,role:r.role,status:r.status});
+function authError(status,message,code){const e=new BusinessError(status,message);e.code=code;throw e;}
 export async function authenticate(req,env){
   ensure(env.DB,'DB 연결을 확인하세요.',503);
-  const token=req.headers.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];ensure(token,'서버 로그인이 필요합니다.',401);
-  const row=await env.DB.prepare(`SELECT a.* FROM portal_sessions s JOIN portal_accounts a ON a.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND a.status='active'`).bind(await digest(token),new Date().toISOString()).first();
-  ensure(row,'로그인이 만료되었거나 접근 권한이 없습니다. 다시 로그인하세요.',401);return safeAccount(row);
+  const token=req.headers.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];if(!token)authError(401,'서버 로그인이 필요합니다.','AUTH_REQUIRED');
+  const row=await env.DB.prepare(`SELECT a.*,s.expires_at AS session_expires_at FROM portal_sessions s JOIN portal_accounts a ON a.id=s.user_id WHERE s.token_hash=?`).bind(await digest(token)).first();
+  if(!row||row.session_expires_at<=new Date().toISOString())authError(401,'로그인이 만료되었습니다. 다시 로그인하세요.','SESSION_EXPIRED');
+  if(row.status==='pending')authError(403,'관리자 가입 승인을 기다리고 있습니다.','ACCOUNT_PENDING');
+  if(row.status!=='active')authError(403,'가입이 거절되었거나 이용이 중지된 계정입니다. 관리자에게 문의하세요.','ACCOUNT_DISABLED');
+  return safeAccount(row);
 }
 async function throttle(req,env,action){
   const ip=req.headers.get('CF-Connecting-IP')||'local',key=await digest(action+':'+ip),stamp=Date.now(),cutoff=stamp-15*60000;
@@ -44,7 +48,9 @@ export async function authApi(req,env){
     }
     const row=await env.DB.prepare('SELECT * FROM portal_accounts WHERE id=?').bind(id).first();
     const hash=await passwordHash(password,row?.salt||'invalid-account-timing-placeholder');
-    ensure(row&&constantEqual(hash,row.password_hash)&&row.status==='active','계정 또는 비밀번호를 확인하세요. 신규 계정은 관리자 승인이 필요합니다.',401);
+    if(!row||!constantEqual(hash,row.password_hash))authError(401,'ID 또는 비밀번호를 확인하세요.','INVALID_CREDENTIALS');
+    if(row.status==='pending')authError(403,'가입 신청이 승인 대기 중입니다. 관리자 승인 후 로그인하세요.','ACCOUNT_PENDING');
+    if(row.status!=='active')authError(403,'가입이 거절되었거나 이용이 중지된 계정입니다. 관리자에게 문의하세요.','ACCOUNT_DISABLED');
     const token=random(),expiresAt=new Date(Date.now()+8*3600000).toISOString();
     await env.DB.prepare('INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await digest(token),id,expiresAt).run();
     return {token,expiresAt,user:safeAccount(row)};

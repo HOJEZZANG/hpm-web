@@ -11,13 +11,13 @@ export async function startTestServer(){
   env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));
   const password='synthetic-browser-password';
   env.sqlite.prepare('UPDATE portal_accounts SET password_hash=? WHERE id=?').run(await passwordHash(password,'synthetic'),'owner');
-  const state={failWrites:false,requests:[],env,password};
+  const state={failWrites:false,failIssueWrites:false,requests:[],env,password};
   const server=createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')){
         state.requests.push({path:url.pathname,method:req.method});
-        if(state.failWrites&&['PUT','POST','DELETE'].includes(req.method)&&!url.pathname.startsWith('/api/auth/')){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 저장 실패'}));return;}
+        if((state.failWrites&&['PUT','POST','DELETE'].includes(req.method)&&!url.pathname.startsWith('/api/auth/'))||(state.failIssueWrites&&req.method==='PUT'&&url.pathname.startsWith('/api/issues/'))){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 저장 실패'}));return;}
         const chunks=[];for await(const chunk of req)chunks.push(chunk);let bytes=Buffer.concat(chunks);
         // Translate only canonical photo URLs across this local reverse-proxy boundary.
         const translate=(value,from,to)=>typeof value==='string'&&value.startsWith(from+'/api/photos/')?to+value.slice(from.length):Array.isArray(value)?value.map(v=>translate(v,from,to)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([k,v])=>[k,translate(v,from,to)])):value;

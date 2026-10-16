@@ -41,7 +41,7 @@ test('all new data and file APIs reject browser-only identity; server roles over
   assert.equal((await req(env,'vehicles/car','PUT',{number:'합성차량',role:'admin'},token)).status,403);
   assert.equal((await req(env,'notices/n','PUT',{title:'위조',content:'내용',role:'admin'},token)).status,403);
   assert.equal((await req(env,'/api/auth/users','GET',undefined,token)).status,403);
-  env.sqlite.prepare("UPDATE portal_accounts SET status='disabled' WHERE id='viewer'").run();assert.equal((await req(env,'weekly','GET',undefined,token)).status,401);
+  env.sqlite.prepare("UPDATE portal_accounts SET status='disabled' WHERE id='viewer'").run();const disabled=await req(env,'weekly','GET',undefined,token);assert.equal(disabled.status,403);assert.equal((await disabled.json()).code,'ACCOUNT_DISABLED');
 });
 test('weekly CRUD, scoped delete, SQL injection as text, stale writes and cross-session visibility',async()=>{
   const env=makeEnv(),other=viewer(env);assert.equal((await data(await req(env,'weekly'))).records.length,0);
@@ -125,7 +125,7 @@ test('signup cannot reset existing passwords, grants pending only, admin approva
   const hash=env.sqlite.prepare('SELECT password_hash FROM portal_accounts WHERE id=?').get(body.id).password_hash;
   assert.equal((await req(env,'/api/auth/register','POST',{...body,password:'other-synthetic-password'},null)).status,409);
   assert.equal(env.sqlite.prepare('SELECT password_hash FROM portal_accounts WHERE id=?').get(body.id).password_hash,hash);
-  assert.equal((await req(env,'/api/auth/login','POST',body,null)).status,401);
+  const pending=await req(env,'/api/auth/login','POST',body,null);assert.equal(pending.status,403);assert.equal((await pending.json()).code,'ACCOUNT_PENDING');
   await data(await req(env,'/api/auth/users/'+body.id,'PUT',{status:'active'}));const login=await data(await req(env,'/api/auth/login','POST',body,null));assert.equal(login.user.role,'user');assert.equal(login.token.length,64);
   const stored=env.sqlite.prepare('SELECT token_hash FROM portal_sessions WHERE user_id=?').get(body.id).token_hash;assert.notEqual(stored,login.token);
   await data(await req(env,'/api/auth/me','GET',undefined,login.token));await data(await req(env,'/api/auth/logout','POST',undefined,login.token));assert.equal((await req(env,'/api/auth/me','GET',undefined,login.token)).status,401);

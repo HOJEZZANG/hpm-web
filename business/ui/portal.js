@@ -2,12 +2,13 @@ import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,
 import {init as weekly} from './weekly.js';
 import {init as production} from './production.js';
 import {init as supplies} from './supplies.js';
-import {init as vehicles} from './vehicles.js';
 import {init as meals} from './meals.js';
-import {init as safety} from './safety.js';
 import {createPresentation} from './presentation.js';
+import {initNavigation} from './navigation.js';
+import {initIssueView} from './issue-view.js';
+initNavigation();initIssueView();
 window.createHpmPresentation=createPresentation;
-const modules={weekly,production,supplies,vehicles,meals,safety,notices,search,accounts};
+const modules={weekly,production,supplies,meals,notices,search,accounts};
 const initialized=new Set();
 let lastAccountId=null;
 async function open(page){
@@ -20,13 +21,14 @@ async function open(page){
 async function notices(root){return collection(root,{type:'notices',title:'공지사항',description:'관리자가 게시한 생산관리 공지사항',admin:true,fields:[['title','제목','text',{required:true,max:200}],['content','공지내용','textarea',{required:true,max:5000,wide:true}]],columns:[{label:'제목',key:'title'},{label:'내용',key:'content'},{label:'수정일',key:'updatedAt'}]});}
 async function search(root){
   shell(root,'통합검색','조회 권한이 있는 업무 기록을 검색합니다. 일반 사용자는 본인 소모품 신청 내역만 검색할 수 있습니다.',`<form class="business-form">${field('q','검색어 (2자 이상)','search',{required:true,max:100})}<button type="submit" class="btn primary">검색</button></form><div data-results></div>`);
-  const labels={weekly:'주간 이슈',safety:'안전 점검',people:'식수 관리 인원',vehicles:'차량',notices:'공지사항',issue:'공정 문제점',as:'AS 출장',team:'팀 일정',production:'생산 일정',supplies:'소모품'};
+  const labels={weekly:'주간 이슈',people:'식수 관리 인원',notices:'공지사항',issue:'공정 문제점',as:'AS 출장',team:'팀 일정',production:'생산 일정',supplies:'소모품'};
   const form=$('form',root);form.onsubmit=e=>{e.preventDefault();const q=form.elements.q.value;void run(root,$('[type=submit]',form),async()=>{const r=await api('search?q='+encodeURIComponent(q));$('[data-results]',root).innerHTML=table([{label:'업무',value:r=>labels[r.type]||r.type},{label:'제목/대표 항목',key:'label'}],r.records,(r,i)=>button('업무 열기',`data-index="${i}"`));$('[data-results]',root).onclick=e=>{const index=e.target.closest('[data-index]')?.dataset.index;if(index===undefined)return;const row=r.records[Number(index)];window.navigatePortal(row.type==='people'?'meals':row.type==='notices'?'notices':row.type);};});};
 }
 async function accounts(root){
   shell(root,'사용자 승인','가입 계정은 관리자 승인 후 사용할 수 있습니다. 기존 PC의 브라우저 계정은 이전하지 않습니다.','<div data-users></div>');
   if(!isAdmin()){message(root,'관리자 권한이 필요합니다.',true);return;}
-  const load=async()=>{const r=await window.apiRequest('/api/auth/users');$('[data-users]',root).innerHTML=table([{label:'ID',key:'id'},{label:'이름',key:'name'},{label:'권한',key:'role'},{label:'상태',key:'status'}],r.users,r=>r.role==='admin'?'관리자':button('승인',`data-user="${esc(r.id)}" data-status="active"`)+button('비활성',`data-user="${esc(r.id)}" data-status="disabled"`));};
+  const statuses={active:'승인됨',pending:'승인 대기',disabled:'거절 / 이용 중지'};
+  const load=async()=>{const r=await window.apiRequest('/api/auth/users');$('[data-users]',root).innerHTML=table([{label:'ID',key:'id'},{label:'이름',key:'name'},{label:'권한',key:'role'},{label:'상태',value:r=>statuses[r.status]||r.status}],r.users,r=>r.role==='admin'?'관리자':button('승인',`data-user="${esc(r.id)}" data-status="active"`)+button(r.status==='pending'?'거절':'이용 중지',`data-user="${esc(r.id)}" data-status="disabled"`));};
   root.onclick=e=>{const b=e.target.closest('[data-user]');if(b)void run(root,b,async()=>{await window.apiRequest('/api/auth/users/'+b.dataset.user,jsonOptions('PUT',{status:b.dataset.status}));message(root,'서버에서 권한 변경을 확인했습니다.');await load();});};await run(root,null,load);
 }
 document.addEventListener('hpm:navigate',e=>void open(e.detail));
