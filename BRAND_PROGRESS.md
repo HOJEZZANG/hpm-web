@@ -53,3 +53,10 @@
 - 운영 배포는 Worker 검색 범위 및 Pages UI/정적 자산만이다. DB/migration/R2/계정 변경·업무 쓰기/복원 없음. 배포 직전 현재 버전/원격 변경과 자료 해시를 재확인한다.
 - 복구 기준 Git `c2b7c9a`, Worker `e402afdd-55ab-453b-bf83-e98455091912`. 새 구현 commit을 정상 revert commit으로 되돌려 push하고 Worker를 위 버전으로 rollback하면 된다. DB 역 migration/백업 덮어쓰기 없이 계정/업무/사진 보존. 실제 운영 rollback은 시험하지 않았다.
 - 승인 후: 필요하면 정상 읽기 로그인 재확인 → Worker 배포 → origin/main 정상 push → Pages 파일/로고/로그인 차단/실제 AHU/테마·모바일 읽기 검사 → `brand-preservation verify` → 이 문서에 commit/version/운영 결과 기록. 운영 자료 쓰기 시험은 하지 않는다.
+
+### 재개 기준
+
+- 구현 로컬 commit **`77b2824`** 완료. origin/main에는 아직 push하지 않았다. Worker 배포/Pages 반영도 미실행이며 운영 주소는 기존 상태다.
+- 사용자에게 진단 한계와 구체적 영향(데이터 변경 없는 UI·검색 배포)을 설명하고 배포 확인을 요청했다. 응답 전에는 push가 Pages 배포를 유발하므로 push도 보류한다. 시간이 지났다는 이유로 승인으로 처리하지 않는다.
+- 기존 계정의 운영 읽기 비교를 원하면 `node scripts/diagnose-login.mjs`로 임시 화면을 다시 열고 사용자가 직접 로그인한다. 이전 확인 서버는 45분 만료로 종료됐으며 관리자 최초 설정을 다시 열지 않는다.
+- 보안/문법/브라우저 최신 검사 통과. 최종 문서 변경은 별도 기록 commit으로 보관한다. 다음에는 이 문서와 git status/log/origin부터 확인한다.
