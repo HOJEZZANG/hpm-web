@@ -1,5 +1,7 @@
 # 생산 1파트 기능 통합 검토본
 
+2026-10-21 브랜드·상세 화면·라이트/다크·소모품 외부 링크·식수 진입 제외 변경과 승인된 배포 상태는 [BRAND_PROGRESS.md](BRAND_PROGRESS.md)를 따른다. 기존 데이터/인증/migration은 보존하며 현재 GitHub Pages 주소를 유지한다.
+
 이 문서는 구현과 검증 결과다. 2026-10-15 사용자 승인으로 D1 백업·신규 migration·최초 관리자 등록·Worker 배포·commit/push·Pages 반영과 운영 읽기 확인을 완료했다. 최신 결과는 `INTEGRATION_PROGRESS.md`에 기록한다. 관리자/가입/복구 절차는 `OPERATIONS_GUIDE.md`를 따른다.
 
 2026-10-16 메뉴/문제점/인증 사용성 변경은 `UI_PROGRESS.md`에 이어 기록한다. 기존 0001~0005는 유지하며 새 migration을 만들지 않는다. 서버 관리번호와 작성자 확정, 부분 수정 보존, 하나의 메뉴/로그인을 적용한다.

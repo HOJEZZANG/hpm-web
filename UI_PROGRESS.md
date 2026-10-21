@@ -1,5 +1,7 @@
 # 메뉴·인증·문제점 화면 정리 — 2026-10-16
 
+2026-10-21 브랜드/상세 화면/블루 테마/식수 진입 제외와 승인된 운영 반영의 최신 상태는 [BRAND_PROGRESS.md](BRAND_PROGRESS.md)를 따른다. 아래는 이전 메뉴·인증 정리 이력이다.
+
 **최신: 구현·로컬 검증·Worker 배포·구현 commit/push·Pages 반영 및 운영 읽기 검사 완료.** 아래는 단계별 기록이다. 추가 migration/운영 업무 쓰기/계정 재생성 없음. 최종 문서·캐시 버전 반영은 후속 commit의 Git log로 확인한다.
 
 - 시작: 회사 PC `hpm-web-company`, main `62f6b65`, 작업 트리 깨끗함. origin fetch 후 0/0. 기존 사용자 수정 없음.

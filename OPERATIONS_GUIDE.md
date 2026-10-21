@@ -2,6 +2,8 @@
 
 2026-10-21 브랜드/상세 화면 변경의 현재 상태는 [BRAND_PROGRESS.md](BRAND_PROGRESS.md), 도메인은 [준비 안내](DOMAIN_PREPARATION.md)를 따른다. 기존 0001~0005 migration은 이미 적용 완료됐으며 이번 UI 변경에서는 추가/재적용하지 않는다. 아래 최초 설치·이전 배포 설명은 이력이다.
 
+사용자는 데이터 확인 한계를 이해하고 UI·검색 변경의 운영 배포/push/Pages 확인을 승인했다. `portal.hpm.com` 사용 계획은 취소됐으며 현재 GitHub Pages 주소를 유지한다. 도메인/DNS/CNAME 설정은 변경하지 않는다. 과거 전체 문제점 데이터 누락 여부는 미해결 항목으로 별도 기록한다.
+
 ## 최초 관리자와 사용자 로그인
 
 **최초 관리자 등록은 이미 완료됐다.** 현재는 기존 D1 관리자/승인 사용자 ID와 비밀번호로 로그인한다. 최초 설정을 다시 열거나 기본 비밀번호를 만들지 않는다. 아래 최초 설치 절차는 이력이며 계정 재설정 절차가 아니다.
@@ -57,4 +59,4 @@
 
 이번 변경의 복구 기준은 Git `c2b7c9a`, Worker `e402afdd-55ab-453b-bf83-e98455091912`다. 구현 commit을 정상 revert commit으로 되돌린 뒤 push하고, Worker는 `npx wrangler rollback e402afdd-55ab-453b-bf83-e98455091912`로 복귀한다. 두 버전 모두 D1 서버 인증을 포함한다. DB/R2/계정은 건드리지 않고 migration을 되돌리지 않는다. 현재 백업과 과거 백업은 그대로 보관하며 운영 복원이 필요하면 별도 환경 검증과 사용자 확인을 먼저 받는다. 실제 rollback을 실행한 것은 아니다.
 
-`portal.hpm.com`은 [도메인 사전 준비](DOMAIN_PREPARATION.md)에 따라 소유자·DNS 관리자·사용 허가부터 확인한다. 이번에는 DNS/CNAME/Pages 설정/현재 URL을 변경하지 않았다.
+`portal.hpm.com` 사용 계획은 취소됐다. [도메인 검토 이력](DOMAIN_PREPARATION.md)은 참고용이며 현재 준비 요청이 아니다. DNS/CNAME/Pages 도메인 설정을 바꾸지 않고 현재 GitHub Pages 주소를 유지한다. 새 도메인 확정 후 별도 작업으로 다룬다.

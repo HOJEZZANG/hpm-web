@@ -11,4 +11,4 @@ for(const path of ['/api/issues','/api/issues/draft','/api/as-events','/api/team
 assert.equal((await fetch(api+'/api/health')).status,200);
 const status=await(await fetch(api+'/api/auth/status')).json();assert.equal(status.setupRequired,false);
 const prior=JSON.parse(await readFile(evidence+'/fire-before.json','utf8')),fire=await fetch(api+'/api/fire-status?year=2026&month=10');assert.equal(fire.status,200);const current=await fire.json();assert.deepEqual(current.summary,prior.summary);assert.deepEqual(current.companies,prior.companies);
-const report={pagesAssetsMatched:assets.length,protectedAnonymousRequestsRejected:true,health:200,firstAdminSetupClosed:true,fireAggregateUnchanged:true,at:new Date().toISOString()};await save('public-verification',report);console.log(JSON.stringify(report));
+const report={pagesAssetsMatched:assets.length,logoBytesMatched:true,detailModuleAndThemeBytesMatched:true,protectedAnonymousRequestsRejected:true,health:200,firstAdminSetupClosed:true,fireAggregateUnchanged:true,at:new Date().toISOString()};await save('public-verification',report);console.log(JSON.stringify(report));

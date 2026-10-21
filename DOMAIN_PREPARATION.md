@@ -1,4 +1,6 @@
-# portal.hpm.com 사전 준비 — 설정 변경 없음
+# 도메인 검토 이력 — 현재 GitHub Pages 주소 유지
+
+**최신 결정:** 사용자는 `portal.hpm.com` 사용 계획을 취소했다. 해당 주소 연결은 진행하지 않는다. 현재 `https://hojezzang.github.io/hpm-web/`을 유지하며 도메인·DNS·CNAME·Pages 도메인 설정 변경은 없다. 새 도메인은 확정 후 별도 승인된 작업으로 다룬다. 아래는 이전 검토 당시의 기술 참고 이력이며 현재 실행 계획이나 사용자 준비 요청이 아니다.
 
 2026-10-21 작성. `hpm.com` 소유권·사용 허가·DNS 관리 권한은 확인되지 않았다. 사용 가능하거나 연결이 완료됐다는 의미가 아니다. 이번 작업에서는 구매/DNS/GitHub Pages custom domain/CNAME 파일/주소 전환을 하지 않는다.
 
