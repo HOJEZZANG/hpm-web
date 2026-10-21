@@ -1,0 +1,19 @@
+import {startTestServer} from './local-test-server.mjs';
+import {browser} from './browser-harness.mjs';
+import assert from 'node:assert/strict';
+const state=await startTestServer(),qa=await browser(process.argv[2],state.url);
+try{
+  const t=await qa.tab();await t.evaluate(`openLoginModal('login');authUserId.value='owner';authPassword.value=${JSON.stringify(state.password)};submitAuth()`);await t.wait('issuesLoaded&&calendarState.as.loaded');
+  await t.evaluate(`await apiRequest('/api/issues/style-record',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:'합성 화면 대비 기록',processPnd:'2020-01-01',product:'CHILLER',responsibleDept:'자재'})});await loadIssues();navigatePortal('as')`);await t.wait('calendarState.as.loaded&&!calendarState.as.busy');await t.evaluate(`openNewCalendar('as');hullNo.value='SYNTH-STYLE';workerInfo.value='합성 출장자';asDetail.value='합성 출장 내용';document.getElementById('asForm').requestSubmit()`);await t.wait('calendarState.as.events.length===1&&!calendarState.as.busy');
+  const audit=()=>t.evaluate(`(()=>{const rgb=s=>(s.match(/[\\d.]+/g)||[]).map(Number),lum=a=>a.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0),fail=[];for(const el of document.querySelectorAll('body *')){if(![...el.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())||!el.getBoundingClientRect().width||el.closest('[inert]'))continue;const style=getComputedStyle(el);if(style.visibility==='hidden'||style.opacity==='0')continue;let bg=el;while(bg&&rgb(getComputedStyle(bg).backgroundColor)[3]===0)bg=bg.parentElement;if(!bg)continue;const a=lum(rgb(style.color)),b=lum(rgb(getComputedStyle(bg).backgroundColor)),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);if(ratio<4.5)fail.push({selector:el.tagName+'.'+el.className,text:el.textContent.trim().slice(0,25),ratio});}return fail;})()`);
+  for(const mode of ['light','dark']){
+    await t.evaluate(`if(document.documentElement.dataset.theme!==${JSON.stringify(mode)})themeToggle.click()`);
+    for(const [page,tab] of [['home'],['issue','dashboard'],['issue','manage'],['issue','statistics'],['weekly'],['production'],['as'],['team'],['fireStatus'],['notices'],['search'],['accounts'],['mypage']]){
+      await t.evaluate(`navigatePortal(${JSON.stringify(page)},${JSON.stringify(tab)})`);if(['weekly','production','notices','search','accounts'].includes(page))await t.wait(`document.getElementById('${page}Page').dataset.ready==='true'`);if(page==='fireStatus')await t.wait('document.querySelector("#fireStatusSummary tr")');
+      const failures=await audit();assert.deepEqual(failures,[],mode+' '+page+' '+tab+' contrast');
+      if(['home','as','fireStatus'].includes(page))await t.shot('.wrangler/brand-'+mode+'-'+page+'.png');
+    }
+    await t.evaluate('navigatePortal("issue","manage");openIssueDetails("style-record");document.querySelector(".detail-additional").open=true');assert.deepEqual(await audit(),[],mode+' issue detail contrast');await t.evaluate('issueDetailDialog.close();navigatePortal("as")');await t.wait('calendarState.as.loaded&&!calendarState.as.busy');await t.evaluate('openNewCalendar("as")');assert.deepEqual(await audit(),[],mode+' calendar editor contrast');await t.shot('.wrangler/brand-'+mode+'-calendar-editor.png');await t.evaluate('closeCalendarEditor("as");openLoginModal("login")');assert.deepEqual(await audit(),[],mode+' login contrast');await t.shot('.wrangler/brand-'+mode+'-login.png');await t.evaluate('closeLoginModal()');
+  }
+  assert.deepEqual(qa.errors,[]);console.log('PASS visible text contrast >= 4.5:1 across light/dark home/issues/dashboard/statistics/weekly/production/calendars/AHU/notices/search/accounts/profile/login/calendar editor. Synthetic AHU fixture only.');
+}finally{await qa.close();await state.close();}

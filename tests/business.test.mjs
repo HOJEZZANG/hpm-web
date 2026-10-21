@@ -163,13 +163,14 @@ test('legacy fourth-row supply header, shared strings, 1904 dates, XML/ZIP hard 
   const view=new DataView(bomb.buffer,bomb.byteOffset,bomb.byteLength);for(let p=0;p<bomb.length-46;p++)if(view.getUint32(p,true)===0x02014b50)view.setUint32(p+24,1,true);
   await assert.rejects(()=>parseWorkbook(bomb,'production'),e=>e.status===413);
 });
-test('notice/config CRUD is admin-only, duplicate vehicles are conflicts, search respects order ownership',async()=>{
+test('notice/config CRUD is admin-only, duplicate vehicles are conflicts, retained orders are excluded from search',async()=>{
   const env=makeEnv(),token=viewer(env);env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));
   await data(await req(env,'vehicles/car','PUT',{number:'합성 001'}));assert.equal((await req(env,'vehicles/duplicate','PUT',{number:'합성 001'})).status,409);
   await data(await req(env,'vehicles/car','PUT',{number:'합성 001',revision:1,active:false}));assert.equal((await data(await req(env,'vehicles'))).records[0].active,false);
   await data(await req(env,'notices/n','PUT',{title:'합성 공지',content:'합성 내용'}));await data(await req(env,'notices/n','PUT',{title:'합성 공지 수정',content:'수정 본문',revision:1}));
   const stamp=new Date().toISOString();env.sqlite.prepare('INSERT INTO supply_orders(id,owner,applicant,department,purpose,lines,created_at) VALUES(?,?,?,?,?,?,?)').run('private','owner','합성신청','부서','비공개신청검색',JSON.stringify([]),stamp);
-  assert.equal((await data(await req(env,'search?q=비공개신청검색','GET',undefined,token))).records.length,0);assert.equal((await data(await req(env,'search?q=비공개신청검색'))).records.length,1);
+  assert.equal((await data(await req(env,'search?q=비공개신청검색','GET',undefined,token))).records.length,0);assert.equal((await data(await req(env,'search?q=비공개신청검색'))).records.length,0);
+  assert.equal(env.sqlite.prepare('SELECT count(*) n FROM supply_orders').get().n,1);
   assert.equal((await data(await req(env,'search?q=수정'))).records.find(r=>r.type==='notices').label,'합성 공지 수정');
 });
 test('malformed JSON values and nested lines fail as validation errors without writes',async()=>{

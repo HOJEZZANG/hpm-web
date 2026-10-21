@@ -3,6 +3,7 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="business/ui/theme.js?v=20261021-brand"></script>
 <title>HPM 생산관리 통합 업무 플랫폼</title>
 <style>
 
@@ -1032,14 +1033,15 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"></head>
+<link rel="stylesheet" href="business/ui/business.css"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261021-brand"></head>
 <body>
 <div class="portal-topbar"><button type="button" id="menuToggle" class="menu-toggle" aria-label="업무 메뉴 열기/닫기" aria-controls="portalSidebar" aria-expanded="false">☰</button>
   <div class="portal-brand" role="button" tabindex="0" title="홈으로 이동" aria-label="HPM 로고, 홈으로 이동" onclick="navigatePortal('home')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigatePortal('home');}">
-    <div class="brand-mark">HPM</div>
-    <div class="brand-copy"><small>HI AIR KOREA</small><strong>생산관리 Portal</strong></div>
+    <span class="brand-logo-panel"><img src="assets/hi-air-korea-logo.png" width="447" height="447" alt="하이에어 로고"></span>
+    <div class="brand-copy"><strong>HPM</strong><small>HI AIR KOREA PRODUCTION MANAGEMENT</small></div>
   </div>
   <div class="portal-top-actions">
+    <button type="button" id="themeToggle" class="theme-toggle" aria-label="다크 모드로 전환" aria-pressed="false">☾</button>
     <div class="clock-box"><div id="portalClockDate" class="clock-date"></div><div id="portalClockTime" class="clock-time"></div></div>
     <button id="topLoginBtn" class="top-login-btn" onclick="openLoginModal('login')">로그인</button>
     <div id="authChip" hidden class="auth-chip" role="button" tabindex="0" title="마이페이지 열기" onclick="openMyPage()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMyPage();}" style="display:none"><span id="authAvatar" class="auth-avatar"></span><span id="authName" class="auth-name"></span></div>
@@ -1055,17 +1057,17 @@
   .fire-controls select{min-width:105px}
   .fire-table-wrap{overflow-x:auto;padding:0 20px 20px}
   #fireStatusTable{width:100%;min-width:540px;border-collapse:collapse}
-  #fireStatusTable th,#fireStatusTable td{padding:14px 12px;text-align:center;border-bottom:1px solid #dbe4ef}
+  #fireStatusTable th,#fireStatusTable td{padding:14px 12px;text-align:center;border-bottom:1px solid var(--line)}
   #fireStatusTable th:first-child,#fireStatusTable td:first-child{text-align:left;overflow-wrap:anywhere;max-width:250px}
-  #fireStatusTable thead{background:#edf3fa;color:#203b61}
-  #fireStatusTable tfoot{background:#e3f2fd;font-weight:800}
-  #fireStatusTable .fire-normal{color:#00a844;font-weight:800}
-  #fireStatusTable .fire-abnormal{color:#f57c00;font-weight:800}
-  #fireStatusTable .fire-low{color:#c0392b;font-weight:800}
-  #fireStatusTable .fire-medium{color:#b85c00;font-weight:800}
-  #fireStatusTable .fire-high{color:#278638;font-weight:800}
-  .fire-notice{padding:20px;color:#526478}
-  #fireStatusPeriod{padding:0 20px;color:#526478}
+  #fireStatusTable thead{background:var(--surface-alt);color:var(--ink)}
+  #fireStatusTable tfoot{background:var(--surface-alt);font-weight:800}
+  #fireStatusTable .fire-normal{color:var(--good);font-weight:800}
+  #fireStatusTable .fire-abnormal{color:var(--bad);font-weight:800}
+  #fireStatusTable .fire-low{color:var(--bad);font-weight:800}
+  #fireStatusTable .fire-medium{color:var(--warn);font-weight:800}
+  #fireStatusTable .fire-high{color:var(--good);font-weight:800}
+  .fire-notice{padding:20px;color:var(--ink-muted)}
+  #fireStatusPeriod{padding:0 20px;color:var(--ink-muted)}
   #fireStatusRetry{margin-left:10px}
   @media(max-width:600px){.fire-controls{padding:16px;gap:10px}.fire-controls .fire-source{width:100%;text-align:center}.fire-table-wrap{padding:0 12px 16px}#fireStatusTable th,#fireStatusTable td{padding:12px 8px}}
 </style>
@@ -1074,9 +1076,7 @@
 
 <section id="weeklyPage" class="portal-page business-page"></section>
 <section id="productionPage" class="portal-page business-page"></section>
-<section id="suppliesPage" class="portal-page business-page"></section>
 
-<section id="mealsPage" class="portal-page business-page"></section>
 
 <section id="noticesPage" class="portal-page business-page"></section>
 <section id="searchPage" class="portal-page business-page"></section>
@@ -1393,7 +1393,7 @@
 </section>
 
 </div>
-<dialog id="issueDetailDialog" class="issue-detail" aria-labelledby="issueDetailTitle"><div class="card-head"><h2 id="issueDetailTitle">문제점 상세</h2><button type="button" class="btn light" id="closeIssueDetail">닫기</button></div><div class="card-body" id="issueDetailBody"></div><div class="issue-form-actions"><button type="button" id="editIssueDetail" class="btn primary">수정하기</button></div></dialog></section>
+<dialog id="issueDetailDialog" class="issue-detail" aria-labelledby="issueDetailTitle"><div class="card-head"><div><h2 id="issueDetailTitle">문제점 상세</h2><div id="issueDetailSummary" class="detail-summary"></div></div><button type="button" class="btn light" id="closeIssueDetail">닫기</button></div><div class="card-body" id="issueDetailBody"></div><div class="issue-form-actions"><button type="button" id="editIssueDetail" class="btn primary">수정하기</button></div></dialog></section>
 
 <section id="fireStatusPage" class="portal-page">
   <div class="page-crumb">🧯 안전관리 / AHU 소화기 점검 현황</div>
@@ -1551,13 +1551,13 @@
   </div>
 </div>
 
-<div class="photo-lightbox" id="photoLightbox" onclick="if(event.target===this) closePhotoLightbox()">
+<dialog class="photo-lightbox" id="photoLightbox" aria-label="현장 사진 확대" onclick="if(event.target===this) closePhotoLightbox()">
   <div class="photo-lightbox-dialog">
     <button class="photo-lightbox-close" type="button" aria-label="확대 사진 닫기" onclick="closePhotoLightbox()">×</button>
     <img id="photoLightboxImage" alt="확대된 현장 사진" draggable="false">
   </div>
   <div class="photo-zoom-guide">마우스 휠로 확대·축소 · <span id="photoZoomValue">100%</span></div>
-</div>
+</dialog>
 
 <div class="toast" id="toast">수정 내용이 저장되었습니다.</div>
 <div id="presentationPortabilityNote" style="display:none"></div>
@@ -1600,7 +1600,7 @@
       alert(`${action}을 사용하려면 먼저 로그인하세요.`); openLoginModal('login'); return false;
     }
    function renderAuthState(){
-      const logged=!!window.hpmServerUser;topLogoutBtn.hidden=!logged;authChip.hidden=!logged;topLoginBtn.hidden=logged;topLoginBtn.style.display=logged?'none':'inline-block';authChip.style.display=logged?'flex':'none';topLogoutBtn.style.display=logged?'inline-block':'none';authName.textContent=logged?currentUser.name:'';authAvatar.textContent=logged?(currentUser.name||currentUser.id).slice(0,1):'';
+      const logged=!!window.hpmServerUser;topLogoutBtn.hidden=!logged;authChip.hidden=!logged;topLoginBtn.hidden=logged;topLoginBtn.style.display=logged?'none':'inline-block';authChip.style.display=logged?'flex':'none';topLogoutBtn.style.display=logged?'inline-block':'none';authName.textContent=logged?currentUser.name:'';authChip.setAttribute('aria-label',logged?currentUser.name+' · 마이페이지':'마이페이지');authAvatar.textContent=logged?(currentUser.name||currentUser.id).slice(0,1):'';
       const admin=document.querySelector('#portalNavigation [data-page=accounts]');if(admin)admin.hidden=!logged||currentUser.role!=='admin';const notice=document.getElementById('homeLoginNotice');notice.classList.toggle('logged',logged);notice.textContent=logged?'승인된 계정으로 로그인했습니다.':(authRestoreMessage||'로그인 후 내부 업무를 조회하고 저장할 수 있습니다.');
     }
 
@@ -1632,6 +1632,8 @@
 
     const API_BASE_URL = ['localhost','127.0.0.1'].includes(location.hostname)?location.origin:'https://hpmanagement-web.lotusland1995.workers.dev';
     let issuesLoaded = false;
+    let issueLoadError = '', issueLoadPending = false;
+    window.issueDataStatus=()=>({loaded:issuesLoaded,error:window.hpmServerUser?issueLoadError:'',pending:issueLoadPending,count:issues.length,authenticated:Boolean(window.hpmServerUser)});
     let issueBusy = '';
     let draftIssueId = '';let issueDraftVersion=0,draftPromise=null;const issueTouched=new Set(),issueInitialValues=new Map();
     function rememberIssueValues(){issueInitialValues.clear();for(const n of document.querySelectorAll("#issueForm input,#issueForm select,#issueForm textarea"))issueInitialValues.set(n.id,n.type==="checkbox"?n.checked:n.value);}
@@ -1721,6 +1723,7 @@
       return normalizeIssueProcess(data);
     }
     async function loadIssues() {
+      issueLoadPending = true;issueLoadError = '';window.renderIssueLoadState?.();
       try {
         const result = isPresentationMode()
           ? { issues: getEmbeddedPortalSnapshot().issues || [] }
@@ -1731,9 +1734,9 @@
         return issues;
       } catch (error) {
         issuesLoaded = false;
-        alert('문제점 목록을 불러오지 못했습니다. ' + error.message);
+        issueLoadError = '문제점 조회 실패: ' + error.message;
         throw error;
-      }
+      } finally { issueLoadPending=false;window.renderIssueLoadState?.(); }
     }
     async function uploadPhotoBlob(blob, id, category) {
       const form = new FormData();
@@ -1963,14 +1966,18 @@
       photoLightboxImage.src = issuePhotoUrl(src);
       applyPhotoZoom(1);
       photoLightbox.classList.add('show');
+      if(!photoLightbox.open)photoLightbox.showModal();
       document.body.style.overflow = 'hidden';
     }
     function closePhotoLightbox() {
       photoLightbox.classList.remove('show');
+      if(photoLightbox.open)photoLightbox.close();
       applyPhotoZoom(1);
       photoLightboxImage.removeAttribute('src');
-      document.body.style.overflow = '';
+      document.body.style.overflow = document.getElementById('issueDetailDialog').open?'hidden':'';
     }
+    photoLightbox.addEventListener('cancel',e=>{e.preventDefault();e.stopPropagation();closePhotoLightbox();});
+    photoLightbox.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePhotoLightbox();}});
     photoLightbox.addEventListener('wheel', event => {
       if (!photoLightbox.classList.contains('show') || !photoLightboxImage.src) return;
       event.preventDefault();
@@ -1991,7 +1998,7 @@
         grid.appendChild(div);
       });
     }
-    function removeImage(index) { if (issueBusy) return; currentImages.splice(index, 1); renderPreviews(); }
+    function removeImage(index) { if (issueBusy) return; currentImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderPreviews(); }
 
     function renderAfterPreviews() {
       const grid = document.getElementById('afterPreviewGrid');
@@ -2004,7 +2011,7 @@
         grid.appendChild(div);
       });
     }
-    function removeAfterImage(index) { if (issueBusy) return; currentAfterImages.splice(index, 1); renderAfterPreviews(); }
+    function removeAfterImage(index) { if (issueBusy) return; currentAfterImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderAfterPreviews(); }
 
     function buildHistoryNote(existing, draft) {
       if (!existing) return '문제점 신규 등록';
@@ -2037,7 +2044,7 @@
       if (!history.length) { box.innerHTML = '<div class="empty">저장된 처리 이력이 없습니다.</div>'; return; }
       box.innerHTML = history.map((h, idx) => {
         let when = h.at || '';
-        try { when = new Date(h.at).toLocaleString('ko-KR'); } catch(e) {}
+        when=window.formatIssueHistoryTime?.(h.at)||when;
         return `<div class="history-entry ${idx === 0 ? 'latest' : ''}">
           <div class="history-head"><span class="history-actor">${esc(h.actor || '사용자')}</span><span class="history-time">${esc(when)}</span></div>
           <div class="history-note">${esc(h.note || '변경')}</div>
@@ -2102,6 +2109,8 @@
     }
 
     function editIssue(id) {
+      if(issueBusy)return false;
+      if(document.getElementById('issueForm').dataset.dirty==='true'&&!confirm('작성 중인 내용을 버리고 선택한 문제점을 수정하시겠습니까?'))return false;
       const issue = issues.find(x => x.id === id);
       if (issue) { fillForm(issue); for(const k of ['yard','hullNo','productNo','remark','part','factory'])document.getElementById('issueExtra_'+k).value=issue[k]||'';rememberIssueValues(); }
     }
@@ -2244,6 +2253,8 @@
 }
 
     function renderIssueList(){
+      const scope=document.getElementById('issueFilterScope');if(scope)scope.textContent=(issueLoadError?'이전 조회 기준':'서버 조회 전체')+' '+issues.length+'건 · 현재 필터 '+currentFiltered.length+'건';
+      if(!issuesLoaded&&!issues.length){document.getElementById('issueList').innerHTML='<p class="empty">'+(issueLoadError?'조회에 실패했습니다. 위 안내에서 다시 조회해 주세요.':window.hpmServerUser?'서버 조회 대기 중':'로그인 후 조회할 수 있습니다.')+'</p>';listCountBadge.textContent='미확인';if(scope)scope.textContent='서버 조회 미확인';window.renderIssueLoadState?.();return;}
       const list=document.getElementById('issueList'),totalPages=Math.max(1,Math.ceil(currentFiltered.length/PAGE_SIZE));if(currentPage>totalPages)currentPage=totalPages;listCountBadge.textContent=currentFiltered.length+'건';list.innerHTML='';const pageItems=currentFiltered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
       if(!pageItems.length)list.innerHTML='<div class="empty">조회 조건에 해당하는 문제점이 없습니다.</div>';
       for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(issue.issueNo||'문제점')} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-no">${esc(issue.issueNo||'관리번호 미지정')}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta"><span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc([issue.yard,issue.hullNo].filter(Boolean).join(' / ')||issue.projectNo||'YARD/HULL 미지정')}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
@@ -2329,6 +2340,7 @@
     }
 
     function renderDashboard() {
+      if(!issuesLoaded&&!issues.length){window.renderIssueLoadState?.();return;}
       const open = issues.filter(x => !closedStatuses.includes(x.status));
       const overdue = issues.filter(isOverdue);
       const lead = averageLead(issues);
@@ -2361,6 +2373,7 @@
     }
 
     function renderStatistics() {
+      if(!issuesLoaded&&!issues.length){window.renderIssueLoadState?.();return;}
       const items = getStatItems();
       if (!items) return;
       const closed = items.filter(x => closedStatuses.includes(x.status));
@@ -2951,7 +2964,7 @@
       }
     }
     function navigatePortal(page,issueTab){
-      if(['vehicles','safety'].includes(page)){showToast('현재 메뉴에서 제공하지 않는 기능입니다.');return;}if(page==='accounts'&&window.hpmServerUser?.role!=='admin'){showToast('관리자 권한이 필요합니다.');return;}if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team'])if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return;if(page==='as'||page==='team')lastCalendarTab=page;
+      if(['vehicles','safety','supplies','meals'].includes(page)){showToast('현재 메뉴에서 제공하지 않는 기능입니다.');return;}if(page==='accounts'&&window.hpmServerUser?.role!=='admin'){showToast('관리자 권한이 필요합니다.');return;}if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team'])if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return;if(page==='as'||page==='team')lastCalendarTab=page;
       document.querySelectorAll('.portal-page').forEach(p=>p.classList.toggle('active',p.id===page+'Page'));document.querySelectorAll('#portalNavigation [data-page]').forEach(b=>{const active=(b.dataset.page===page||b.dataset.page==='calendar'&&['as','team'].includes(page))&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'manage'));b.classList.toggle('active',active);if(active){b.setAttribute('aria-current','page');const g=b.closest('.menu-group');if(g)setPortalMenuExpanded(g.querySelector('.menu-parent'),true);}else b.removeAttribute('aria-current');});
       if(page==='issue')switchIssueTab(issueTab||'manage');if(['as','team'].includes(page))void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();document.dispatchEvent(new CustomEvent('hpm:navigate',{detail:page}));window.closePortalMenu?.();window.scrollTo({top:0,behavior:'smooth'});
     }
@@ -2997,7 +3010,7 @@
           </button>`;
         }).join(''):'<div class="empty">현재 PND 확인 필요 항목이 없습니다.</div>';
       }
-      renderAuthState()
+      renderAuthState();window.renderIssueLoadState?.();
     }
 async function initializePortal() {
   updatePortalClock();
@@ -3015,11 +3028,7 @@ async function initializePortal() {
       const note = document.getElementById('presentationPortabilityNote');
       note.style.display = 'block'; note.textContent = '발표용 스냅샷 · 문제점 조회 전용 · 변경은 웹사이트에서 진행하세요.';
     }
-  } catch {
-    const notice = document.createElement('div');
-    notice.className = 'auth-message'; notice.setAttribute('role', 'alert');
-    notice.textContent = '문제점 데이터를 불러오지 못했습니다. 연결 상태를 확인한 후 새로고침하세요. 등록·수정·삭제는 잠시 사용할 수 없습니다.';
-    document.body.prepend(notice);
+  } catch { window.renderIssueLoadState?.();
   }
 
   renderStatistics();
@@ -3034,4 +3043,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261016-ui"; await window.startHpmPortal();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261021-brand"; await window.startHpmPortal();</script></body></html>

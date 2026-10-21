@@ -44,9 +44,9 @@ test('old browser flags and forged role headers cannot access records, files or 
     const r=await request(env,path,'GET',undefined,null,{'X-User-Id':'owner','X-Role':'admin',Cookie:'productionPortalSessionV1=owner;loggedIn=true'});assert.equal(r.status,401,path);assert.equal((await r.json()).code,'AUTH_REQUIRED');
   }
 });
-test('removed vehicle/safety screens never appear in integration search while their retained records remain readable',async()=>{
+test('removed vehicle/safety/meal screens never appear in integration search while their retained records remain readable',async()=>{
   const env=makeEnv();env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));
-  for(const [table,id,data] of [['vehicles','kept-car',{number:'합성 숨김 차량'}],['safety_checks','kept-safety',{factory:'합성 숨김 안전'}]])env.sqlite.prepare(`INSERT INTO ${table}(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?)`).run(id,'owner',JSON.stringify(data),'2026-01-01','2026-01-01','2026-01-01');
+  for(const [table,id,data] of [['vehicles','kept-car',{number:'합성 숨김 차량'}],['safety_checks','kept-safety',{factory:'합성 숨김 안전'}],['meal_people','kept-person',{name:'합성 숨김 인원'}]])env.sqlite.prepare(`INSERT INTO ${table}(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?)`).run(id,'owner',JSON.stringify(data),'2026-01-01','2026-01-01','2026-01-01');
   const result=await ok(request(env,'/api/business/search?q='+encodeURIComponent('합성 숨김')));assert.deepEqual(result.records,[]);
-  assert.equal((await ok(request(env,'/api/business/vehicles'))).records.length,1);assert.equal((await ok(request(env,'/api/business/safety'))).records.length,1);
+  assert.equal((await ok(request(env,'/api/business/vehicles'))).records.length,1);assert.equal((await ok(request(env,'/api/business/safety'))).records.length,1);assert.equal((await ok(request(env,'/api/business/people'))).records.length,1);
 });
