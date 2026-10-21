@@ -64,4 +64,5 @@ fieldset{background:var(--surface-alt);border-color:var(--line);color:var(--ink)
 .schedule-hint,.schedule-types small,.schedule-backup-body p{color:var(--ink-muted)}
 .schedule-page .cal-item .schedule-line{color:var(--ink-muted)}.schedule-page .cal-item .schedule-edit-label{color:var(--brand-strong)}
 .owner-note{background:var(--surface-alt);color:var(--ink-muted)}
+.auth-modal{padding:16px}.auth-dialog{max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 @media(max-width:360px){#authName{max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}

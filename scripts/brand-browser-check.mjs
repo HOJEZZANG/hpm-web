@@ -45,6 +45,7 @@ try{
     }
   }
   await reload();await t.wait('window.hpmServerUser?.id==="owner"&&issuesLoaded');assert.equal(await theme(),'dark');assert.equal(await t.evaluate('localStorage.getItem("hpm-unrelated-backup")'),'retain');
-  await t.evaluate('logoutPortal()');await t.wait('window.hpmServerUser===null');assert.equal(await theme(),'dark');assert.deepEqual(qa.errors,[]);
+  await t.evaluate('logoutPortal()');await t.wait('window.hpmServerUser===null');assert.equal(await theme(),'dark');
+  for(const [width,height] of [[1366,768],[1920,1080],[390,844],[320,740],[390,440]]){await t.call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await t.evaluate('openLoginModal("login")');assert(await t.evaluate('(()=>{const r=document.querySelector("#authModal .auth-dialog").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;})()'),'Login dialog clipped at '+width+'x'+height);await t.evaluate('closeLoginModal()');}assert.deepEqual(qa.errors,[]);
   console.log('PASS brand/logo, OS/default + explicit/reloaded theme, storage/session preservation, light/dark 4 widths and control contrast; grouped detail/newlines/escaped HTML/KST/photos/sticky header/keyboard focus/Esc/draft cancel; read failure vs empty/stale/retry/filter counts; external links and removed entry points.');
 }finally{await qa.close();await state.close();}
