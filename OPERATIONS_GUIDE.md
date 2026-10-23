@@ -2,6 +2,8 @@
 
 2026-10-23 엑셀·방문 기록·테두리의 최신 상태는 [EXPERIENCE_PROGRESS.md](EXPERIENCE_PROGRESS.md), 사용·재시도 절차와 지원 범위는 [PRODUCTION_UPLOAD.md](PRODUCTION_UPLOAD.md)를 따른다. 현재 단계에는 신규 migration이 없다. 재부팅 후 PowerShell 실행 정책을 바꾸지 않고 `npm.cmd`를 사용한다.
 
+**이번 개선 운영 반영 완료:** 구현 `8c4ae6a`, API 테스트 81/81, 로컬 workerd/Chrome 및 실제 Pages 파일 26개·브라우저 확인 통과. 생산은 새 화면의 10MiB 분할 업로드를 사용한다. 배포 전후 문제점 4/AS 13/팀 16과 19개 계정·업무 테이블/사진 2개 보존. 사용자는 기존 승인 계정으로 로그인하며, 최초 관리자 등록·migration을 다시 실행하지 않는다. 업로드 장애 시 같은 이력/원본으로 재시도하고 전체 계획 삭제나 DB 복원을 실행하지 않는다. 현재 주소를 유지한다.
+
 2026-10-21 브랜드/상세 화면 변경의 현재 상태는 [BRAND_PROGRESS.md](BRAND_PROGRESS.md), 도메인은 [준비 안내](DOMAIN_PREPARATION.md)를 따른다. 기존 0001~0005 migration은 이미 적용 완료됐으며 이번 UI 변경에서는 추가/재적용하지 않는다. 아래 최초 설치·이전 배포 설명은 이력이다.
 
 사용자는 데이터 확인 한계를 이해하고 UI·검색 변경의 운영 배포/push/Pages 확인을 승인했다. `portal.hpm.com` 사용 계획은 취소됐으며 현재 GitHub Pages 주소를 유지한다. 도메인/DNS/CNAME 설정은 변경하지 않는다. 과거 전체 문제점 데이터 누락 여부는 미해결 항목으로 별도 기록한다.
