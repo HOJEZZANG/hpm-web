@@ -50,7 +50,7 @@ scan(root);
 assert.equal((html.match(/const API_BASE_URL =/g) || []).length, 1);
 assert.ok(!html.includes('saveIssues('));
 assert.ok(!html.includes('processIssueFeedbackV1'));
-assert.match(html, /await apiRequest\('\/api\/issues'\)/);
+assert.match(html, /await apiRequest\('\/api\/issues',\{timeoutMs:15000\}\)/);
 assert.match(html, /await saveIssue\(data\)/);
 assert.match(html, /await apiRequest\('\/api\/issues\/bulk-delete'/);
 for (const name of ['canDeleteIssue', 'compressImage', 'openPhotoLightbox', 'renderHistoryTimeline',

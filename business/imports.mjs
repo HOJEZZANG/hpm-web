@@ -2,11 +2,13 @@ import {BusinessError,ensure,text,date,productionSummary} from './domain.mjs';
 import {parseWorkbook,template,createWorkbook,MIME} from './excel.mjs';
 import {multipart,binary} from './http.mjs';
 import {idOk,now,admin} from './access.mjs';
+import {beginProduction,productionImport} from './production-import.mjs';
 export async function imports(req,env,u,id,action,url){
+  if(req.method==='POST'&&id==='start')return beginProduction(req,env,u);
   if(req.method==='GET'&&id==='template'){const kind=url.searchParams.get('kind');ensure(['production','supplies'].includes(kind),'양식 구분을 확인하세요.');return binary(await template(kind),kind+'_양식_예시포함.xlsx');}
   if(req.method==='GET'&&!id){
     const kind=url.searchParams.get('kind');ensure(['production','supplies'].includes(kind),'업로드 구분을 확인하세요.');
-    return {records:(await env.DB.prepare('SELECT id,kind,filename,row_count,status,created_at,applied_at FROM plan_imports WHERE kind=? ORDER BY created_at DESC,id LIMIT 200').bind(kind).all()).results};
+    return {records:(await env.DB.prepare("SELECT id,kind,filename,row_count,status,created_at,applied_at,json_extract(staged_data,'$.version') AS version,json_extract(staged_data,'$.phase') AS phase FROM plan_imports WHERE kind=? ORDER BY created_at DESC,id LIMIT 200").bind(kind).all()).results};
   }
   if(req.method==='POST'&&!id){
     admin(u);const {form,file}=await multipart(req),kind=form.get('kind');ensure(['production','supplies'].includes(kind),'업로드 구분을 확인하세요.');ensure(/\.xlsx$/i.test(file.name),'지원 형식은 .xlsx입니다. .xls는 .xlsx로 저장하세요.');
@@ -21,7 +23,8 @@ export async function imports(req,env,u,id,action,url){
     return {id:newId,...parsed,applyCount:parsed.rows.length};
   }
   ensure(idOk(id),'업로드 ID를 확인하세요.');const r=await env.DB.prepare('SELECT * FROM plan_imports WHERE id=?').bind(id).first();ensure(r,'업로드 이력이 없습니다.',404);
-  if(req.method==='GET'&&action==='file'){const object=await env.PHOTOS.get(r.file_key);ensure(object,'원본 파일이 없습니다.',404);return binary(object.body,r.filename);}
+  if(req.method==='GET'&&action==='file'){ensure(r.status==='applied'||u.role==='admin','미반영 원본은 관리자만 조회할 수 있습니다.',403);const object=await env.PHOTOS.get(r.file_key);ensure(object,'원본 파일이 없습니다.',404);return binary(object.body,r.filename);}
+  if(JSON.parse(r.staged_data).version===2)return productionImport(req,env,u,r,action,url);
   if(req.method==='GET')return {id:r.id,status:r.status,...JSON.parse(r.staged_data),applyCount:r.row_count};
   ensure(req.method==='POST'&&action==='apply','지원하지 않는 요청입니다.',405);admin(u);
   if(r.status==='applied')return {applied:r.row_count,id:r.id,retry:true};
@@ -34,6 +37,14 @@ export async function imports(req,env,u,id,action,url){
 export async function rowsApi(env,kind,url){
   const id=url.searchParams.get('import');if(!id){ensure(url.searchParams.get('download')!=='1','반영 이력을 선택한 뒤 다운로드하세요.');return {records:[],summary:kind==='production'?productionSummary([]):undefined};}
   ensure(idOk(id),'업로드 이력을 선택하세요.');
+  const imported=await env.DB.prepare('SELECT status,kind,staged_data FROM plan_imports WHERE id=?').bind(id).first();ensure(imported&&imported.kind===kind,'업로드 이력이 없습니다.',404);ensure(imported.status==='applied','아직 반영되지 않은 전송/미리보기 자료입니다. 이력에서 진행 상태를 확인하세요.',409);
+  const meta=JSON.parse(imported.staged_data);
+  if(kind==='production'&&meta.version===2){
+    ensure(url.searchParams.get('download')!=='1','대용량 엑셀은 화면의 조회 결과 다운로드를 이용하세요.');
+    const offset=Number(url.searchParams.get('offset')||0);ensure(Number.isSafeInteger(offset)&&offset>=0,'조회 위치를 확인하세요.');
+    const records=(await env.DB.prepare("SELECT id,row_number,json_remove(data,'$.__cells','$.__formulas','$.__cellCount') AS data FROM production_rows WHERE import_id=? ORDER BY row_number LIMIT 200 OFFSET ?").bind(id,offset).all()).results.map(r=>({id:r.id,...JSON.parse(r.data)}));
+    return {version:2,records,total:meta.rowCount,nextOffset:offset+records.length<meta.rowCount?offset+records.length:null,meta};
+  }
   const table=kind==='production'?'production_rows':'supply_items';
   const rows=(await env.DB.prepare(`SELECT * FROM ${table} WHERE import_id=? ORDER BY row_number`).bind(id).all()).results.map(r=>({id:r.id,...JSON.parse(r.data)}));
   const eqColumn=['제조사양관리구분','분류','LINE 5000'].find(k=>rows.some(r=>Object.hasOwn(r,k))),from=url.searchParams.get('from'),to=url.searchParams.get('to');

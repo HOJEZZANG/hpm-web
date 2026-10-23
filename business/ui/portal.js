@@ -1,21 +1,23 @@
-import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js';
-import {init as weekly} from './weekly.js';
-import {init as production} from './production.js';
+import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261023';
+import {init as weekly} from './weekly.js?v=20261023';
+import {init as production} from './production.js?v=20261023';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261021-brand';
 import {initIssueView} from './issue-view.js?v=20261021-brand';
-import {initIssueLoadState} from './issue-load-state.js?v=20261021-brand';
-initNavigation();initIssueView();initIssueLoadState();
+import {initIssueLoadState} from './issue-load-state.js?v=20261023';
+import {initHistory} from './history.js';
+initNavigation();initIssueView();initIssueLoadState();initHistory();
 window.createHpmPresentation=createPresentation;
 const modules={weekly,production,notices,search,accounts};
 const initialized=new Set();
+const pending=new Map();
 let lastAccountId=null;
 async function open(page){
   if(!modules[page])return;const root=document.getElementById(page+'Page');
   if(!user()){root.innerHTML='<div class="card business-login-note">로그인 후 이용할 수 있습니다. 우측 상단에서 서버 계정으로 로그인하세요.</div>';return;}
-  if(initialized.has(page))return;initialized.add(page);
+  if(pending.has(page))return pending.get(page);if(initialized.has(page))return;
   delete root.dataset.ready;
-  try{await modules[page](root);root.dataset.ready='true';}catch(e){initialized.delete(page);root.innerHTML=`<p role="alert">${esc(e.message)}</p>${button('다시 열기','data-retry')}`;$('[data-retry]',root).onclick=()=>open(page);}
+  const task=(async()=>{try{await modules[page](root);if(root.isConnected){initialized.add(page);root.dataset.ready='true';}}catch(e){if(root.isConnected){root.innerHTML=`<p role="alert">${esc(e.message)}</p>${button('다시 열기','data-retry')}`;$('[data-retry]',root).onclick=()=>open(page);}}finally{if(pending.get(page)===task)pending.delete(page);}})();pending.set(page,task);return task;
 }
 async function notices(root){return collection(root,{type:'notices',title:'공지사항',description:'관리자가 게시한 생산관리 공지사항',admin:true,fields:[['title','제목','text',{required:true,max:200}],['content','공지내용','textarea',{required:true,max:5000,wide:true}]],columns:[{label:'제목',key:'title'},{label:'내용',key:'content'},{label:'수정일',key:'updatedAt'}]});}
 async function search(root){
@@ -31,7 +33,7 @@ async function accounts(root){
   root.onclick=e=>{const b=e.target.closest('[data-user]');if(b)void run(root,b,async()=>{await window.apiRequest('/api/auth/users/'+b.dataset.user,jsonOptions('PUT',{status:b.dataset.status}));message(root,'서버에서 권한 변경을 확인했습니다.');await load();});};await run(root,null,load);
 }
 document.addEventListener('hpm:navigate',e=>void open(e.detail));
-document.addEventListener('hpm:auth',()=>{const accountId=user()?.id||null;if(accountId&&accountId===lastAccountId)return;lastAccountId=accountId;initialized.clear();for(const page of Object.keys(modules)){const root=document.getElementById(page+'Page'),fresh=root.cloneNode(false);fresh.classList.remove('meeting-view');fresh.removeAttribute('data-ready');fresh.removeAttribute('data-dirty');fresh.removeAttribute('aria-busy');root.replaceWith(fresh);}const active=$('.portal-page.active');if(active)void open(active.id.replace(/Page$/,''));});
+document.addEventListener('hpm:auth',()=>{const accountId=user()?.id||null;if(accountId&&accountId===lastAccountId)return;lastAccountId=accountId;initialized.clear();pending.clear();for(const page of Object.keys(modules)){const root=document.getElementById(page+'Page'),fresh=root.cloneNode(false);fresh.classList.remove('meeting-view');fresh.removeAttribute('data-ready');fresh.removeAttribute('data-dirty');fresh.removeAttribute('aria-busy');root.replaceWith(fresh);}const active=$('.portal-page.active');if(active)void open(active.id.replace(/Page$/,''));});
 window.addEventListener('beforeunload',e=>{if(document.querySelector('.business-form[data-dirty=true],.portal-page[data-dirty=true],#issueForm[data-dirty=true]')){e.preventDefault();e.returnValue='';}});
 window.HpmBusiness={open};
 const homeGrid=document.querySelector('#homePage .home-grid');

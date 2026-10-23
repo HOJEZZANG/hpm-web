@@ -1,6 +1,8 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,download,isAdmin} from './common.js';
-export function importPanel(kind){return `<details class="card"><summary>엑셀 업로드 · 양식 · 이력</summary><p>양식은 예시 1행을 포함합니다. 실제 데이터로 바꾸세요. .xlsx 2MB / 500행 / 40열까지 지원합니다. 원본·이력은 보존되며 업로드별로 조회합니다. 기존 자료는 자동 병합·덮어쓰기하지 않습니다.</p><div class="business-toolbar">${button('예시 포함 양식 다운로드','data-template')}${isAdmin()?'<input aria-label="엑셀 파일" type="file" accept=".xlsx" data-file><button type="button" class="btn primary" data-preview>검증 · 미리보기</button>':'<span>업로드·반영은 관리자 권한이 필요합니다.</span>'}</div><div data-preview-area></div><div data-import-history></div></details><div class="business-toolbar">${field('batch','조회할 반영 이력','select',{values:[['','이력을 선택하세요']]})}${button('이력 새로 조회','data-reload-imports')}</div>`;}
+import {productionImportPanel,wireProductionImports} from './production-import.js';
+export function importPanel(kind){if(kind==='production')return productionImportPanel();return `<details class="card"><summary>엑셀 업로드 · 양식 · 이력</summary><p>양식은 예시 1행을 포함합니다. 실제 데이터로 바꾸세요. .xlsx 2MB / 500행 / 40열까지 지원합니다. 원본·이력은 보존되며 업로드별로 조회합니다. 기존 자료는 자동 병합·덮어쓰기하지 않습니다.</p><div class="business-toolbar">${button('예시 포함 양식 다운로드','data-template')}${isAdmin()?'<input aria-label="엑셀 파일" type="file" accept=".xlsx" data-file><button type="button" class="btn primary" data-preview>검증 · 미리보기</button>':'<span>업로드·반영은 관리자 권한이 필요합니다.</span>'}</div><div data-preview-area></div><div data-import-history></div></details><div class="business-toolbar">${field('batch','조회할 반영 이력','select',{values:[['','이력을 선택하세요']]})}${button('이력 새로 조회','data-reload-imports')}</div>`;}
 export async function wireImports(root,kind,onSelect){
+  if(kind==='production')return wireProductionImports(root,onSelect);
   let previewId=null;
   const refresh=async()=>{
     const {records}=await api('imports?kind='+kind),select=$('[name=batch]',root),previous=select.value;

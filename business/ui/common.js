@@ -54,7 +54,7 @@ export async function collection(root,config){
     }
     if(b.dataset.delete!==undefined&&confirm('이 기록 한 건을 삭제하시겠습니까?'))void run(root,b,async()=>{const row=records[Number(b.dataset.delete)];await api(type+'/'+row.id,jsonOptions('DELETE',{revision:row.revision}));message(root,'서버에서 개별 삭제를 확인했습니다.');await load();});
   });
-  if(weekly)$('[name=week]',root).addEventListener('change',()=>void run(root,null,load));
+  if(weekly){$('[name=week]',root).addEventListener('change',()=>void run(root,null,load));root.addEventListener('hpm:restore-state',()=>void run(root,null,load));}
   if(form)form.addEventListener('submit',e=>{e.preventDefault();const draft=Object.fromEntries(new FormData(form));if('active'in draft)draft.active=draft.active==='true';void run(root,$('[type=submit]',form),async()=>{const result=await api(type+'/'+(selected?.id||newId),jsonOptions('PUT',{...draft,revision:selected?.revision||0}));selected=result.record;dirty.clean();message(root,'서버 저장을 확인했습니다.');await load();});});
   await run(root,null,load);
 }

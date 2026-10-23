@@ -1,5 +1,7 @@
 # 생산 1파트 기능 통합 검토본
 
+2026-10-23 생산 엑셀 제한·방문 기록·테두리 변경은 [현재 진행 기록](EXPERIENCE_PROGRESS.md)과 [생산 업로드 안내](PRODUCTION_UPLOAD.md)를 우선한다. 아래 초기 통합의 2MB/500행/40열 안내는 현재 생산 업로드에 적용되지 않는다. 인증·기존 자료·migration은 유지한다.
+
 2026-10-21 브랜드·상세 화면·라이트/다크·소모품 외부 링크·식수 진입 제외 변경과 승인된 배포 상태는 [BRAND_PROGRESS.md](BRAND_PROGRESS.md)를 따른다. 기존 데이터/인증/migration은 보존하며 현재 GitHub Pages 주소를 유지한다.
 
 이 문서는 구현과 검증 결과다. 2026-10-15 사용자 승인으로 D1 백업·신규 migration·최초 관리자 등록·Worker 배포·commit/push·Pages 반영과 운영 읽기 확인을 완료했다. 최신 결과는 `INTEGRATION_PROGRESS.md`에 기록한다. 관리자/가입/복구 절차는 `OPERATIONS_GUIDE.md`를 따른다.

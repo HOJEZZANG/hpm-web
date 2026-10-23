@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261021-brand"></head>
+<link rel="stylesheet" href="business/ui/business.css"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"></head>
 <body>
 <div class="portal-topbar"><button type="button" id="menuToggle" class="menu-toggle" aria-label="업무 메뉴 열기/닫기" aria-controls="portalSidebar" aria-expanded="false">☰</button>
   <div class="portal-brand" role="button" tabindex="0" title="홈으로 이동" aria-label="HPM 로고, 홈으로 이동" onclick="navigatePortal('home')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigatePortal('home');}">
@@ -1563,7 +1563,8 @@
 <div id="presentationPortabilityNote" style="display:none"></div>
 <script>
 
-    let authMode='login';let currentUser=null;let authLogoutBusy=false,authRestoreMessage='';
+    let authMode='login';let currentUser=null;let authLogoutBusy=false,authRestoreMessage='';let authEpoch=0,issueLoadSequence=0;
+    document.addEventListener('hpm:auth',()=>{authEpoch++;issueLoadPending=false;issueLoadError='';});
     function normalizePortalUser(user={}) {
       return {
         role:user.role || 'user', status:user.status || '', id:user.id || '', name:user.name || '', team:user.team || '', officePhone:user.officePhone || '',
@@ -1587,7 +1588,7 @@
       }catch(e){authMessage.textContent=e.message;authMessage.dataset.code=e.code||'';}finally{authSubmitBtn.disabled=false;}
     }
 
-    async function reloadSharedModules(){try{await loadIssues();renderDashboard();applyFilters();renderStatistics();await initializeCalendars();renderPortalHome();}catch(e){showToast(e.message);}}
+    async function reloadSharedModules(){await Promise.allSettled([loadIssues().then(()=>{renderDashboard();applyFilters();renderStatistics();}).catch(e=>showToast(e.message)),initializeCalendars()]);renderPortalHome();}
     async function logoutPortal(){
       if(authLogoutBusy||!confirm('로그아웃하시겠습니까?'))return;authLogoutBusy=true;topLogoutBtn.disabled=true;
       try{await apiRequest('/api/auth/logout',{method:'POST'});}catch(e){if(![401,403].includes(e.status)){showToast('로그아웃하지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.');return;}}
@@ -1668,10 +1669,10 @@
     }
     async function apiRequest(path, options = {}) {
       if (isPresentationMode()) throw new Error('발표용 파일에서는 API를 변경하거나 호출할 수 없습니다. 웹사이트를 이용하세요.');
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 45000);
+      const {timeoutMs=45000,...requestOptions}=options;const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await window.authorizedFetch(API_BASE_URL + path, { ...options, signal: controller.signal });
+        const response = await window.authorizedFetch(API_BASE_URL + path, { ...requestOptions, signal: controller.signal });
         let result;
         try { result = await response.json(); } catch { throw new Error('서버 응답을 읽지 못했습니다. Worker 배포 상태를 확인하세요.'); }
         if(!response.ok||result.ok!==true){const error=new Error(result.error||'요청을 처리하지 못했습니다. 다시 시도하세요.');error.status=response.status;error.code=result.code;if(response.status===401&&currentUser&&path!=='/api/auth/login'){sessionStorage.removeItem('hpmServerToken');window.hpmServerUser=null;renderAuthState();openLoginModal('login');authUserId.value=currentUser.id;authMessage.textContent='로그인이 만료되었습니다. 같은 계정으로 다시 로그인하면 입력을 이어서 저장할 수 있습니다.';}if(response.status===403&&['ACCOUNT_PENDING','ACCOUNT_DISABLED'].includes(result.code)){window.hpmServerUser=null;renderAuthState();}throw error;}
@@ -1723,20 +1724,24 @@
       return normalizeIssueProcess(data);
     }
     async function loadIssues() {
+      const epoch=authEpoch,sequence=++issueLoadSequence;
       issueLoadPending = true;issueLoadError = '';window.renderIssueLoadState?.();
       try {
         const result = isPresentationMode()
           ? { issues: getEmbeddedPortalSnapshot().issues || [] }
-          : await apiRequest('/api/issues');
+          : await apiRequest('/api/issues',{timeoutMs:15000});
+        if(epoch!==authEpoch||sequence!==issueLoadSequence)return issues;
         if (!Array.isArray(result.issues)) throw new Error('문제점 목록 응답 형식이 올바르지 않습니다.');
         issues = result.issues.map(normalizeClientIssue);
         issuesLoaded = true;
+        renderPortalHome();
         return issues;
       } catch (error) {
+        if(epoch!==authEpoch||sequence!==issueLoadSequence)return issues;
         issuesLoaded = false;
         issueLoadError = '문제점 조회 실패: ' + error.message;
         throw error;
-      } finally { issueLoadPending=false;window.renderIssueLoadState?.(); }
+      } finally { if(epoch===authEpoch&&sequence===issueLoadSequence){issueLoadPending=false;window.renderIssueLoadState?.();} }
     }
     async function uploadPhotoBlob(blob, id, category) {
       const form = new FormData();
@@ -1920,6 +1925,7 @@
     }
 
     function switchIssueTab(tab){
+      if(window.HpmHistory&&!window.HpmHistory.rendering)return window.navigatePortal('issue',tab);
       if(!['dashboard','manage','statistics'].includes(tab))tab='manage';for(const p of document.querySelectorAll('#issuePage .panel'))p.classList.toggle('active',p.id===tab+'Panel');document.querySelectorAll('#portalNavigation [data-page=issue]').forEach(b=>{const active=b.dataset.issueTab===tab;b.classList.toggle('active',active);if(active){b.setAttribute('aria-current','page');setPortalMenuExpanded(b.closest('.menu-group').querySelector('.menu-parent'),true);}else b.removeAttribute('aria-current');});
       const labels={dashboard:['현황 대시보드','공정 문제점 현황과 PND 알림을 확인합니다.'],manage:['공정 문제점 관리','문제점과 조치내용을 기록하고 등록 현황을 확인합니다.'],statistics:['통계·개선자료','제품·공정·부서별 현황과 개선자료를 확인합니다.']};document.getElementById('issuePageTitle').textContent=labels[tab][0];document.getElementById('issuePageDescription').textContent=labels[tab][1];if(tab==='dashboard')renderDashboard();if(tab==='manage')applyFilters();if(tab==='statistics')renderStatistics();window.scrollTo({top:0,behavior:'smooth'});
     }
@@ -2538,7 +2544,11 @@
       as:{current:new Date(),events:[],loaded:false,busy:false},
       team:{current:new Date(),events:[],loaded:false,busy:false}
     };
+    window.getPortalCalendarTab=()=>lastCalendarTab;
+    window.getPortalCalendarMonths=()=>Object.fromEntries(['as','team'].map(type=>[type,calFmt(calendarState[type].current).slice(0,7)]));
+    window.restorePortalCalendarMonths=months=>{for(const type of ['as','team'])if(/^\d{4}-(0[1-9]|1[0-2])$/.test(months?.[type]||'')){const [y,m]=months[type].split('-').map(Number);calendarState[type].current=new Date(y,m-1,1);renderCalendar(type);}};
     let calendarInitialization = null;
+    document.addEventListener('hpm:auth',()=>{calendarInitialization=null;for(const type of ['as','team']){calendarState[type].busy=false;calendarState[type].error='';}});
     let calendarTransferBusy = false, pendingCalendarImport = null;
     function calendarPath(type) {
       if (!['as', 'team'].includes(type)) throw new Error('지원하지 않는 일정입니다.');
@@ -2557,6 +2567,7 @@
       return event;
     }
     function calendarNotice(type, message, retry = false) {
+      calendarState[type].error=retry?message:'';
       let box = document.getElementById(type + 'CloudStatus');
       if (!box) {
         box = document.createElement('div'); box.id = type + 'CloudStatus';
@@ -2616,40 +2627,42 @@
     async function initializeCalendars() {
       if (calendarInitialization) return calendarInitialization;
       if (calendarState.as.busy || calendarState.team.busy) return;
-      calendarInitialization = (async () => {
+      const epoch=authEpoch,task = (async () => {
         for (const type of ['as', 'team']) {
           calendarBusy(type, true); calendarNotice(type, '공유 일정 불러오는 중…');
         }
         try {
           const lists = await Promise.all(['as', 'team'].map(loadCalendarEvents));
+          if(epoch!==authEpoch)return;
           ['as', 'team'].forEach((type, index) => {
             calendarState[type].events = lists[index]; calendarState[type].loaded = true;
             calendarNotice(type, isPresentationMode() ? '발표용 일정 · 조회 전용' : '');
           });
         } catch (error) {
+          if(epoch!==authEpoch)return;
           for (const type of ['as', 'team']) {
             calendarState[type].loaded = false;
             calendarNotice(type, '공유 일정 조회 실패: ' + error.message, true);
           }
         } finally {
-          for (const type of ['as', 'team']) { calendarBusy(type, false); renderCalendar(type); }
-          renderPortalHome();
+          if(epoch===authEpoch){for (const type of ['as', 'team']) { calendarBusy(type, false); renderCalendar(type); }renderPortalHome();}
         }
       })();
-      try { await calendarInitialization; } finally { calendarInitialization = null; }
+      calendarInitialization=task;try { await task; } finally { if(calendarInitialization===task)calendarInitialization=null; }
     }
     async function refreshCalendar(type) {
       if (calendarInitialization) { await calendarInitialization; return; }
       if (calendarState[type].busy) return;
       if (!calendarState[type].loaded) { await initializeCalendars(); return; }
-      calendarBusy(type, true); calendarNotice(type, '공유 일정 불러오는 중…');
+      const epoch=authEpoch;calendarBusy(type, true); calendarNotice(type, '공유 일정 불러오는 중…');
       try {
-        calendarState[type].events = await loadCalendarEvents(type);
+        const events=await loadCalendarEvents(type);if(epoch!==authEpoch)return;calendarState[type].events = events;
         calendarNotice(type, isPresentationMode() ? '발표용 일정 · 조회 전용' : '');
       } catch (error) {
+        if(epoch!==authEpoch)return;
         calendarState[type].loaded = false;
         calendarNotice(type, '공유 일정 조회 실패: ' + error.message, true);
-      } finally { calendarBusy(type, false); renderCalendar(type); renderPortalHome(); }
+      } finally { if(epoch===authEpoch){calendarBusy(type, false); renderCalendar(type); renderPortalHome();} }
     }
     function calUid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
     function calFmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
@@ -2963,10 +2976,11 @@
         }
       }
     }
-    function navigatePortal(page,issueTab){
-      if(['vehicles','safety','supplies','meals'].includes(page)){showToast('현재 메뉴에서 제공하지 않는 기능입니다.');return;}if(page==='accounts'&&window.hpmServerUser?.role!=='admin'){showToast('관리자 권한이 필요합니다.');return;}if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team'])if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return;if(page==='as'||page==='team')lastCalendarTab=page;
+    function navigatePortal(page,issueTab,options={}){
+      if(window.HpmHistory&&!options.render)return window.HpmHistory.navigate(page,issueTab,options);
+      if(['vehicles','safety','supplies','meals'].includes(page)){showToast('현재 메뉴에서 제공하지 않는 기능입니다.');return false;}if(page==='accounts'&&window.hpmServerUser?.role!=='admin'){showToast('관리자 권한이 필요합니다.');return false;}if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team'])if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return false;if(page==='as'||page==='team')lastCalendarTab=page;
       document.querySelectorAll('.portal-page').forEach(p=>p.classList.toggle('active',p.id===page+'Page'));document.querySelectorAll('#portalNavigation [data-page]').forEach(b=>{const active=(b.dataset.page===page||b.dataset.page==='calendar'&&['as','team'].includes(page))&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'manage'));b.classList.toggle('active',active);if(active){b.setAttribute('aria-current','page');const g=b.closest('.menu-group');if(g)setPortalMenuExpanded(g.querySelector('.menu-parent'),true);}else b.removeAttribute('aria-current');});
-      if(page==='issue')switchIssueTab(issueTab||'manage');if(['as','team'].includes(page))void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();document.dispatchEvent(new CustomEvent('hpm:navigate',{detail:page}));window.closePortalMenu?.();window.scrollTo({top:0,behavior:'smooth'});
+      if(page==='issue')switchIssueTab(issueTab||'manage');if(['as','team'].includes(page)&&window.hpmServerUser)void refreshCalendar(page);if(page==='fireStatus')void loadFireStatus();if(page==='home')renderPortalHome();if(page==='mypage')renderMyPage();document.getElementById('issueDetailDialog').close();closePhotoLightbox();document.dispatchEvent(new CustomEvent('hpm:navigate',{detail:page}));window.closePortalMenu?.();return true;
     }
 
     function setPortalMenuExpanded(button, expanded) {
@@ -2992,8 +3006,9 @@
       const pndWarnings=issues.map(getDeliveryWarning).filter(Boolean).sort((a,b)=>a.days-b.days);
       homeOpenIssues.textContent=open.length;
       homeOverdueIssues.textContent=pndWarnings.length;
-      homeMonthAs.textContent=calendarState.as.events.filter(e=>calGetStart(e).slice(0,7)===month||calGetEnd(e).slice(0,7)===month).length;
-      homeTodayTeam.textContent=calendarState.team.events.filter(e=>calInRange(today,calGetStart(e),calGetEnd(e))).length;
+      homeMonthAs.textContent=calendarState.as.loaded?calendarState.as.events.filter(e=>calGetStart(e).slice(0,7)===month||calGetEnd(e).slice(0,7)===month).length:'—';
+      homeTodayTeam.textContent=calendarState.team.loaded?calendarState.team.events.filter(e=>calInRange(today,calGetStart(e),calGetEnd(e))).length:'—';
+      const calendarStatus=document.getElementById('homeCalendarStatus');if(calendarStatus){const failed=['as','team'].some(t=>calendarState[t].error),busy=['as','team'].some(t=>calendarState[t].busy);calendarStatus.hidden=!window.hpmServerUser||!failed&&!busy;calendarStatus.classList.toggle('error',failed);calendarStatus.replaceChildren(Object.assign(document.createElement('span'),{textContent:failed?'AS·팀 일정 조회 실패 · 집계는 미확인입니다. 다시 조회해 주세요.':'AS·팀 일정 서버 조회 중…'}));if(failed&&!busy){const b=document.createElement('button');b.className='btn outline';b.textContent='일정 다시 조회';b.onclick=()=>void initializeCalendars();calendarStatus.append(b);}}
       const recent=[...issues].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,5);
       homeRecentIssues.innerHTML=recent.length?recent.map(x=>`<li onclick="navigatePortal('issue','manage');editIssue('${x.id}')" style="cursor:pointer"><strong>${escapePortal(x.issueNo||'-')} · ${escapePortal(x.title||'-')}</strong><span>${escapePortal(x.product||'미분류')} / ${escapePortal(x.process||'-')} / ${escapePortal(x.status||'-')} · PND ${escapePortal(x.processPnd||'-')} ${getPndDdayText(x)?'('+getPndDdayText(x)+')':''} · 등록자 ${escapePortal(x.reporter||'-')}</span></li>`).join(''):'<li><span>등록된 문제점이 없습니다.</span></li>';
       const alertCount=document.getElementById('homePndAlertCount');
@@ -3043,4 +3058,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261021-brand"; await window.startHpmPortal();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261022-experience"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

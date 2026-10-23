@@ -3,7 +3,7 @@ import {mkdir,readFile,writeFile,readdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {query,rows,hash,wrangler} from './production-lib.mjs';
-const dir='.wrangler/brand-20261021';await mkdir(dir,{recursive:true});
+const dir=process.argv[3]||'.wrangler/brand-20261021';assert(/^\.wrangler\/[a-z0-9-]+$/.test(dir));await mkdir(dir,{recursive:true});
 const save=async(name,value)=>writeFile(dir+'/'+name+'.json',JSON.stringify(value,null,2));
 const read=async name=>JSON.parse(await readFile(dir+'/'+name+'.json','utf8'));
 const ordered=(db,table)=>{const columns=db.prepare('PRAGMA table_info("'+table+'")').all(),pk=columns.filter(c=>c.pk).sort((a,b)=>a.pk-b.pk).map(c=>'"'+c.name+'"');return db.prepare('SELECT * FROM "'+table+'" ORDER BY '+(pk.join(',')||'rowid')).all();};

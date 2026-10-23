@@ -91,11 +91,11 @@ test('xlsx production/supplies round trip, Korean text, serials, blanks, wrong d
   const b=await createWorkbook(['PND','현공정','수량','분류'],[{PND:1,'현공정':'조립','수량':1,'분류':'AC'},{PND:'','현공정':'','수량':0,'분류':'AC'}]);const dates=await parseWorkbook(new Uint8Array(b),'production');assert.equal(dates.rows[0].data.PND,'1900-01-01');assert.equal(dates.warnings.length,1);
   const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Sheet1');sheet.addRow(['PND','현공정','수량','분류']);sheet.addRow(['2026-10-15','조립',{formula:'1+1'},'AC']);await assert.rejects(()=>book.xlsx.writeBuffer().then(b=>parseWorkbook(new Uint8Array(b),'production')),/수식/);
   await assert.rejects(()=>parseWorkbook(new Uint8Array(2*1024*1024+1),'production'));
-  await assert.rejects(()=>createWorkbook(['PND','현공정','수량','분류'],Array.from({length:MAX_ROWS+1},()=>({'수량':1}))).then(b=>parseWorkbook(new Uint8Array(b),'production')));
+  assert.equal((await parseWorkbook(new Uint8Array(await createWorkbook(['PND','현공정','수량','분류'],Array.from({length:MAX_ROWS+1},()=>({'수량':1})))),'production')).rows.length,MAX_ROWS+1);
   await assert.rejects(()=>createWorkbook(['품목코드','품목명','규격','단위','단가'],[{'품목코드':'A','품목명':'장갑','규격':'L','단위':'EA','단가':100},{'품목코드':'A','품목명':'장갑2','규격':'L','단위':'EA','단가':100}]).then(b=>parseWorkbook(new Uint8Array(b),'supplies')),/중복/);
 });
 test('upload preview is not live; original retained; apply and retry never replace another batch',async()=>{
-  const env=makeEnv();const p=await data(await preview(env));assert.equal(p.applyCount,1);assert.equal((await data(await req(env,'production?import='+p.id))).records.length,0);assert.equal(env.objects.size,1);
+  const env=makeEnv();const p=await data(await preview(env));assert.equal(p.applyCount,1);assert.equal((await req(env,'production?import='+p.id)).status,409);assert.equal(env.objects.size,1);
   const file=await req(env,'imports/'+p.id+'/file');assert.equal(file.status,200);assert.ok((await file.arrayBuffer()).byteLength>0);
   await data(await req(env,'imports/'+p.id+'/apply','POST'));assert.equal((await data(await req(env,'production?import='+p.id))).records.length,1);
   assert.equal((await data(await req(env,'imports/'+p.id+'/apply','POST'))).retry,true);

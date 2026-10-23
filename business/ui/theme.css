@@ -1,4 +1,5 @@
 /* Brand tokens shared by existing modules. */
+/* Inner separators, outer frames and active emphasis have distinct contrast. */
 :root{color-scheme:light;--surface:#fff;--surface-alt:#f0f4fa;--canvas:#f4f6fa;--ink:#1b2c45;--ink-muted:#53667f;--line:#cbd6e4;--brand:#0759a7;--brand-strong:#064984;--brand-soft:#e6f0fc;--focus:#1672cc;--on-brand:#fff;--nav:#122940;--nav-hover:#203d59;--nav-ink:#e5edf8;--good:#17613d;--good-bg:#e6f4ec;--warn:#845000;--warn-bg:#fff3d9;--bad:#ae2937;--bad-bg:#ffedf0;--violet:#7041a8;--violet-bg:#f1eafa;--neutral:#465c76;--neutral-bg:#eaf0f6;--veil:#08182db8;--elevation:0 8px 32px #0a25451a;
 --primary:var(--brand);--primary-dark:var(--brand-strong);--secondary:var(--brand);--accent:var(--brand);--warning:var(--warn);--danger:var(--bad);--success:var(--good);--purple:var(--violet);--bg:var(--canvas);--card:var(--surface);--text:var(--ink);--muted:var(--ink-muted);--border:var(--line);--soft:var(--surface-alt);--shadow:var(--elevation);--hpm-green:var(--brand);--hpm-green-dark:var(--brand-strong);--hpm-orange:var(--brand);--hpm-orange-dark:var(--brand-strong);--hpm-accent:var(--brand);--hpm-ink:var(--ink);--hpm-bg:var(--canvas);--hpm-line:var(--line);--hpm-muted:var(--ink-muted);--hpm-sand:var(--surface-alt);--hpm-paper:var(--surface);--navy:var(--ink);--portal-line:var(--line)}
 :root[data-theme=dark]{color-scheme:dark;--surface:#18283c;--surface-alt:#21344c;--canvas:#101b2b;--ink:#e5edf8;--ink-muted:#b2c2d8;--line:#41546e;--brand:#68b4ff;--brand-strong:#91c8ff;--brand-soft:#193f66;--focus:#88c5ff;--on-brand:#092541;--nav:#0c1727;--nav-hover:#203b58;--nav-ink:#deebfa;--good:#97dfb4;--good-bg:#163d31;--warn:#ffd68a;--warn-bg:#493719;--bad:#ffacb8;--bad-bg:#4b2633;--violet:#d2b4fa;--violet-bg:#372b51;--neutral:#c4d3e6;--neutral-bg:#2c3e55;--veil:#040c18d9;--elevation:0 8px 32px #0005}
@@ -66,3 +67,13 @@ fieldset{background:var(--surface-alt);border-color:var(--line);color:var(--ink)
 .owner-note{background:var(--surface-alt);color:var(--ink-muted)}
 .auth-modal{padding:16px}.auth-dialog{max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 @media(max-width:360px){#authName{max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+:root{--line-inner:#bccbde;--line-outer:#849dbb;--line-emphasis:#0759a7;--line:var(--line-inner)}
+:root[data-theme=dark]{--line-inner:#415975;--line-outer:#6882a3;--line-emphasis:#8ac6ff;--line:var(--line-inner)}
+.card,.summary-card,.home-metric,.profile-card,.calendar-area,.calendar-form,.schedule-editor,.auth-dialog,.issue-detail,.issue-item,.business-table-wrap,.calendar-grid{border:1px solid var(--line-outer)}
+.card-head,.schedule-editor .card-head,.issue-detail>.card-head,.business-table th,.schedule-page .cal-day-name{border-bottom:1px solid var(--line-outer)}
+.detail-section,.detail-additional,.detail-narratives>section,.issue-detail-photos>section,.issue-form-section{border-color:var(--line-inner)}
+input:not([type=checkbox]):not([type=radio]),select,textarea{border-color:var(--line-outer)}
+input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var(--focus);outline:2px solid var(--focus);outline-offset:2px}
+[aria-invalid=true]{border-color:var(--bad)!important}.issue-item.selected,.schedule-page .cal-day.selected{border-color:var(--line-emphasis)}
+[data-import-meter]{display:block;width:100%;height:16px;margin:12px 0;accent-color:var(--brand)}[data-import-meter][hidden]{display:none}
+.business-table-wrap{max-width:100%;overflow:auto;border-radius:6px}.business-table-wrap table{border:0}.business-table td{border-bottom:1px solid var(--line-inner)}
