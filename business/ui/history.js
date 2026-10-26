@@ -1,5 +1,5 @@
 // URLs and history.state contain route identifiers only. UI values stay in this document's memory.
-const pages=new Set(['home','issue','weekly','production','as','team','fireStatus','notices','search','accounts','mypage']);
+const pages=new Set(['home','issue','weekly','production','ahuPnd','as','team','fireStatus','notices','search','accounts','mypage']);
 const tabs=new Set(['manage','dashboard','statistics']);
 function route(page='home',tab='manage'){return {page:pages.has(page)?page:'home',tab:page==='issue'&&tabs.has(tab)?tab:'manage'};}
 const key=r=>r.page+(r.page==='issue'?'/'+r.tab:'');

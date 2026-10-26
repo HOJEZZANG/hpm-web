@@ -14,6 +14,6 @@ export async function browser(executable,base){
       const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression,replMode:true,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
       const wait=async(expression,label=expression)=>{const end=Date.now()+16000;while(Date.now()<end){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,70));}throw new Error('Timed out: '+label);};
       await call('Page.navigate',{url:base});await wait('document.querySelector("#homePage.active") && window.HpmBusiness');
-      return {call,evaluate,wait,async shot(path){const r=await call('Page.captureScreenshot',{format:'png'});writeFileSync(path,Buffer.from(r.data,'base64'));}};
+      return {call,evaluate,wait,browserContextId,browserCall:send,async shot(path){const r=await call('Page.captureScreenshot',{format:'png'});writeFileSync(path,Buffer.from(r.data,'base64'));}};
     },async close(){socket.close();chrome.kill();const target=resolve(profile);assert(target.startsWith(resolve(tmpdir())+sep)&&target.split(sep).at(-1).startsWith('hpm-ui-qa-'));await new Promise(r=>setTimeout(r,400));rmSync(target,{recursive:true,force:true,maxRetries:6,retryDelay:250});}};
 }

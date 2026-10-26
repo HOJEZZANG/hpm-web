@@ -1,14 +1,15 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261023';
 import {init as weekly} from './weekly.js?v=20261023';
 import {init as production} from './production.js?v=20261023';
+import {init as ahuPnd} from './ahu-pnd.js?v=20261026';
 import {createPresentation} from './presentation.js';
-import {initNavigation} from './navigation.js?v=20261021-brand';
+import {initNavigation} from './navigation.js?v=20261026-ahu';
 import {initIssueView} from './issue-view.js?v=20261021-brand';
 import {initIssueLoadState} from './issue-load-state.js?v=20261023';
-import {initHistory} from './history.js';
+import {initHistory} from './history.js?v=20261026-ahu';
 initNavigation();initIssueView();initIssueLoadState();initHistory();
 window.createHpmPresentation=createPresentation;
-const modules={weekly,production,notices,search,accounts};
+const modules={weekly,production,ahuPnd,notices,search,accounts};
 const initialized=new Set();
 const pending=new Map();
 let lastAccountId=null;
