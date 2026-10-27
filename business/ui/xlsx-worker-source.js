@@ -17,7 +17,7 @@ self.onmessage=async({data:m})=>{try{
   }else if(m.type==='view'){
     const q=String(m.filters.q||'').toLowerCase(),eq=m.equipment;
     const records=m.records.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!m.filters.equipment||r[eq]===m.filters.equipment)&&['Yard','현공정','작업장'].every(k=>!m.filters[k]||r[k]===m.filters[k])&&(!m.filters.from||r.PND>=m.filters.from)&&(!m.filters.to||r.PND&&r.PND<=m.filters.to));
-    result={records,summary:productionSummary(records)};
+    result={records,summary:productionSummary(records,undefined,{equipment:eq,completionFieldState:m.completionFieldState})};
   }else if(m.type==='export'){const bytes=writeTable(m.columns,m.rows);self.postMessage({id:m.id,result:{bytes:bytes.buffer}},[bytes.buffer]);return;}
   else throw Error('지원하지 않는 처리입니다.');self.postMessage({id:m.id,result});
 }catch(e){self.postMessage({id:m.id,error:e.message});}};

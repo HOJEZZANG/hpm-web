@@ -1,4 +1,4 @@
-import {ensure,productionColumns,dateColumns} from './domain.mjs';
+import {ensure,productionColumns,dateColumns,isProductionCompletionTitle} from './domain.mjs';
 import {readTable} from './ooxml.mjs';
 import {inspectZip,excelDate} from './excel.mjs';
 import {productionLimits as L,byteLength} from './production-limits.mjs';
@@ -6,7 +6,7 @@ export const columnLabel=n=>{let s='';for(;n;n=Math.floor((n-1)/26))s=String.fro
 export const normalizedTitle=v=>String(v??'').trim();
 export function mappingInfo(columns){
   const mapping={},candidates={};
-  for(const field of productionColumns){const matches=columns.filter(c=>normalizedTitle(c.title)===field);if(matches.length)candidates[field]=matches.map(c=>c.id);if(matches.length===1)mapping[field]=matches[0].id;}
+  for(const field of productionColumns){const matches=columns.filter(c=>field==='실제완료일'?isProductionCompletionTitle(c.title):normalizedTitle(c.title)===field);if(matches.length)candidates[field]=matches.map(c=>c.id);if(matches.length===1)mapping[field]=matches[0].id;}
   const equipment=['제조사양관리구분','분류','LINE 5000'].find(k=>candidates[k]);
   const required=['PND','현공정','수량',...(equipment?[equipment]:[])];
   return {mapping,candidates,equipment,required,missing:[...required.filter(k=>!candidates[k]),...(!equipment?['장비 구분 (제조사양관리구분/분류/LINE 5000)']:[])]};
@@ -29,7 +29,8 @@ export function normalizeProductionRow(raw,meta){
   ensure(byteLength(raw)<=L.row,'한 행의 원본 데이터는 128KiB 이내이어야 합니다. 파일의 긴 텍스트를 분리해 주세요.',413);
   const data={};for(const [field,id]of Object.entries(meta.mapping)){
     const c=meta.columns.findIndex(c=>c.id===id),value=raw.values[c];
-    if(dateColumns.includes(field))data[field]=excelDate(typeof value==='string'?value.trim():value,raw.number+'행 '+field,meta.date1904);
+    if(field==='실제완료일'){try{data[field]=excelDate(typeof value==='string'?value.trim():value,raw.number+'행 '+field,meta.date1904);}catch{data[field]=String(value);}}
+    else if(dateColumns.includes(field))data[field]=excelDate(typeof value==='string'?value.trim():value,raw.number+'행 '+field,meta.date1904);
     else if(field==='수량'){const n=Number(value);ensure(String(value).trim()!==''&&Number.isInteger(n)&&n>=0&&n<=1e9,raw.number+'행 수량: 0~10억 정수를 입력하세요. 수식은 저장된 계산값이 필요합니다.');data[field]=n;}
     else {ensure(String(value).length<=2000,raw.number+'행 '+field+': 업무 값은 2,000자 이내로 입력하세요.');data[field]=String(value).trim();}
   }

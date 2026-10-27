@@ -53,5 +53,6 @@ export async function productionImport(req,env,u,r,action,url){
   }
   ensure(req.method==='POST'&&action==='apply','지원하지 않는 요청입니다.',405);
   if(r.status==='applied')return {id:r.id,applied:r.row_count,retry:true};ensure(meta.sourceReady&&meta.phase==='ready'&&await count()===r.row_count,'전송을 완료하고 미리보기를 확인한 뒤 반영하세요.',409);
-  try{await env.DB.prepare("UPDATE plan_imports SET status='applied',applied_at=? WHERE id=? AND status='preview'").bind(now(),r.id).run();}catch(e){if(/UNIQUE/i.test(e.message))throw new BusinessError(409,'동일 파일이 이미 반영됐습니다. 이력을 확인하세요.');throw e;}return {id:r.id,applied:r.row_count};
+  ensure(await env.PHOTOS.head(r.file_key),'보존된 원본 파일을 확인할 수 없습니다. 기존 최신 자료를 유지합니다.',409);
+  try{const result=await env.DB.prepare("UPDATE plan_imports SET status='applied',applied_at=? WHERE id=? AND status='preview' AND json_extract(staged_data,'$.sourceReady')=1 AND json_extract(staged_data,'$.phase')='ready' AND row_count=(SELECT count(*) FROM production_rows WHERE import_id=plan_imports.id)").bind(now(),r.id).run();if(!result.meta.changes){const current=await env.DB.prepare('SELECT status FROM plan_imports WHERE id=?').bind(r.id).first();ensure(current?.status==='applied','자료 검증 상태가 변경되어 반영하지 않았습니다.',409);}}catch(e){if(/UNIQUE/i.test(e.message))throw new BusinessError(409,'동일 파일이 이미 반영됐습니다. 최신 자료를 다시 조회하세요.');throw e;}return {id:r.id,applied:r.row_count};
 }
