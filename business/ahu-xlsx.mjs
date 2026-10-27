@@ -3,28 +3,13 @@ import {unzipSync,strFromU8} from 'fflate';
 import {SaxesParser} from 'saxes';
 import {inspectZip} from './excel.mjs';
 import {AHU_LIMITS as L,calendarDate,identity} from './ahu-pnd.mjs';
+import {formattedNumber} from './ahu-cells.mjs';
 const requireValue=(ok,message)=>{if(!ok)throw Error(message);};
 export function columnLabel(n){let s='';for(;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;}
 function xml(source,handlers){
   requireValue(source!=null,'엑셀 내부 XML이 누락되었습니다.');const p=new SaxesParser();
   p.on('doctype',()=>{throw Error('DOCTYPE/외부 엔티티는 지원하지 않습니다.');});p.on('error',()=>{throw Error('엑셀 XML이 손상되었습니다.');});
   p.on('opentag',n=>handlers.open?.(n.name.split(':').at(-1),n.attributes));p.on('closetag',n=>handlers.close?.(n.name.split(':').at(-1)));p.on('text',t=>handlers.text?.(t));p.on('cdata',t=>handlers.text?.(t));p.write(source).close();
-}
-function formattedNumber(raw,format){
-  const n=Number(raw);if(!Number.isFinite(n))return {display:raw,keyIssue:'숫자 셀 오류'};
-  if(!Number.isSafeInteger(n)||String(Math.abs(n)).length>15)return {display:raw,keyIssue:'숫자형 식별자의 정밀도·표시 형식 확인 필요'};
-  if(!format||['General','@','0'].includes(format))return {display:String(n)};
-  if(format.includes(';'))return {display:raw,keyIssue:'다중 구간 식별자 숫자 서식 확인 필요 (원본을 텍스트로 확인)'};
-  const section=format;let mask='',quoted=false;
-  for(let i=0;i<section.length;i++){
-    const c=section[i];if(c==='"'){quoted=!quoted;continue;}if(c==='\\'){mask+='L'+(section[++i]||'');continue;}
-    if(quoted){mask+='L'+c;continue;}if(c==='0')mask+='0';else if(c==='-'||c===' ')mask+='L'+c;else return {display:raw,keyIssue:'식별자 숫자 표시 서식을 안전하게 해석할 수 없음 (원본을 텍스트로 확인)'};
-  }
-  const count=[...mask.matchAll(/0|L[\s\S]/g)].filter(x=>x[0]==='0').length;
-  if(!count||n<0)return {display:raw,keyIssue:'식별자 숫자 서식 확인 필요'};
-  let digits=String(n).padStart(count,'0'),cursor=0;const extra=digits.length-count;let display=digits.slice(0,extra);digits=digits.slice(extra);
-  for(const token of mask.matchAll(/0|L[\s\S]/g))display+=token[0]==='0'?digits[cursor++]:token[0].slice(1);
-  return {display};
 }
 export function openAhuWorkbook(bytes){
   inspectZip(bytes,{file:L.file,expanded:L.expanded});
@@ -64,5 +49,5 @@ export function extractAhuRows(sheet,config,file){
   requireValue(new Set([yard,hull,pnd]).size===3&&[yard,hull,pnd].every(c=>sheet.columns.includes(c)),'야드·호선번호·PND에 서로 다른 열을 선택하세요.');
   const picks=new Set(selected);requireValue(picks.size>0||config.targetConfirmed===true,'AHU 대상 행을 직접 선택하세요. 0행이라면 현재 필터 전체 0행 선택으로 확인하세요.');
   const rows=sheet.rows.filter(r=>picks.has(r.number));requireValue(rows.length===picks.size&&rows.every(r=>r.number>header),'대상 행은 선택 시트의 헤더 다음 데이터 행이어야 합니다.');
-  return rows.map(r=>{const y=r.cells.get(yard),h=r.cells.get(hull),p=r.cells.get(pnd);return {file,sheet:sheet.name,row:r.number,yard:identity(y?.display),hull:identity(h?.display),pnd:p?.value??'',keyIssue:[y?.keyIssue?`야드: ${y.keyIssue}`:'',h?.keyIssue?`호선번호: ${h.keyIssue}`:''].filter(Boolean).join(' / '),date:p?.issue?{iso:'',reason:p.issue}:calendarDate(p?.value??'',sheet.date1904)};});
+  return rows.map(r=>{const y=r.cells.get(yard),h=r.cells.get(hull),p=r.cells.get(pnd);return {file,sheet:sheet.name,row:r.number,yard:identity(y?.display),hull:identity(h?.display),pnd:p?.value??'',notices:sheet.notices||[],keyIssue:[y?.keyIssue?`야드: ${y.keyIssue}`:'',h?.keyIssue?`호선번호: ${h.keyIssue}`:''].filter(Boolean).join(' / '),date:p?.issue?{iso:'',reason:p.issue}:calendarDate(p?.value??'',sheet.date1904)};});
 }

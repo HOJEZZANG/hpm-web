@@ -1,6 +1,7 @@
 // Entirely synthetic fixtures, generated in memory. No company files or operational records.
 import ExcelJS from 'exceljs';
-export async function ahuFixture(side){
+import {read,write} from 'xlsx';
+export async function ahuFixture(side,format='xlsx'){
   const workbook=new ExcelJS.Workbook();workbook.addWorksheet('가상 안내').addRow(['실제 회사 자료 아님: AHU PND 기능 검증용 가상 자료']);
   const sheet=workbook.addWorksheet(side==='erp'?'가상 ERP 자료':'가상 계획 자료'),header=side==='erp'?3:2;
   sheet.getCell('A1').value='기능 검증용 가상 자료 — 실제 ERP/생산계획표 아님';
@@ -13,5 +14,8 @@ export async function ahuFixture(side){
   sheet.addRow(['가상 AHU',side==='erp'?'가상 정식 야드':'가상 별칭 야드','00077','2026-11-10','사용자가 확인할 별칭']);
   if(side==='erp')sheet.addRow(['가상 AHU','가상 YARD-A','','2026-11-10','호선 누락']);
   sheet.addRow(['가상 CHILLER','가상 YARD-A','00100','2026-12-31','AHU 아님: 사용자가 제외']);
-  return {bytes:new Uint8Array(await workbook.xlsx.writeBuffer()),header,sheetIndex:1,filename:side==='erp'?'가상_ERP.xlsx':'가상_생산계획.xlsx'};
+  const xlsx=new Uint8Array(await workbook.xlsx.writeBuffer());
+  // Only synthetic fixtures are serialized into both real formats. Application inputs are never converted.
+  const bytes=format==='xls'?new Uint8Array(write(read(xlsx,{type:'array',cellNF:true}),{type:'array',bookType:'biff8'})):xlsx;
+  return {bytes,header,sheetIndex:1,filename:(side==='erp'?'가상_ERP.':'가상_생산계획.')+format};
 }

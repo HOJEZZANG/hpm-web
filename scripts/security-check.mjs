@@ -6,7 +6,7 @@ import {parseHTML} from 'linkedom';
 const tracked=spawnSync('git',['ls-files','-co','--exclude-standard','-z'],{encoding:'utf8'});assert.equal(tracked.status,0);
 const files=[...new Set(tracked.stdout.split('\0').filter(Boolean))];
 const forbidden=['.dev.vars','.env','credentials.json'];
-assert.ok(!files.some(f=>forbidden.includes(f)||f.startsWith('backups/')||(/\.(?:db|sqlite|py|xlsx|jpg|png)$/i.test(f)&&f!=='assets/hi-air-korea-logo.png')),'Source must exclude credentials, source Python, operational files and local backups.');
+assert.ok(!files.some(f=>forbidden.includes(f)||f.startsWith('backups/')||(/\.(?:db|sqlite|py|xlsx|xls|xlsm|xlsb|jpg|png)$/i.test(f)&&f!=='assets/hi-air-korea-logo.png')),'Source must exclude credentials, source Python, operational files and local backups.');
 const html=readFileSync('index.html','utf8'),{document}=parseHTML(html);
 assert.equal(document.querySelector('#hpmEmbeddedSnapshot'),null,'Remove public embedded data/account snapshot.');
 assert.equal(document.querySelectorAll('#issueList .issue-item').length,0,'Public HTML must not contain rendered historical issues.');

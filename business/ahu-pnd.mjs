@@ -44,7 +44,7 @@ export function comparePnd(erp,plan,aliases={}){
 export function filterResults(rows,search='',status=''){
   const q=search.trim().toLocaleLowerCase();return rows.filter(r=>(!status||r.status===status)&&(!q||(r.yard+' '+r.hull).toLocaleLowerCase().includes(q)));
 }
-export const sourceLabel=row=>`${row.file} / ${row.sheet} / ${row.row}행 (야드: ${row.yard}, 호선: ${row.hull}, PND 원본: ${row.pnd??''})`;
+export const sourceLabel=row=>`${row.file} / ${row.sheet} / ${row.row}행 (야드: ${row.yard}, 호선: ${row.hull}, PND 원본: ${row.pnd??''})${row.notices?.length?' · '+row.notices.join(' / '):''}`;
 export function exportRows(rows){
   let size=0;return rows.map(r=>{const values=[r.yard,r.hull,r.erpPnd,r.planPnd,r.diff??'',r.label,r.reasons.join(' / '),r.erp.map(sourceLabel).join('\n'),r.plan.map(sourceLabel).join('\n'),AHU_NOTICE];
     for(const value of values){if(String(value).length>32767)throw Error('다운로드 셀의 32,767자 한계를 초과했습니다. 중복 원본 위치를 확인하고 자료를 나누세요.');size+=String(value).length*2;}
