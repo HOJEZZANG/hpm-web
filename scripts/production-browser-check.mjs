@@ -30,7 +30,7 @@ try{
   assert(await evaluate('Boolean(window.HpmPasswordPolicy.newPasswordError("12a4","numeric"))'));
   await evaluate("setAuthMode('login')");assert.equal(await evaluate('authPassword.inputMode'),'text');assert.equal(await evaluate('authPassword.hasAttribute("pattern")'),false);assert.equal(await evaluate('authPassword.minLength'),1);
   assert.equal(await evaluate('window.HpmPasswordPolicy.newPasswordError("Synthetic-Admin!2026","legacy")'),'');
-  assert(await evaluate('document.querySelector(".auth-security-note").textContent.includes("숫자만 4자리 이상")'));await evaluate('closeLoginModal()');
+  assert(await evaluate('document.querySelector("#authModal .auth-security-note").textContent.includes("숫자만 4자리 이상")'));await evaluate('closeLoginModal()');
   for(const page of ['weekly','production','notices','search']){await evaluate(`navigatePortal('${page}')`);await wait(`document.querySelector('#${page}Page').textContent.includes('로그인 후')`);}
   assert.equal(await evaluate('document.querySelector("#portalNavigation [data-page=accounts]").hidden'),true);
   assert.equal(await evaluate('document.querySelectorAll("#safetyPage,#vehiclesPage,#mealsPage,#suppliesPage,#portalNavigation [data-page=safety],#portalNavigation [data-page=vehicles]").length'),0);
