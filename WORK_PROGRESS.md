@@ -324,3 +324,13 @@ git clone --single-branch --branch checkpoint/password-policy-handoff-20261027 h
 Set-Location hpm-web-password-handoff-20261027
 Get-Content WORK_PROGRESS.md -Encoding UTF8
 ```
+
+## 2026-10-27 — 노트북 재개 검증과 main 통합 준비
+
+- 인계 체크포인트 `5e2e02e`와 최신 `origin/main` `f89d5f2`를 확인했다. 작업 트리는 깨끗했고 원격 main의 추가 변경은 없었다. 인계 브랜치의 기존 커밋을 보존하여 main에 fast-forward 통합한다.
+- 이 PC의 설치된 Node.js `24.21.0` / npm `11.19.0`을 사용해 잠금 파일대로 의존성을 설치했다. **자동 테스트 128/128**, 문법/소스 보안 검사, 비밀번호 정책 Chrome 검사, 사번·승인·권한 Chrome 검사, 기존 문제점·사진·주간 이슈·일정·생산 업로드 Chrome 회귀 검사, 로컬 workerd·D1/R2 검사가 모두 통과했다. 검사는 합성 계정·데이터만 사용했다. 런타임 번들링은 `--dry-run`이며 Worker를 배포하지 않았다.
+- 기존 관리자 조합형 비밀번호 로그인/변경, 신규 숫자 4~128자리와 앞자리 0, 관리자 승인 후 개인 비밀번호·정책 유지, 권한 취소의 기존 세션 반영, 5회 실패 제한·대기 후 복구를 확인했다. 운영 계정 로그인/가입·승격·비밀번호 변경은 하지 않았다.
+- GitHub API로 Pages의 main 루트 설정과 기존 `f89d5f2` built/success를 확인했다. 운영 Worker health 200(DB/R2 정상) 및 새 정책 배포의 `ETag, Retry-After` 응답 헤더를 확인했다. **0007 적용·Worker 재배포는 수행하지 않는다.**
+- 운영 Chrome 검사에 숫자 가입 입력 조건·가림 처리·공유 정책 모듈·기존 조합형 로그인 입력 허용 확인을 추가했다. 이후 실제 Pages 배포에서 요청 전송 없이 검사한다. 검증 자료는 Git에서 제외한 `.wrangler/password-policy-handoff/`에 보관한다.
+- 회사 PC의 `.wrangler/password-policy/`와 이전 SQL 백업은 인계 커밋에서 제외되어 이 PC에는 없다. 따라서 회사 PC에서 수집한 migration 직후 지문과의 역사적 재대조는 별도 자료가 필요하다. 이 PC의 Cloudflare OAuth 인증도 필요하며 첫 인증 창은 시간 초과되었다. 정확한 Worker 버전·0007 이력·현재 DB 및 참조 파일의 배포 전후 대조는 인증 후 이어간다. 이 항목을 공개 health 검사로 대체 완료 처리하지 않는다.
+- main 일반 push와 최종 Pages 빌드·운영 정적 자산·Chrome 화면 검증은 이어서 수행하고 후속 기록으로 결과를 남긴다. 초기화·전체 삭제·force push·운영 업무 쓰기는 수행하지 않는다.

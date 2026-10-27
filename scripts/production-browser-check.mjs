@@ -24,7 +24,13 @@ try{
   assert.equal(await evaluate('localStorage.getItem("hpmTheme")'),null);
   assert.equal(await evaluate('document.documentElement.dataset.theme'),await evaluate('matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"'));
   await evaluate("openLoginModal('login')");assert.equal(await evaluate('authDialogTitle.textContent'),'로그인');
-  await evaluate("setAuthMode('register')");assert.equal(await evaluate('authDialogTitle.textContent'),'가입 신청');await evaluate('closeLoginModal()');
+  await evaluate("setAuthMode('register')");assert.equal(await evaluate('authDialogTitle.textContent'),'가입 신청');
+  assert.deepEqual(await evaluate('({type:authPassword.type,min:authPassword.minLength,max:authPassword.maxLength,mode:authPassword.inputMode,pattern:authPassword.pattern})'),{type:'password',min:4,max:128,mode:'numeric',pattern:'[0-9]{4,128}'});
+  assert.equal(await evaluate('window.HpmPasswordPolicy.newPasswordError("0123","numeric")'),'');
+  assert(await evaluate('Boolean(window.HpmPasswordPolicy.newPasswordError("12a4","numeric"))'));
+  await evaluate("setAuthMode('login')");assert.equal(await evaluate('authPassword.inputMode'),'text');assert.equal(await evaluate('authPassword.hasAttribute("pattern")'),false);assert.equal(await evaluate('authPassword.minLength'),1);
+  assert.equal(await evaluate('window.HpmPasswordPolicy.newPasswordError("Synthetic-Admin!2026","legacy")'),'');
+  assert(await evaluate('document.querySelector(".auth-security-note").textContent.includes("숫자만 4자리 이상")'));await evaluate('closeLoginModal()');
   for(const page of ['weekly','production','notices','search']){await evaluate(`navigatePortal('${page}')`);await wait(`document.querySelector('#${page}Page').textContent.includes('로그인 후')`);}
   assert.equal(await evaluate('document.querySelector("#portalNavigation [data-page=accounts]").hidden'),true);
   assert.equal(await evaluate('document.querySelectorAll("#safetyPage,#vehiclesPage,#mealsPage,#suppliesPage,#portalNavigation [data-page=safety],#portalNavigation [data-page=vehicles]").length'),0);
@@ -43,5 +49,5 @@ try{
   assert(await evaluate('getComputedStyle(document.documentElement).getPropertyValue("--line-outer")!==getComputedStyle(document.documentElement).getPropertyValue("--line-inner")'));
   await evaluate('window.__qaReloadMarker=true');await call('Page.reload');await wait('!window.__qaReloadMarker&&window.HpmBusiness&&document.querySelector("#issuePage.active")');assert.equal(await evaluate('location.hash'),'#/issue/manage');assert.equal(await evaluate('document.documentElement.dataset.theme'),'dark');assert.equal(await evaluate('window.hpmServerUser'),null);
   assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);
-  const report={productionPageLoaded:true,loginAndSignupUi:true,newPagesRequireLogin:true,unifiedMenu:true,externalVehicle:true,externalSupplies:true,mealAndSafetyEntryRemoved:true,logo:true,themes:['light','dark'],osDefault:true,themeRestoredAfterReload:true,detailMarkupAndFunctionDelivered:true,ahuLiveRead:true,viewports:[1366,1920,390,320],javascriptExceptions:0,authenticatedUiTested:false,businessWrites:0,historyBackForward:true,borders:true,at:new Date().toISOString()};await save('browser-verification',report);await writeFile(evidence+'/approved-browser-verification.json',JSON.stringify(report));console.log(JSON.stringify(report));
+  const report={productionPageLoaded:true,loginAndSignupUi:true,numericSignupPolicy:true,legacyLoginAcceptsMixedCharacters:true,newPagesRequireLogin:true,unifiedMenu:true,externalVehicle:true,externalSupplies:true,mealAndSafetyEntryRemoved:true,logo:true,themes:['light','dark'],osDefault:true,themeRestoredAfterReload:true,detailMarkupAndFunctionDelivered:true,ahuLiveRead:true,viewports:[1366,1920,390,320],javascriptExceptions:0,authenticatedUiTested:false,businessWrites:0,historyBackForward:true,borders:true,at:new Date().toISOString()};await save('browser-verification',report);await writeFile(evidence+'/approved-browser-verification.json',JSON.stringify(report));console.log(JSON.stringify(report));
 }finally{socket?.close();chrome.kill();await new Promise(r=>setTimeout(r,300));const target=resolve(profile),parent=resolve(tmpdir())+sep;assert(target.startsWith(parent)&&target.split(sep).at(-1).startsWith('hpm-production-smoke-'));await rm(target,{recursive:true,force:true,maxRetries:8,retryDelay:250});}
