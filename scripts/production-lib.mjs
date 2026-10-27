@@ -7,7 +7,8 @@ await mkdir(dir,{recursive:true});
 export const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 export function cliJson(output){const start=output.search(/^[\[{]/m);if(start<0)throw new Error('Cloudflare JSON 응답이 없습니다.');try{return JSON.parse(output.slice(start));}catch{throw new Error('Cloudflare JSON 응답 형식을 확인하세요.');}}
 export async function wrangler(args){
-  return new Promise((resolve,reject)=>{let out='',err='';const p=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js',...args],{windowsHide:true,stdio:['ignore','pipe','pipe']});p.stdout.on('data',b=>out+=b);p.stderr.on('data',b=>err+=b);p.on('error',reject);p.on('exit',async code=>{if(code!==0){await writeFile(dir+'/last-error.log',out+'\n'+err);reject(new Error('Cloudflare 작업 실패. 비공개 .wrangler/production/last-error.log 확인 필요.'));}else resolve(out);});});
+  // Preserve multibyte cells across chunks and wait until both output streams close.
+  return new Promise((resolve,reject)=>{let out='',err='';const p=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js',...args],{windowsHide:true,stdio:['ignore','pipe','pipe']});p.stdout.setEncoding('utf8');p.stderr.setEncoding('utf8');p.stdout.on('data',b=>out+=b);p.stderr.on('data',b=>err+=b);p.on('error',reject);p.on('close',async code=>{if(code!==0){await writeFile(dir+'/last-error.log',out+'\n'+err);reject(new Error('Cloudflare 작업 실패. 비공개 .wrangler/production/last-error.log 확인 필요.'));}else resolve(out);});});
 }
 export async function query(sql){
   return cliJson(await wrangler(['d1','execute','DB','--remote','--command',sql,'--json']));

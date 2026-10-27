@@ -9,7 +9,7 @@ import {randomBytes,createHash} from 'node:crypto';
 const mf=new Miniflare(convertV4MiniflareOptions({modules:true,scriptPath:'.wrangler/build/worker.js',compatibilityDate:'2026-09-15',d1Databases:['DB'],r2Buckets:['PHOTOS'],bindings:{PORTAL_BOOTSTRAP_SECRET:'synthetic-runtime-bootstrap-key-0000'}}));
 try{
   const db=await mf.getD1Database('DB');
-  for(const file of ['0001_cloudflare_schema.sql','0003_shared_calendars.sql','0004_part1_business.sql','0005_server_identity.sql','0006_employee_access.sql']){
+  for(const file of ['0001_cloudflare_schema.sql','0003_shared_calendars.sql','0004_part1_business.sql','0005_server_identity.sql','0006_employee_access.sql','0007_password_policy.sql']){
     const sql=readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8').replace(/--.*$/gm,'').trim();
     const statements=sql.split(/;\s*(?=(?:CREATE|ALTER)\b)/i).map(s=>s.trim().replace(/;$/,'')).filter(Boolean);
     for(const statement of statements)await db.prepare(statement).run();
@@ -39,7 +39,7 @@ try{
   await req('/api/business/people/runtime-person','PUT',{name:'합성 식수 인원'});
   const meal={person_id:'runtime-person',day:'2026-10-15',breakfast:0,lunch:1,dinner:0,revision:0};await req('/api/business/meals?week=2026-10-15','PUT',{records:[meal]});
   const stale=await mf.dispatchFetch(base+'/api/business/meals?week=2026-10-15',{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({records:[{...meal,lunch:0},{...meal,day:'2026-10-16'}]})});assert.equal(stale.status,409,await stale.clone().text());assert.equal((await req('/api/business/meals?week=2026-10-15')).records.length,1);
-  const employee={id:'000042',name:'합성 개인 사용자',password:'synthetic-employee-password',team:'생산관리팀',role:'admin'};
+  const employee={id:'000042',name:'합성 개인 사용자',password:'0123',team:'생산관리팀',role:'admin'};
   await req('/api/auth/register','POST',employee);
   assert.equal((await db.prepare('SELECT role,status,employee_no FROM portal_accounts WHERE id=?').bind(employee.id).first()).role,'user');
   await req('/api/auth/users/'+employee.id,'PUT',{role:'admin',status:'active',productionMemberConfirmed:true,confirmation:employee.id});
@@ -48,8 +48,14 @@ try{
   await req('/api/auth/users/'+employee.id,'PUT',{role:'user',confirmation:employee.id});
   const oldSession=await mf.dispatchFetch(base+'/api/auth/me',{headers:{Authorization:'Bearer '+personalToken}});assert.equal((await oldSession.json()).user.role,'user');
   await assert.rejects(db.prepare("UPDATE portal_accounts SET status='disabled' WHERE id='runtime-admin'").run(),/LAST_ACTIVE_ADMIN/);
-  const changed=await mf.dispatchFetch(base+'/api/auth/password',{method:'POST',headers:{Origin:'https://hojezzang.github.io',Authorization:'Bearer '+personalToken,'Content-Type':'application/json'},body:JSON.stringify({currentPassword:employee.password,newPassword:'synthetic-employee-new-password'})});assert.equal(changed.status,200,await changed.clone().text());
+  const changed=await mf.dispatchFetch(base+'/api/auth/password',{method:'POST',headers:{Origin:'https://hojezzang.github.io',Authorization:'Bearer '+personalToken,'Content-Type':'application/json'},body:JSON.stringify({currentPassword:employee.password,newPassword:'000987'})});assert.equal(changed.status,200,await changed.clone().text());
   assert.equal((await mf.dispatchFetch(base+'/api/auth/me',{headers:{Authorization:'Bearer '+personalToken}})).status,401);
-  assert.equal((await req('/api/auth/login','POST',{...employee,password:'synthetic-employee-new-password'})).user.role,'user');
-  console.log('PASS bundled workerd: additive migrations / employee login, verified approval, audit, live session demotion, last-admin guard, password revocation / existing server login / legacy and staged XLSX with real D1/R2 / simultaneous booking conflict / atomic meal rollback. No remote requests.');
+  assert.equal((await req('/api/auth/login','POST',{...employee,password:'000987'})).user.role,'user');
+  for(let i=0;i<5;i++){const wrong=await mf.dispatchFetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:employee.id,password:'9999'})});assert.equal(wrong.status,401);}
+  const limited=await mf.dispatchFetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...employee,password:'000987'})});assert.equal(limited.status,429);assert(Number(limited.headers.get('Retry-After'))>0);
+  await db.prepare('UPDATE portal_login_limits SET retry_at=0,window_start=0 WHERE retry_at>0').run();
+  assert.equal((await req('/api/auth/login','POST',{...employee,password:'000987'})).user.passwordPolicy,'numeric');
+  await req('/api/auth/password','POST',{currentPassword:account.password,newPassword:'Updated-Runtime!2026-Private'});
+  assert.equal((await req('/api/auth/login','POST',{id:account.id,password:'Updated-Runtime!2026-Private'})).user.passwordPolicy,'legacy');
+  console.log('PASS bundled workerd: additive migrations / legacy admin mixed password and change / numeric employee password retained across approval / 5-failure server retry and recovery / audit, live permissions, password revocation / existing XLSX, D1/R2, booking conflict and meal rollback. No remote requests.');
 }finally{await mf.dispose();}

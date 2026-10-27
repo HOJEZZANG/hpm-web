@@ -30,7 +30,7 @@ test('legacy payload extensions survive partial updates',async()=>{
   await ok(request(env,'/api/issues/payload','PUT',{description:'합성 payload 수정'}));const after=JSON.parse(env.sqlite.prepare("SELECT payload FROM issues WHERE id='payload'").get().payload);assert.deepEqual(after.legacyExtension,before.legacyExtension);assert.equal(after.description,'합성 payload 수정');
 });
 test('pending, rejection/disabled, invalid credentials, expiration and forbidden access have distinct server codes',async()=>{
-  const env=makeEnv(),user={id:'test-user',name:'합성 사용자',password:'synthetic-ui-password'};await ok(request(env,'/api/auth/register','POST',user,null));
+  const env=makeEnv(),user={id:'test-user',name:'합성 사용자',password:'007654'};await ok(request(env,'/api/auth/register','POST',user,null));
   let r=await request(env,'/api/auth/login','POST',user,null);assert.equal(r.status,403);assert.equal((await r.json()).code,'ACCOUNT_PENDING');
   r=await request(env,'/api/auth/login','POST',{...user,password:'synthetic-wrong-password'},null);assert.equal(r.status,401);assert.equal((await r.json()).code,'INVALID_CREDENTIALS');
   await ok(request(env,'/api/auth/users/'+user.id,'PUT',{status:'disabled'}));r=await request(env,'/api/auth/login','POST',user,null);assert.equal((await r.json()).code,'ACCOUNT_DISABLED');

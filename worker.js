@@ -10,7 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Expose-Headers': 'ETag',
+  'Access-Control-Expose-Headers': 'ETag, Retry-After',
   'Vary': 'Origin',
 };
 class ApiError extends Error {
@@ -576,7 +576,11 @@ export default {
       return response;
     }
     catch (error) {
-      if (error instanceof ApiError || error instanceof BusinessError) return json({ ok: false, error: error.message,code:error.code||(error.status===403?'FORBIDDEN':undefined) }, error.status);
+      if (error instanceof ApiError || error instanceof BusinessError) {
+        const response=json({ok:false,error:error.message,code:error.code||(error.status===403?'FORBIDDEN':undefined),...(error.retryAfterSeconds?{retryAfterSeconds:error.retryAfterSeconds}:{})},error.status);
+        if(error.retryAfterSeconds)response.headers.set('Retry-After',String(error.retryAfterSeconds));
+        return response;
+      }
       console.error('Worker request failed. Check database schema and storage bindings.');
       return json({ ok: false, error: '서버 처리 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.' }, 500);
     }

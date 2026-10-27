@@ -120,10 +120,10 @@ test('manual menu images are R2 objects with authenticated access and no crawler
   assert.equal((await req(env,'menus/'+r.id,'GET',undefined,null)).status,401);const read=await req(env,'menus/'+r.id);assert.equal(read.headers.get('Content-Type'),'image/png');assert.deepEqual(new Uint8Array(await read.arrayBuffer()),png);
 });
 test('signup cannot reset existing passwords, grants pending only, admin approval and session revocation',async()=>{
-  const env=makeEnv(),body={id:'synthetic-user',name:'합성 가입자',password:'synthetic-only-password',role:'admin'};
+  const env=makeEnv(),body={id:'synthetic-user',name:'합성 가입자',password:'001234',role:'admin'};
   const created=await data(await req(env,'/api/auth/register','POST',body,null));assert.equal(created.pending,true);
   const hash=env.sqlite.prepare('SELECT password_hash FROM portal_accounts WHERE id=?').get(body.id).password_hash;
-  assert.equal((await req(env,'/api/auth/register','POST',{...body,password:'other-synthetic-password'},null)).status,409);
+  assert.equal((await req(env,'/api/auth/register','POST',{...body,password:'009876'},null)).status,409);
   assert.equal(env.sqlite.prepare('SELECT password_hash FROM portal_accounts WHERE id=?').get(body.id).password_hash,hash);
   const pending=await req(env,'/api/auth/login','POST',body,null);assert.equal(pending.status,403);assert.equal((await pending.json()).code,'ACCOUNT_PENDING');
   await data(await req(env,'/api/auth/users/'+body.id,'PUT',{status:'active'}));const login=await data(await req(env,'/api/auth/login','POST',body,null));assert.equal(login.user.role,'user');assert.equal(login.token.length,64);

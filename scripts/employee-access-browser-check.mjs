@@ -7,14 +7,14 @@ const state=await startTestServer(),qa=await browser(process.argv[2],state.url);
 mkdirSync('.wrangler/employee-access',{recursive:true});
 try{
   const owner=await qa.tab(),member=await qa.tab();
-  async function login(t,id,p=state.password){await t.evaluate(`openLoginModal('login');authUserId.value=${JSON.stringify(id)};authPassword.value=${JSON.stringify(p)};submitAuth()`);await t.wait(`window.hpmServerUser?.loginId===${JSON.stringify(id)}`);await t.wait('issuesLoaded&&calendarState.as.loaded&&calendarState.team.loaded');}
+  async function login(t,id,p=(id==='owner'||id==='000909')?state.password:state.memberPassword){await t.evaluate(`openLoginModal('login');authUserId.value=${JSON.stringify(id)};authPassword.value=${JSON.stringify(p)};submitAuth()`);await t.wait(`window.hpmServerUser?.loginId===${JSON.stringify(id)}`);await t.wait('issuesLoaded&&calendarState.as.loaded&&calendarState.team.loaded');}
   async function accounts(){await owner.evaluate(`navigatePortal('accounts')`);await owner.wait('document.querySelector("#accountsPage [data-access=owner]")');}
   async function edit(id,values){await owner.evaluate(`document.querySelector('#accountsPage [data-access="${id}"]').click();(()=>{const f=document.querySelector('[data-access-form]');for(const[k,v]of Object.entries(${JSON.stringify(values)}))f.elements[k].type==='checkbox'?f.elements[k].checked=v:f.elements[k].value=v;})()`);}
   const submit=()=>owner.evaluate('document.querySelector("[data-access-form]").requestSubmit()');
-  await member.evaluate(`openLoginModal('register');authUserId.value='000707';authDisplayName.value='합성 생산관리팀원';authTeam.value='생산관리팀';authPassword.value=${JSON.stringify(state.password)};submitAuth()`);await member.wait('authMessage.textContent.includes("승인 후")');
+  await member.evaluate(`openLoginModal('register');authUserId.value='000707';authDisplayName.value='합성 생산관리팀원';authTeam.value='생산관리팀';authPassword.value=${JSON.stringify(state.memberPassword)};submitAuth()`);await member.wait('authMessage.textContent.includes("승인 후")');
   assert.equal(state.env.sqlite.prepare("SELECT role FROM portal_accounts WHERE id='000707'").get().role,'user');
-  await member.evaluate(`authPassword.value=${JSON.stringify(state.password)};submitAuth()`);await member.wait('authMessage.textContent.includes("이미")');
-  await member.evaluate(`setAuthMode('login');authPassword.value=${JSON.stringify(state.password)};submitAuth()`);await member.wait('authMessage.dataset.code==="ACCOUNT_PENDING"');
+  await member.evaluate(`authPassword.value=${JSON.stringify(state.memberPassword)};submitAuth()`);await member.wait('authMessage.textContent.includes("이미")');
+  await member.evaluate(`setAuthMode('login');authPassword.value=${JSON.stringify(state.memberPassword)};submitAuth()`);await member.wait('authMessage.dataset.code==="ACCOUNT_PENDING"');
   await login(owner,'owner');await accounts();await edit('000707',{role:'admin',status:'active'});await submit();await owner.wait('document.querySelector("#accountsPage [data-message]").textContent.includes("먼저 확인")');
   await owner.evaluate('document.querySelector("[name=productionMemberConfirmed]").checked=true');qa.dialogs.accept=false;await submit();assert.equal(state.env.sqlite.prepare("SELECT role FROM portal_accounts WHERE id='000707'").get().role,'user');
   qa.dialogs.accept=true;await submit();await owner.wait('!document.querySelector("[data-access-form]")');await login(member,'000707');
@@ -30,9 +30,9 @@ try{
   qa.dialogs.accept=false;await owner.evaluate(`document.querySelector('#accountsPage [data-user="000707"][data-status=disabled]').click()`);assert.equal(state.env.sqlite.prepare("SELECT status FROM portal_accounts WHERE id='000707'").get().status,'active');
   qa.dialogs.accept=true;await owner.evaluate(`document.querySelector('#accountsPage [data-user="000707"][data-status=disabled]').click()`);await owner.wait(`document.querySelector('#accountsPage [data-access="000707"]').closest('tr').children[5].textContent==='거절 / 이용 중지'`);await member.evaluate('await refreshPortalIdentity()');await member.wait('!window.hpmServerUser&&!sessionStorage.getItem("hpmServerToken")');
   await edit('000707',{status:'active',productionMemberConfirmed:true});await submit();await owner.wait('!document.querySelector("[data-access-form]")');await login(member,'000707');
-  await member.evaluate(`navigatePortal('mypage');myCurrentPassword.value=${JSON.stringify(state.password)};myNewPassword.value='synthetic-personal-new-password';myConfirmPassword.value='synthetic-personal-new-password'`);
+  await member.evaluate(`navigatePortal('mypage');myCurrentPassword.value=${JSON.stringify(state.memberPassword)};myNewPassword.value='000987';myConfirmPassword.value='000987'`);
   qa.dialogs.accept=false;await member.evaluate('document.getElementById("myPasswordForm").requestSubmit()');assert.equal(await member.evaluate('Boolean(window.hpmServerUser)'),true);
-  qa.dialogs.accept=true;await member.evaluate('document.getElementById("myPasswordForm").requestSubmit()');await member.wait('!window.hpmServerUser&&authMessage.textContent.includes("변경")');await login(member,'000707','synthetic-personal-new-password');
+  qa.dialogs.accept=true;await member.evaluate('document.getElementById("myPasswordForm").requestSubmit()');await member.wait('!window.hpmServerUser&&authMessage.textContent.includes("변경")');await login(member,'000707','000987');
   await accounts();await edit('owner',{employeeNo:'000909'});await submit();await owner.wait('window.hpmServerUser.loginId==="000909"');assert.equal(await owner.evaluate('window.hpmServerUser.id'),'owner');
   await owner.evaluate('logoutPortal()');await owner.wait('!window.hpmServerUser');await login(owner,'000909');
   await accounts();await owner.evaluate('document.querySelector("#accountsPage details").open=true;document.querySelector("#accountsPage [data-audit]").click()');await owner.wait('document.querySelector("[data-audit-list]").textContent.includes("본인 비밀번호 변경")');

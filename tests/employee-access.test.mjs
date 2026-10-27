@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../worker.js';
 import {makeEnv,TOKEN} from './support/env.mjs';
-const base='https://hpmanagement-web.lotusland1995.workers.dev',password='synthetic-personal-password';
+const base='https://hpmanagement-web.lotusland1995.workers.dev',password='001234';
 const request=(env,path,method='GET',body,token=TOKEN)=>worker.fetch(new Request(base+path,{method,headers:{Origin:'https://hojezzang.github.io',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})}),env);
 const ok=async response=>{const r=await response,b=await r.json();assert.equal(r.status,200,b.error);return b;};
 const signup=(env,id,extra={})=>ok(request(env,'/api/auth/register','POST',{id,name:'합성 팀원',password,...extra},null));
@@ -28,7 +28,7 @@ test('additive employee migration preserves every legacy account, password, sess
 test('employee signup retains zeroes, rejects numeric or duplicate IDs, and never trusts team/role',async()=>{
   const env=makeEnv();await signup(env,'000123',{team:'생산관리팀',role:'admin',status:'active',productionMemberConfirmed:true});await signup(env,'123');
   const row=env.sqlite.prepare("SELECT * FROM portal_accounts WHERE id='000123'").get();assert.equal(row.employee_no,'000123');assert.equal(row.role,'user');assert.equal(row.status,'pending');assert.notEqual(row.password_hash,password);assert.equal(row.salt.length,64);
-  const hash=row.password_hash;assert.equal((await request(env,'/api/auth/register','POST',{id:'000123',name:'합성',password:'different-synthetic-password'},null)).status,409);
+  const hash=row.password_hash;assert.equal((await request(env,'/api/auth/register','POST',{id:'000123',name:'합성',password:'008765'},null)).status,409);
   assert.equal(env.sqlite.prepare("SELECT password_hash FROM portal_accounts WHERE id='000123'").get().password_hash,hash);
   assert.equal((await request(env,'/api/auth/register','POST',{id:123,name:'합성',password},null)).status,400);
   assert.equal((await request(env,'/api/auth/login','POST',{id:'000123',password},null)).status,403);
@@ -107,14 +107,14 @@ test('SQLite guards the last active administrator and rolls back failed concurre
 test('personal password change needs current password, never leaks credentials, and revokes all sessions',async()=>{
   const env=makeEnv();await signup(env,'000401');await ok(update(env,'000401',{status:'active'}));const a=await login(env,'000401'),b=await login(env,'000401');
   const before=env.sqlite.prepare("SELECT * FROM portal_accounts WHERE id='000401'").get();
-  assert.equal((await request(env,'/api/auth/password','POST',{currentPassword:'wrong-synthetic-password',newPassword:'new-synthetic-password'},a.token)).status,403);
+  assert.equal((await request(env,'/api/auth/password','POST',{currentPassword:'wrong-synthetic-password',newPassword:'009876'},a.token)).status,403);
   assert.equal(env.sqlite.prepare("SELECT password_hash FROM portal_accounts WHERE id='000401'").get().password_hash,before.password_hash);
-  await ok(request(env,'/api/auth/password','POST',{currentPassword:password,newPassword:'new-synthetic-password',userId:'owner',role:'admin'},a.token));
+  await ok(request(env,'/api/auth/password','POST',{currentPassword:password,newPassword:'009876',userId:'owner',role:'admin'},a.token));
   const after=env.sqlite.prepare("SELECT * FROM portal_accounts WHERE id='000401'").get();assert.notEqual(after.salt,before.salt);assert.notEqual(after.password_hash,before.password_hash);assert.equal(after.role,'user');
   for(const token of [a.token,b.token])assert.equal((await request(env,'/api/auth/me','GET',undefined,token)).status,401);
-  assert.equal((await request(env,'/api/auth/login','POST',{id:'000401',password},null)).status,401);await login(env,'000401','new-synthetic-password');
-  const users=await ok(request(env,'/api/auth/users'));assert(!JSON.stringify(users).includes(after.password_hash));assert(!JSON.stringify(users).includes(after.salt));assert(!JSON.stringify(users).includes('password'));
-  const history=await ok(request(env,'/api/auth/audit'));assert(!JSON.stringify(history).includes(password));assert(!JSON.stringify(history).includes('new-synthetic-password'));assert.equal(history.records[0].action,'password.change');
+  assert.equal((await request(env,'/api/auth/login','POST',{id:'000401',password},null)).status,401);await login(env,'000401','009876');
+  const users=await ok(request(env,'/api/auth/users'));assert(!JSON.stringify(users).includes(after.password_hash));assert(!JSON.stringify(users).includes(after.salt));assert(users.users.every(r=>!['password','password_hash','salt'].some(k=>Object.hasOwn(r,k))));
+  const history=await ok(request(env,'/api/auth/audit'));assert(!JSON.stringify(history).includes(password));assert(!JSON.stringify(history).includes('009876'));assert.equal(history.records[0].action,'password.change');
 });
 
 test('major administrator writes record a trusted actor and server time; audit is admin-only and paginated',async()=>{

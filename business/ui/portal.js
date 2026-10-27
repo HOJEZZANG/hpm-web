@@ -8,6 +8,8 @@ import {initIssueView} from './issue-view.js?v=20261021-brand';
 import {initIssueLoadState} from './issue-load-state.js?v=20261023';
 import {initHistory} from './history.js?v=20261026-ahu';
 import {accounts} from './accounts.js?v=20261027-access';
+import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
+window.HpmPasswordPolicy=passwordPolicy;
 initNavigation();initIssueView();initIssueLoadState();initHistory();
 window.createHpmPresentation=createPresentation;
 const modules={weekly,production,ahuPnd,notices,search,accounts};
