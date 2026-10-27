@@ -27,20 +27,20 @@ export function comparePnd(erp,plan,aliases={}){
   let edges=0,examined=0;const eligibility=new Map();
   function prepare(r,side,i){const yard=identity(r.yard);return {...r,side,sourceId:side+':'+i,yard,hull:identity(r.hull),spec:String(r.spec??''),model:normalizeAhuModel(r.spec,side),matchYard:side==='plan'&&Object.hasOwn(aliases,yard)?identity(aliases[yard]):yard};}
   function pairKey(r){return r.hull&&r.model.key?JSON.stringify([r.hull,r.model.key]):'';}
-  function index(rows){const out={yard:new Map(),hull:new Map(),model:new Map(),pair:new Map()};for(const r of rows)for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key],['pair',pairKey(r)]])if(value){if(!out[key].has(value))out[key].set(value,[]);out[key].get(value).push(r);}return out;}
+  function index(rows){const out={yard:new Map(),hull:new Map(),model:new Map(),rawModel:new Map(),pair:new Map()};for(const r of rows)for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key],['rawModel',r.model.model],['pair',pairKey(r)]])if(value){if(!out[key].has(value))out[key].set(value,[]);out[key].get(value).push(r);}return out;}
   function conflict(a,b){return confirmedYardConflict(a.side==='erp'?a.yard:b.yard,a.side==='plan'?a.yard:b.yard,aliases);}
   function eligible(r){if(eligibility.has(r.sourceId))return eligibility.get(r.sourceId);if(r.keyIssue||!pairKey(r))return [];const bucket=indexes[r.side==='erp'?'plan':'erp'].pair.get(pairKey(r))||[];examined+=bucket.length;if(examined>AHU_LIMITS.candidates)throw Error('호선·규격 후보 관계 250,000개 한계를 초과했습니다. AHU 대상 행을 좁혀 재비교하세요.');const choices=bucket.filter(other=>!other.keyIssue&&!conflict(r,other));eligibility.set(r.sourceId,choices);return choices;}
   function candidates(r,confirmedId=''){
     const opposite=indexes[r.side==='erp'?'plan':'erp'],found=new Map();
-    for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key]])for(const other of value?opposite[key].get(value)||[]:[])found.set(other.sourceId,other);
+    for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key],['rawModel',r.model.model]])for(const other of value?opposite[key].get(value)||[]:[])found.set(other.sourceId,other);
     edges+=found.size;if(edges>AHU_LIMITS.candidates)throw Error('OR 후보 관계 250,000개 한계를 초과했습니다. AHU 대상 행을 좁혀 재비교하세요. 후보를 조용히 생략하지 않습니다.');
     return [...found.values()].map(other=>{
-      const yard=Boolean(r.matchYard&&r.matchYard===other.matchYard),hull=Boolean(r.hull&&r.hull===other.hull),spec=Boolean(r.model.key&&r.model.key===other.model.key),yardConflict=conflict(r,other),notes=[];
+      const yard=Boolean(r.matchYard&&r.matchYard===other.matchYard),hull=Boolean(r.hull&&r.hull===other.hull),normalizedSpec=Boolean(r.model.key&&r.model.key===other.model.key),spec=Boolean(normalizedSpec||r.model.model&&r.model.model===other.model.model),yardConflict=conflict(r,other),notes=[];
       if(r.hull&&other.hull&&!hull)notes.push('호선 다름: 자동 연결 제외');if(!r.hull||!other.hull)notes.push('호선 누락');
       if(!r.model.key||!other.model.key)notes.push('규격 누락 또는 미확인 형식');else if(!spec)notes.push('규격 다름');
       if(yardConflict)notes.push('확인된 서로 다른 조선소 코드');if(r.keyIssue||other.keyIssue)notes.push('식별자 확인 필요');
-      const matches=[yard?'야드':'',hull?'호선':'',spec?'규격':''].filter(Boolean);
-      return {source:other,matches,yard,hull,spec,yardConflict,eligible:hull&&spec&&!yardConflict&&!r.keyIssue&&!other.keyIssue,reason:matches.join('·')+' 일치'+(notes.length?' / '+notes.join(' / '):other.sourceId===confirmedId?' / 일대일 유일성 확인':' / 유일성 확인 필요')};
+      const matches=[yard?'야드':'',hull?'호선':'',spec?normalizedSpec?'규격':'규격 원문':''].filter(Boolean);
+      return {source:other,matches,yard,hull,spec,yardConflict,eligible:hull&&normalizedSpec&&!yardConflict&&!r.keyIssue&&!other.keyIssue,reason:matches.join('·')+' 일치'+(notes.length?' / '+notes.join(' / '):other.sourceId===confirmedId?' / 일대일 유일성 확인':' / 유일성 확인 필요')};
     }).sort((a,b)=>Number(b.hull&&b.spec)-Number(a.hull&&a.spec)||Number(b.hull)-Number(a.hull)||Number(b.spec)-Number(a.spec)||a.source.row-b.source.row);
   }
   function make(erows,prows,linked,list=[],extra=[]){

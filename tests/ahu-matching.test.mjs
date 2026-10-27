@@ -44,6 +44,9 @@ test('exports and search expose original specs, normalized values, both yards an
 test('candidate graph limits fail explicitly rather than returning a truncated or guessed match',()=>{
   const rows=Array.from({length:501},(_,i)=>row('A','HKA-08SN','가상',i+2));assert.throws(()=>comparePnd(rows,rows),/250,000/);
 });
+test('unverified identical model text is an OR reference candidate but never an automatic specification match',()=>{
+  for(const [erp,plan]of [['OTHER-MODEL/ID','OTHER-MODEL'],['HKA01312/ID','HKA01312']]){const results=comparePnd([row('A',erp,'가상 A')],[row('B',plan,'가상 B')]);assert.equal(results.length,2);assert(results.every(r=>!r.linked&&r.candidateCount===1&&r.eligibleCount===0));assert(results[0].candidates[0].reason.includes('규격 원문'));}
+});
 test('verified presets locate original fields and select only confirmed AHU rules',async()=>{
   const e=await ahuPresetFixture('erp'),p=await ahuPresetFixture('plan','xls');for(const [side,f]of [['erp',e],['plan',p]]){const book=openAhuWorkbook(f.bytes,f.filename),preset=applyAhuPreset(side,book.readSheet(0).preview);assert(preset.ready);assert.equal(preset.config.spec,side==='erp'?10:6);assert.equal(preset.selected.length,3);if(side==='erp')assert.deepEqual(preset.selected,[3,4,7]);}
 });
