@@ -1131,6 +1131,7 @@
     <div class="card-head"><h2>내 정보</h2><span class="badge blue">PROFILE</span></div>
     <form id="myPageForm" class="mypage-form">
       <p class="mypage-guide">내 정보는 서버 계정에 저장되며 다른 PC에서도 사용할 수 있습니다.</p>
+      <p id="myLoginIdentity" class="mypage-guide"></p>
       <div class="profile-grid">
         <div><label>팀 소속</label><input id="myTeam" type="text" placeholder="예: A/C생산팀"></div>
         <div><label class="required">이름</label><input id="myName" type="text" required placeholder="성명"></div>
@@ -1139,6 +1140,19 @@
         <div class="profile-wide"><label>이메일 주소</label><input id="myEmail" type="email" placeholder="예: name@hiairkorea.com"></div>
       </div>
       <div class="btns"><button class="btn primary" type="submit">정보 저장</button><button class="btn light" type="button" onclick="navigatePortal('home')">Home으로</button></div>
+    </form>
+  </div>
+  <div class="card mypage-card">
+    <div class="card-head"><h2>개인 비밀번호 변경</h2></div>
+    <form id="myPasswordForm" class="mypage-form">
+      <p>본인만 현재 비밀번호를 확인하여 변경할 수 있습니다. 다른 사람의 비밀번호는 관리자에게도 표시되지 않습니다. 변경하면 모든 PC에서 로그아웃됩니다.</p>
+      <div class="profile-grid">
+        <div><label for="myCurrentPassword">현재 비밀번호</label><input id="myCurrentPassword" type="password" autocomplete="current-password" minlength="12" maxlength="128" required></div>
+        <div><label for="myNewPassword">새 개인 비밀번호 (12~128자)</label><input id="myNewPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+        <div><label for="myConfirmPassword">새 비밀번호 확인</label><input id="myConfirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+      </div>
+      <p id="myPasswordMessage" role="status" aria-live="polite"></p>
+      <div class="btns"><button class="btn primary" type="submit">비밀번호 변경</button></div>
     </form>
   </div>
 </section>
@@ -1528,12 +1542,13 @@
     <div class="auth-dialog-head"><h2 id="authDialogTitle">로그인</h2><p>승인된 서버 계정으로 모든 내부 업무를 이용합니다.</p></div>
     <div class="auth-dialog-body">
       <div class="auth-mode-tabs"><button id="loginModeBtn" onclick="setAuthMode('login')">로그인</button><button id="registerModeBtn" onclick="setAuthMode('register')">가입 신청</button></div>
-      <div class="auth-field"><label for="authUserId">사용자 ID</label><input maxlength="30" id="authUserId" autocomplete="username" placeholder="예: jhyeon"></div>
+      <div class="auth-field"><label for="authUserId">사번 (기존 미전환 계정은 기존 ID)</label><input type="text" maxlength="30" id="authUserId" autocomplete="username" placeholder="앞자리 0을 포함한 사번"></div>
       <div class="auth-field" id="authNameField" style="display: block;"><label for="authDisplayName">성명</label><input id="authDisplayName" placeholder="예: 홍길동"></div>
+      <div class="auth-field" id="authTeamField" hidden><label for="authTeam">소속 (관리자가 별도 확인)</label><input id="authTeam" maxlength="200" placeholder="예: 생산관리팀"></div>
       <div class="auth-field"><label for="authPassword">비밀번호</label><input maxlength="128" id="authPassword" type="password" autocomplete="current-password" placeholder="12~128자 입력"></div>
       <div aria-live="polite" role="status" class="auth-message" id="authMessage"></div>
       <div class="auth-actions"><button class="btn primary" style="flex:1" onclick="submitAuth()" id="authSubmitBtn">로그인</button><button class="btn light" onclick="closeLoginModal()">취소</button></div>
-      <div class="auth-security-note">신규 가입은 관리자 승인 후 이용할 수 있습니다. 비밀번호는 12~128자입니다. 기존 서버 계정은 그대로 사용하세요.</div>
+      <div class="auth-security-note">사번·성명·개인 비밀번호로 가입 신청하세요. 소속 입력만으로 관리자 권한이 생기지 않습니다. 기존 계정이 있다면 다시 가입하지 말고 관리자에게 사번 전환을 요청하세요. 비밀번호는 12~128자입니다.</div>
     </div>
   </div>
 </div>
@@ -1568,7 +1583,7 @@
     document.addEventListener('hpm:auth',()=>{authEpoch++;issueLoadPending=false;issueLoadError='';});
     function normalizePortalUser(user={}) {
       return {
-        role:user.role || 'user', status:user.status || '', id:user.id || '', name:user.name || '', team:user.team || '', officePhone:user.officePhone || '',
+        role:user.role || 'user', status:user.status || '', id:user.id || '', employeeNo:user.employeeNo||null, loginId:user.loginId||user.id||'', authRevision:user.authRevision||0, name:user.name || '', team:user.team || '', officePhone:user.officePhone || '',
         mobilePhone:user.mobilePhone || '', email:user.email || ''
       };
     }
@@ -1578,11 +1593,11 @@
     function openLoginModal(mode='login') { setAuthMode(mode); authModal.classList.add('show'); setTimeout(() => authUserId.focus(),30); }
     function closeLoginModal() { authModal.classList.remove('show'); authMessage.textContent=''; authPassword.value=''; }
     function setAuthMode(mode){
-      authMode=mode==='register'?'register':'login';loginModeBtn.classList.toggle('active',authMode==='login');registerModeBtn.classList.toggle('active',authMode==='register');authNameField.style.display=authMode==='register'?'block':'none';authPassword.autocomplete=authMode==='register'?'new-password':'current-password';authDialogTitle.textContent=authMode==='register'?'가입 신청':'로그인';authSubmitBtn.textContent=authDialogTitle.textContent;authMessage.textContent='';
+      authMode=mode==='register'?'register':'login';loginModeBtn.classList.toggle('active',authMode==='login');registerModeBtn.classList.toggle('active',authMode==='register');authNameField.style.display=authMode==='register'?'block':'none';authTeamField.hidden=authMode!=='register';authPassword.autocomplete=authMode==='register'?'new-password':'current-password';authDialogTitle.textContent=authMode==='register'?'가입 신청':'로그인';authSubmitBtn.textContent=authDialogTitle.textContent;authMessage.textContent='';
     }
     async function submitAuth(){
       if(authSubmitBtn.disabled)return;authSubmitBtn.disabled=true;
-      try{const result=await apiRequest('/api/auth/'+(authMode==='register'?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:authUserId.value.trim().toLowerCase(),name:authDisplayName.value.trim(),password:authPassword.value})});
+      try{const result=await apiRequest('/api/auth/'+(authMode==='register'?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:authUserId.value.trim(),name:authDisplayName.value.trim(),team:authTeam.value.trim(),password:authPassword.value})});
         if(authMode==='register'){authMessage.textContent='가입 신청을 저장했습니다. 관리자 승인 후 로그인하세요.';authPassword.value='';return;}
         authRestoreMessage='';const switched=currentUser&&currentUser.id!==result.user.id;sessionStorage.setItem('hpmServerToken',result.token);currentUser=normalizePortalUser(result.user);window.hpmServerUser=currentUser;if(switched){resetForm();document.getElementById('myPageForm').reset();}
         closeLoginModal();renderAuthState();syncModulesAfterAuth();document.dispatchEvent(new Event('hpm:auth'));await reloadSharedModules();showToast('로그인했습니다.');
@@ -1594,7 +1609,7 @@
       if(authLogoutBusy||!confirm('로그아웃하시겠습니까?'))return;authLogoutBusy=true;topLogoutBtn.disabled=true;
       try{await apiRequest('/api/auth/logout',{method:'POST'});}catch(e){if(![401,403].includes(e.status)){showToast('로그아웃하지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.');return;}}
       finally{authLogoutBusy=false;topLogoutBtn.disabled=false;}
-      sessionStorage.removeItem('hpmServerToken');currentUser=null;window.hpmServerUser=null;issues=[];issuesLoaded=false;resetForm();document.getElementById('myPageForm').reset();for(const type of ['as','team']){calendarState[type].events=[];calendarState[type].loaded=false;renderCalendar(type);}document.getElementById('issueDetailDialog').close();closePhotoLightbox();renderAuthState();syncModulesAfterAuth();renderDashboard();renderStatistics();document.dispatchEvent(new Event('hpm:auth'));navigatePortal('home');
+      clearPortalSession();
     }
 
     function requirePortalLogin(action='이 기능') {
@@ -1620,6 +1635,7 @@
     }
     function renderMyPage() {
       if (!window.hpmServerUser) return;
+      myLoginIdentity.textContent='로그인 ID: '+currentUser.loginId+' · '+(currentUser.employeeNo?'사번 전환 완료':'사번 전환은 관리자에게 요청하세요.')+' · '+(currentUser.role==='admin'?'관리자':'일반 사용자');
       myTeam.value = currentUser.team || '';
       myName.value = currentUser.name || '';
       myOfficePhone.value = currentUser.officePhone || '';
@@ -1630,6 +1646,31 @@
       e.preventDefault();if(!requirePortalLogin('마이페이지 저장'))return;
       try{const result=await apiRequest('/api/auth/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:myName.value.trim(),team:myTeam.value.trim(),officePhone:myOfficePhone.value.trim(),mobilePhone:myMobilePhone.value.trim(),email:myEmail.value.trim()})});currentUser=normalizePortalUser(result.user);window.hpmServerUser=currentUser;renderAuthState();syncModulesAfterAuth();showToast('서버에 프로필을 저장했습니다.');}catch(e){alert(e.message);}
     });
+    document.getElementById('myPasswordForm').addEventListener('submit',async function(e){
+      e.preventDefault();const form=this,button=form.querySelector('button');if(button.disabled||!requirePortalLogin('비밀번호 변경'))return;
+      if(myNewPassword.value!==myConfirmPassword.value){myPasswordMessage.textContent='새 비밀번호 확인이 일치하지 않습니다.';return;}
+      if(!confirm('개인 비밀번호를 변경하시겠습니까? 모든 PC의 기존 로그인 세션이 종료됩니다.'))return;
+      const loginId=currentUser.loginId;button.disabled=true;
+      try{await apiRequest('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:myCurrentPassword.value,newPassword:myNewPassword.value})});form.reset();clearPortalSession();openLoginModal('login');authUserId.value=loginId;authMessage.textContent='비밀번호를 변경했습니다. 새 개인 비밀번호로 다시 로그인하세요.';}
+      catch(e){myPasswordMessage.textContent=e.message;}finally{button.disabled=false;}
+    });
+    function clearPortalSession(){
+      sessionStorage.removeItem('hpmServerToken');currentUser=null;window.hpmServerUser=null;issues=[];issuesLoaded=false;resetForm();document.getElementById('myPageForm').reset();document.getElementById('myPasswordForm').reset();
+      for(const type of ['as','team']){calendarState[type].events=[];calendarState[type].loaded=false;renderCalendar(type);}
+      document.getElementById('issueDetailDialog').close();closePhotoLightbox();renderAuthState();syncModulesAfterAuth();renderDashboard();renderStatistics();document.dispatchEvent(new Event('hpm:auth'));navigatePortal('home');
+    }
+    let identityRefresh=null;
+    async function refreshPortalIdentity(){
+      if(!sessionStorage.getItem('hpmServerToken'))return;
+      if(identityRefresh)return identityRefresh;
+      identityRefresh=(async()=>{try{const r=await apiRequest('/api/auth/me'),next=normalizePortalUser(r.user);
+        if(JSON.stringify(next)!==JSON.stringify(currentUser)){currentUser=next;window.hpmServerUser=next;renderAuthState();syncModulesAfterAuth();document.dispatchEvent(new Event('hpm:auth'));if(document.querySelector('#accountsPage.active')&&next.role!=='admin')navigatePortal('home');if(document.querySelector('#mypagePage.active'))renderMyPage();}
+      }catch{}finally{identityRefresh=null;}})();return identityRefresh;
+    }
+    window.refreshPortalIdentity=refreshPortalIdentity;
+    window.addEventListener('focus',()=>void refreshPortalIdentity());
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshPortalIdentity();});
+    setInterval(()=>{if(!document.hidden)void refreshPortalIdentity();},60000);
 
 
     const API_BASE_URL = ['localhost','127.0.0.1'].includes(location.hostname)?location.origin:'https://hpmanagement-web.lotusland1995.workers.dev';
@@ -1676,7 +1717,7 @@
         const response = await window.authorizedFetch(API_BASE_URL + path, { ...requestOptions, signal: controller.signal });
         let result;
         try { result = await response.json(); } catch { throw new Error('서버 응답을 읽지 못했습니다. Worker 배포 상태를 확인하세요.'); }
-        if(!response.ok||result.ok!==true){const error=new Error(result.error||'요청을 처리하지 못했습니다. 다시 시도하세요.');error.status=response.status;error.code=result.code;if(response.status===401&&currentUser&&path!=='/api/auth/login'){sessionStorage.removeItem('hpmServerToken');window.hpmServerUser=null;renderAuthState();openLoginModal('login');authUserId.value=currentUser.id;authMessage.textContent='로그인이 만료되었습니다. 같은 계정으로 다시 로그인하면 입력을 이어서 저장할 수 있습니다.';}if(response.status===403&&['ACCOUNT_PENDING','ACCOUNT_DISABLED'].includes(result.code)){window.hpmServerUser=null;renderAuthState();}throw error;}
+        if(!response.ok||result.ok!==true){const error=new Error(result.error||'요청을 처리하지 못했습니다. 다시 시도하세요.');error.status=response.status;error.code=result.code;if(response.status===401&&currentUser&&path!=='/api/auth/login'){sessionStorage.removeItem('hpmServerToken');window.hpmServerUser=null;renderAuthState();openLoginModal('login');authUserId.value=currentUser.loginId;authMessage.textContent='로그인이 만료되었습니다. 같은 계정으로 다시 로그인하면 입력을 이어서 저장할 수 있습니다.';}if(response.status===403&&['ACCOUNT_PENDING','ACCOUNT_DISABLED'].includes(result.code)){clearPortalSession();authRestoreMessage=result.error;renderAuthState();}else if(response.status===403&&path!=='/api/auth/me')void refreshPortalIdentity();throw error;}
 
         if (result.photosCleaned === false) alert('문제점 데이터는 반영되었지만 일부 미사용 사진을 정리하지 못했습니다. R2 저장소 상태를 확인하세요.');
         return result;
@@ -3059,4 +3100,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261027-supplies"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261027-access"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

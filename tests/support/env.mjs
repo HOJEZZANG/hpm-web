@@ -8,6 +8,7 @@ export function makeEnv(legacyPayload = false) {
   sqlite.exec(legacyPayload ? schema.replace('  id TEXT PRIMARY KEY NOT NULL,', '  id TEXT PRIMARY KEY NOT NULL,\n  payload TEXT NOT NULL,') : schema);
   sqlite.exec(readFileSync(new URL("../../migrations/0004_part1_business.sql",import.meta.url),"utf8"));
   sqlite.exec(readFileSync(new URL("../../migrations/0005_server_identity.sql",import.meta.url),"utf8"));
+  sqlite.exec(readFileSync(new URL("../../migrations/0006_employee_access.sql",import.meta.url),"utf8"));
   sqlite.prepare("INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)").run("owner","등록자","synthetic","unused","admin","active",new Date().toISOString());
   sqlite.prepare("INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)").run(createHash("sha256").update(TOKEN).digest("hex"),"owner","2099-01-01T00:00:00Z");
   const objects = new Map();

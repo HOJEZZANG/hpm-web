@@ -40,7 +40,7 @@ export async function collection(root,config){
   const form=$('form',root),dirty=form&&protectForm(form);let selected=null,records=[],newId=uid();
   const load=async()=>{const res=await api(type+(weekly?'?week='+$('[name=week]',root).value:''));records=res.records;render();};
   function render(){
-    $('[data-list]',root).innerHTML=table(columns,records,form?(r,i)=>button('수정',`data-edit="${i}"`)+(remove?button('개별 삭제',`data-delete="${i}"`):''):null);
+    $('[data-list]',root).innerHTML=table(columns,records,form?(r,i)=>(isAdmin()||r.owner===user()?.id)?button('수정',`data-edit="${i}"`)+(remove?button('개별 삭제',`data-delete="${i}"`):''):'등록자 또는 관리자에게 요청하세요.':null);
   }
   function reset(){selected=null;newId=uid();form.reset();if(form.elements.date)form.elements.date.value=today();dirty.clean();}
   root.addEventListener('click',e=>{

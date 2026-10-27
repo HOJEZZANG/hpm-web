@@ -1,6 +1,7 @@
 import { normalizeCalendar, planCalendarImport, calendarBackup } from './calendar-data.mjs';
 import { businessApi } from './business/api.mjs';
 import { authenticate, authApi } from './business/auth.mjs';
+import { auditRequest } from './business/audit.mjs';
 import { BusinessError, koreanToday, date as businessDate } from './business/domain.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
@@ -491,7 +492,7 @@ async function fireStatus(url, env) {
     return json(fireAggregate(fires, history, year, month));
   } finally { clearTimeout(timer); controller.abort(); }
 }
-async function route(request, env) {
+async function route(request, env, context) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   const url = new URL(request.url), method = request.method;
   // CORS is separate from authentication; all record and file APIs require a server session.
@@ -507,6 +508,7 @@ async function route(request, env) {
     return json({ok:database&&!!env.PHOTOS,database,photos:!!env.PHOTOS},database&&env.PHOTOS?200:503);
   }
   const user=await authenticate(request,env);
+  context.user=user;
   if (url.pathname.startsWith('/api/business/')) {
     const result=await businessApi(request,env,user);
     if(result instanceof Response){const headers=new Headers(result.headers);for(const [k,v] of Object.entries(corsHeaders))headers.set(k,v);return new Response(result.body,{status:result.status,headers});}
@@ -568,7 +570,11 @@ async function route(request, env) {
 }
 export default {
   async fetch(request, env) {
-    try { return await route(request, env); }
+    try {
+      const context={},response=await route(request,env,context);
+      if(response.ok)await auditRequest(env,context.user,request);
+      return response;
+    }
     catch (error) {
       if (error instanceof ApiError || error instanceof BusinessError) return json({ ok: false, error: error.message,code:error.code||(error.status===403?'FORBIDDEN':undefined) }, error.status);
       console.error('Worker request failed. Check database schema and storage bindings.');
