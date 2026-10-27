@@ -29,7 +29,7 @@ try{
   assert.equal(await evaluate('document.querySelector("#portalNavigation [data-page=accounts]").hidden'),true);
   assert.equal(await evaluate('document.querySelectorAll("#safetyPage,#vehiclesPage,#mealsPage,#suppliesPage,#portalNavigation [data-page=safety],#portalNavigation [data-page=vehicles]").length'),0);
   const link=await evaluate('(()=>{const a=document.querySelector("[data-service=vehicles]");return {href:a.href,rel:a.rel,target:a.target}})()');assert.equal(link.href,'https://hiairkorea-truck.web.app/?utm_source=chatgpt.com');assert(link.rel.includes('noopener')&&link.rel.includes('noreferrer'));assert.equal(link.target,'_blank');
-  const supplies=await evaluate('(()=>{const a=document.querySelector("[data-service=supplies]");return {href:a.href,target:a.target,rel:a.rel}})()');assert.equal(supplies.href,'https://wooden-convinced-spending-assume.trycloudflare.com/');assert.equal(supplies.target,'_blank');assert(supplies.rel.includes('noopener')&&supplies.rel.includes('noreferrer'));
+  const supplies=await evaluate('(()=>{const a=document.querySelector("[data-service=supplies]");return {href:a.href,target:a.target,rel:a.rel}})()');assert.equal(supplies.href,'https://hiair-supplies.kwy1010.workers.dev/');assert.equal(supplies.target,'_blank');assert(supplies.rel.includes('noopener')&&supplies.rel.includes('noreferrer'));
   await wait('document.querySelector(".brand-logo-panel img").naturalWidth===447');
   assert.equal(await evaluate('new URL(document.querySelector(".brand-logo-panel img").src).pathname'),'/hpm-web/assets/hi-air-korea-logo.png');
   assert.equal(await evaluate('typeof openIssueDetails==="function"&&Boolean(document.querySelector("#issueDetailDialog #issueDetailSummary"))'),true);

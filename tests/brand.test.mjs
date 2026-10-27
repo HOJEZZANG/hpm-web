@@ -15,7 +15,7 @@ test('history displays verified instants in Korean time across date/year boundar
   for(const value of ['2026-12-31','기존 미지정 시간','2026-10-20T12:30:00'])assert.equal(koreanHistoryTime(value),value);assert.equal(koreanHistoryTime(''),'—');
 });
 test('external destinations remain exactly user specified with a single configuration source',()=>{
-  assert.equal(externalServices.supplies.url,'https://wooden-convinced-spending-assume.trycloudflare.com/');assert.equal(externalServices.vehicles.url,'https://hiairkorea-truck.web.app/?utm_source=chatgpt.com');
+  assert.equal(externalServices.supplies.url,'https://hiair-supplies.kwy1010.workers.dev/');assert.equal(externalServices.vehicles.url,'https://hiairkorea-truck.web.app/?utm_source=chatgpt.com');
   const nav=readFileSync('business/ui/navigation.js','utf8');assert(nav.includes('rel="noopener noreferrer"'));assert(nav.includes('target="_blank"'));assert(!nav.includes("item('식수"));
   const theme=readFileSync('business/ui/theme.js','utf8');assert(theme.includes("key='hpmTheme'"));assert(!/localStorage\.(?:clear|removeItem)/.test(theme));
 });

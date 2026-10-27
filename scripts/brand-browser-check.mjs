@@ -14,7 +14,7 @@ try{
   await reload();assert.equal(await theme(),'light');assert.equal(await t.evaluate('localStorage.getItem("hpm-unrelated-backup")'),'retain');
   assert.equal(await t.evaluate('document.querySelector(".brand-logo-panel img").naturalWidth'),447);
   assert.equal(await t.evaluate('document.querySelectorAll("#mealsPage,#suppliesPage,[data-page=meals],[data-page=supplies],[data-page=safety],[data-page=vehicles]").length'),0);
-  const links=await t.evaluate('[...document.querySelectorAll(".external-menu")].map(a=>({href:a.href,target:a.target,rel:a.rel}))');assert.deepEqual(links.map(a=>a.href),['https://wooden-convinced-spending-assume.trycloudflare.com/','https://hiairkorea-truck.web.app/?utm_source=chatgpt.com']);assert(links.every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&a.rel.includes('noreferrer')));
+  const links=await t.evaluate('[...document.querySelectorAll(".external-menu")].map(a=>({href:a.href,target:a.target,rel:a.rel}))');assert.deepEqual(links.map(a=>a.href),['https://hiair-supplies.kwy1010.workers.dev/','https://hiairkorea-truck.web.app/?utm_source=chatgpt.com']);assert(links.every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&a.rel.includes('noreferrer')));
   state.failIssueReads=true;
   await t.evaluate(`openLoginModal('login');authUserId.value='owner';authPassword.value=${JSON.stringify(state.password)};submitAuth()`);await t.wait('window.hpmServerUser?.id==="owner"&&issueLoadError');
   await t.evaluate('navigatePortal("issue","manage");switchManageView("list")');assert.equal(await t.evaluate('listCountBadge.textContent'),'미확인');assert.equal(await t.evaluate('sumTotal.textContent'),'—');assert(!(await t.evaluate('issueList.textContent')).includes('없습니다'));

@@ -2,7 +2,7 @@ const paths={home:'m3 10 9-7 9 7v10h-6v-6H9v6H3z',chart:'M4 20V11m8 9V4m8 16v-7'
 const icon=name=>`<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]||paths.plan}"/></svg>`;
 const item=(label,page,glyph,tab='')=>`<button type="button" class="menu-item" data-page="${page}" ${tab?`data-issue-tab="${tab}"`:''}>${icon(glyph)}<span class="menu-label">${label}</span></button>`;
 const group=(id,label,body)=>`<div class="menu-group"><button type="button" class="menu-parent" aria-expanded="true" aria-controls="${id}"><span class="menu-label">${label}</span><span class="menu-chevron" aria-hidden="true">⌄</span></button><div class="submenu" id="${id}">${body}</div></div>`;
-import {externalServices} from './external-services.js';
+import {externalServices} from './external-services.js?v=20261027-supplies';
 const external=(key,glyph)=>{const {label,url}=externalServices[key];return `<a class="menu-item external-menu" data-service="${key}" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}, 외부 서비스 새 탭">${icon(glyph)}<span class="menu-label">${label}<small>외부 서비스 ↗</small></span></a>`;};
 export function initNavigation(){
   const nav=document.getElementById('portalNavigation');
