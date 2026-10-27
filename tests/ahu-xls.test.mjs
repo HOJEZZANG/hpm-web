@@ -31,10 +31,10 @@ test('AHU BIFF XLS mixed with XLSX preserves Korean, zero prefixes, duplicate ro
     const f=await ahuFixture(side,format),book=openAhuWorkbook(f.bytes,f.filename),sheet=book.readSheet(1);
     assert.deepEqual(sheet.preview,book.readSheet(1).preview,'Repeated sheet reads must not reuse an exhausted BIFF cursor');
     const selected=sheet.rows.filter(r=>r.number>f.header&&r.cells.get(1)?.value==='가상 AHU').map(r=>r.number);
-    sources[side]=extractAhuRows(sheet,{header:f.header,yard:2,hull:3,pnd:4,selected},f.filename);
+    sources[side]=extractAhuRows(sheet,{header:f.header,yard:2,hull:3,pnd:4,spec:6,selected},f.filename);
   }
   const result=comparePnd(sources.erp,sources.plan);assert.equal(result[0].label,'9일 당겨짐');assert.equal(result.filter(r=>r.status==='advanced').length,2);assert.equal(result.filter(r=>r.status==='delayed').length,1);
-  assert.equal(result.filter(r=>r.label==='중복 확인 필요').length,2);assert.equal(result.find(r=>r.hull==='00123').status,'same');assert(result.some(r=>r.hull==='H-00A'));assert(result.some(r=>r.reasons.some(s=>s.includes('빈 날짜'))));
+  assert.equal(result.filter(r=>r.reasons.some(s=>s.includes('중복·복수'))).length,6);assert.equal(result.find(r=>r.hull==='00123').status,'same');assert(result.some(r=>r.hull==='H-00A'));assert(result.some(r=>r.reasons.some(s=>s.includes('빈 날짜'))));
   assert(result.every(r=>r.erp.every(s=>s.file.endsWith('.xls')&&s.sheet==='가상 ERP 자료'&&s.row>3)));
 });
 test('AHU BIFF numeric formats, both date epochs, cached formulas and unsafe identifiers remain explicit',()=>{
@@ -63,8 +63,8 @@ test('AHU BIFF rejects macro containers, encryption and corrupt or truncated rec
   const bad=CFB.read(bytes,{type:'array'}),entry=CFB.find(bad,'/Workbook');CFB.utils.cfb_add(bad,'/Workbook',entry.content.subarray(0,entry.content.length-1));assert.throws(()=>openAhuWorkbook(new Uint8Array(CFB.write(bad,{type:'array'})),'가상.xls'),/잘렸|완결|손상/);
 });
 test('AHU BIFF external references use cached values only and keep the notice in provenance and export',()=>{
-  const bytes=workbook([['야드','호선','PND'],['가상','00001',46336]]),linked=addRecord(bytes,0x01ae,new Uint8Array([0,0,1,0,0,65])),book=openAhuWorkbook(linked,'가상.xls');
-  assert(book.notices[0].includes('갱신하지 않고'));const rows=extractAhuRows(book.readSheet(0),config,'가상.xls');assert.equal(rows[0].date.iso,'2026-11-10');assert.deepEqual(rows[0].notices,book.notices);
+  const bytes=workbook([['야드','호선','PND','규격'],['가상','00001',46336,'HKA-08SN']]),linked=addRecord(bytes,0x01ae,new Uint8Array([0,0,1,0,0,65])),book=openAhuWorkbook(linked,'가상.xls');
+  assert(book.notices[0].includes('갱신하지 않고'));const rows=extractAhuRows(book.readSheet(0),{...config,spec:4},'가상.xls');assert.equal(rows[0].date.iso,'2026-11-10');assert.deepEqual(rows[0].notices,book.notices);
   const result=comparePnd(rows,rows);assert.equal(result[0].status,'same');assert(exportRows(result)[0][7].includes('외부 참조'));
 });
 test('AHU BIFF budgets count effective rows and cells instead of trusting formatting-only ranges',()=>{

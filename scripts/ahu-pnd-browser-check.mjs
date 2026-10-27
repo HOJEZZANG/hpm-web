@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import ExcelJS from 'exceljs';
-import {ahuFixture} from '../tests/support/ahu-pnd-fixtures.mjs';
+import {ahuFixture,ahuPresetFixture} from '../tests/support/ahu-pnd-fixtures.mjs';
 import {startTestServer} from './local-test-server.mjs';
 import {browser} from './browser-harness.mjs';
 const state=await startTestServer(),qa=await browser(process.argv[2],state.url),downloadPath=mkdtempSync(resolve('.wrangler/ahu-pnd-downloads-')),inputPath=mkdtempSync(resolve('.wrangler/ahu-pnd-inputs-'));
@@ -32,7 +32,7 @@ try{
     await tab.wait(`document.querySelector('[data-pnd-source=${side}] [data-config=sheet]')?.options.length===3`);
     assert(await tab.evaluate(`document.querySelector('[data-pnd-source=${side}] [data-file-name]').textContent.includes(${JSON.stringify('확인된 형식: .'+fixture.filename.split('.').at(-1))})`));
     await change(side,'sheet',fixture.sheetIndex);await change(side,'header',fixture.header);
-    for(const [key,value]of [['yard',2],['hull',3],['pnd',4],['filterCol',1],['filterMode','exact'],['filterValue','가상 AHU']])await change(side,key,value);
+    for(const [key,value]of [['yard',2],['hull',3],['pnd',4],['spec',6],['filterCol',1],['filterMode','exact'],['filterValue','가상 AHU']])await change(side,key,value);
     assert(await tab.evaluate(`document.querySelector('[data-pnd-source=${side}] [data-source-count]').textContent.includes('AHU 선택 0행')`));
     await tab.evaluate(`document.querySelector('[data-pnd-source=${side}] [data-source-action=select]').click()`);
   }
@@ -42,9 +42,9 @@ try{
   await compare();await tab.wait('!document.querySelector("[data-pnd-results]").hidden');
   assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-status=advanced]").length'),2);
   assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-status=delayed]").length'),1);
-  assert.equal(await tab.evaluate('document.querySelector("[data-pnd-table] tbody tr").children[1].textContent'),'00102');
-  assert.equal(await tab.evaluate('document.querySelectorAll("[data-pnd-table] tbody tr").length'),15);
-  const text=await tab.evaluate('document.querySelector("[data-pnd-table]").textContent');for(const value of ['9일 당겨짐','3일 지연','일치','중복 확인 필요','빈 날짜','존재하지','호선번호 누락','ERP에 해당 항목 없음','생산계획에 해당 항목 없음','00123','H-00A','가상 ERP 자료','행'])assert(text.includes(value),value);
+  assert.equal(await tab.evaluate('document.querySelector("[data-pnd-table] tbody tr").children[2].textContent'),'00102');
+  assert.equal(await tab.evaluate('document.querySelectorAll("[data-pnd-table] tbody tr").length'),18);
+  const text=await tab.evaluate('document.querySelector("[data-pnd-table]").textContent');for(const value of ['9일 당겨짐','3일 지연','일치','중복·복수','빈 날짜','존재하지','호선번호 누락','OR 후보','00123','H-00A','가상 ERP 자료','행','HKA-8SN'])assert(text.includes(value),value);
   assert.equal(await tab.evaluate(`getComputedStyle(document.querySelector('[data-pnd-table] .pnd-advanced')).color`),'rgb(174, 41, 55)');
   assert.equal(await tab.evaluate(`getComputedStyle(document.querySelector('[data-pnd-table] .pnd-delayed')).color`),'rgb(152, 68, 0)');
   // Reject ambiguous multi-file drops and drops outside either area without replacing a source.
@@ -53,13 +53,13 @@ try{
   await tab.evaluate(`document.querySelector('[data-alias-source]').value='가상 별칭 야드';document.querySelector('[data-alias-target]').value='가상 정식 야드';document.querySelector('[data-alias-add]').click()`);
   await compare();assert(await tab.evaluate('document.querySelector("[data-pnd-message]").textContent.includes("직접 확인")'));
   await tab.evaluate(`document.querySelector('[data-alias-confirm]').click()`);await compare();await tab.wait('!document.querySelector("[data-pnd-results]").hidden');
-  const allCount=await tab.evaluate('document.querySelectorAll("[data-pnd-table] tbody tr").length');assert.equal(allCount,14);
+  const allCount=await tab.evaluate('document.querySelectorAll("[data-pnd-table] tbody tr").length');assert.equal(allCount,18);
   await tab.evaluate(`document.querySelector('[data-pnd-search]').value='0010';document.querySelector('[data-pnd-search]').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-pnd-status]').value='advanced';document.querySelector('[data-pnd-status]').dispatchEvent(new Event('change',{bubbles:true}))`);
   assert.equal(await tab.evaluate('document.querySelectorAll("[data-pnd-table] tbody tr").length'),2);
   await tab.browserCall('Browser.setDownloadBehavior',{behavior:'allow',downloadPath,browserContextId:tab.browserContextId});
   async function download(kind){await tab.evaluate(`document.querySelector('[data-pnd-export=${kind}]').click()`);await settled();const end=Date.now()+10000;let name;while(Date.now()<end){name=readdirSync(downloadPath).find(n=>n.endsWith('.xlsx')&&n.includes(kind==='all'?'전체':'필터'));if(name)break;await new Promise(r=>setTimeout(r,50));}assert(name,'Browser must download an actual XLSX file');const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(readFileSync(join(downloadPath,name)));return workbook.worksheets[0];}
   const filtered=await download('filtered');assert.equal(filtered.rowCount,3);assert.equal(filtered.getCell('B2').value,'00102');assert.equal(filtered.getCell('F2').value,'9일 당겨짐');assert(String(filtered.getCell('H2').value).includes('가상 ERP 자료'));
-  const all=await download('all');assert.equal(all.rowCount,allCount+1);assert([...Array(allCount)].some((_,i)=>all.getCell('F'+(i+2)).value==='중복 확인 필요'));
+  const all=await download('all');assert.equal(all.rowCount,allCount+1);assert([...Array(allCount)].some((_,i)=>String(all.getCell('G'+(i+2)).value).includes('중복·복수')));assert.equal(all.getCell('O2').value,'HKA-08SN');assert(String(all.getCell('P2').value).startsWith('HKA008SN/'));
   assert.equal(state.requests.length,requestsBefore,'File contents/results must never be sent to an API');
   await tab.evaluate(`navigatePortal('home')`);await tab.evaluate('history.back()');await tab.wait('location.hash==="#/ahuPnd"');assert.equal(await tab.evaluate('document.querySelector("[data-pnd-search]").value'),'0010');assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-status=advanced]").length'),2);
   await tab.evaluate(`document.getElementById('themeToggle').click()`);assert.equal(await tab.evaluate('document.documentElement.dataset.theme'),'dark');assert.equal(await tab.evaluate(`getComputedStyle(document.querySelector('[data-pnd-table] .pnd-advanced')).color`),'rgb(255, 172, 184)');
@@ -72,7 +72,15 @@ try{
   await change('erp','filterValue','가상 분류 없음');await tab.evaluate(`document.querySelector('[data-pnd-source=erp] [data-source-action=select]').click()`);await compare();assert(await tab.evaluate('document.querySelector("[data-pnd-message]").textContent.includes("대조 완료")'));
   await tab.evaluate(`document.querySelector('[data-pnd-search]').value='';document.querySelector('[data-pnd-search]').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-pnd-status]').value='';document.querySelector('[data-pnd-status]').dispatchEvent(new Event('change',{bubbles:true}))`);assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-status]:not([data-result-status=review])").length'),0);assert(await tab.evaluate('document.querySelector("[data-pnd-table]").textContent.includes("ERP에 해당 항목 없음")'));
   assert.deepEqual(qa.errors,[]);assert(state.requests.slice(requestsBefore).every(r=>r.method==='GET'&&r.path==='/api/business/notices'),'Only the existing home notice read is allowed during navigation');
+  async function presetUpload(side,fixture){const file=join(inputPath,fixture.filename);writeFileSync(file,fixture.bytes);await drop(side,[file]);await tab.wait(`document.querySelector('[data-pnd-source=${side}] [data-preset-summary]')`);}
+  const pe=await ahuPresetFixture('erp'),pp=await ahuPresetFixture('plan','xls');await presetUpload('erp',pe);await presetUpload('plan',pp);
+  for(const side of ['erp','plan']){assert(!await tab.evaluate(`document.querySelector('[data-pnd-source=${side}] [data-source-settings]').open`));assert(await tab.evaluate(`document.querySelector('[data-pnd-source=${side}] [data-preset-summary]').textContent.includes('기본 프리셋 적용')`));}
+  await compare();await tab.wait('!document.querySelector("[data-pnd-results]").hidden');assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-id]").length'),3);
+  const duplicate=await ahuPresetFixture('erp','xlsx',s=>{s.getCell(2,11).value='품번';});await presetUpload('erp',duplicate);assert(await tab.evaluate(`document.querySelector('[data-pnd-source=erp] [data-preset-summary]').textContent.includes('중복 제목')`));assert(await tab.evaluate(`document.querySelector('[data-pnd-source=erp] [data-source-settings]').open`));await compare();assert(await tab.evaluate('document.querySelector("[data-pnd-results]").hidden'));
+  const moved=await ahuPresetFixture('erp','xlsx',s=>{for(let r=2;r<=7;r++){s.getCell(r,11).value=s.getCell(r,10).value;s.getCell(r,10).value=null;}});await presetUpload('erp',moved);assert.equal(await tab.evaluate(`document.querySelector('[data-pnd-source=erp] [data-config=spec]').value`),'11');assert(await tab.evaluate(`document.querySelector('[data-pnd-source=erp] [data-preset-summary]').textContent.includes('이동한 열')`));await compare();assert.equal(await tab.evaluate('document.querySelectorAll("[data-result-id]").length'),3);
+  const mixed=await ahuPresetFixture('plan','xlsx',s=>{s.getCell('F7').value='CHILLER-01';});await presetUpload('plan',mixed);assert(await tab.evaluate(`document.querySelector('[data-pnd-source=plan] [data-preset-summary]').textContent.includes('혼합 자료')`));assert(await tab.evaluate(`document.querySelector('[data-pnd-source=plan] [data-source-count]').textContent.includes('AHU 선택 0행')`));
+  assert.deepEqual(qa.errors,[]);assert(state.requests.slice(requestsBefore).every(r=>r.method==='GET'&&r.path==='/api/business/notices'));
   await tab.evaluate('logoutPortal()');await tab.wait('window.hpmServerUser===null');assert(!await tab.evaluate('document.querySelector("#ahuPndPage").textContent.includes("가상_ERP.")'));
-  console.log('PASS AHU PND: original BIFF XLS and mixed XLSX inputs, native browser file picker and drag/drop for both sources, renamed-format rejection, multi-file/outside-drop protection, repeated replacement, arbitrary sheets/headers/mapping, explicit mixed-product selection, zero-prefixed identifiers, all comparison states, confirmed aliases, source rows, sorting/filtering, real full/filtered XLSX downloads, navigation, dark theme/mobile, error/recompare/logout. No comparison API requests.');
+  console.log('PASS AHU PND: original XLS/XLSX, native picker/drop, validated automatic presets and collapsed settings, uniquely moved headers, duplicate-header/mixed-target rejection, manual mapping, explicit selection, hull/model links, all comparison states, confirmed aliases, original/normalized specs in actual XLSX downloads, navigation/mobile/theme/replacement/logout. No comparison API requests.');
   console.log('Synthetic browser downloads: '+downloadPath);
 }finally{await qa.close();await state.close();}

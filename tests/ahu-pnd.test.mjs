@@ -6,7 +6,7 @@ import {calendarDate,comparePnd,filterResults,exportRows,exportColumns,AHU_LIMIT
 import {openAhuWorkbook,extractAhuRows} from '../business/ahu-xlsx.mjs';
 import {writeTable} from '../business/ooxml.mjs';
 import {ahuFixture} from './support/ahu-pnd-fixtures.mjs';
-const row=(hull,pnd,extra={})=>({yard:'가상 YARD',hull,pnd,row:2,file:'가상 자료.xlsx',sheet:'가상 시트',date:calendarDate(pnd),...extra});
+const row=(hull,pnd,extra={})=>({yard:'가상 YARD',hull,spec:'HKA-08SN',pnd,row:2,file:'가상 자료.xlsx',sheet:'가상 시트',date:calendarDate(pnd),...extra});
 test('AHU calendar dates ignore timezone and time, validate leap days and both Excel epochs',()=>{
   assert.equal(calendarDate('2026-03-08T23:30:00-10:00').day,calendarDate('2026-03-08').day);
   assert.equal(calendarDate('2026/3/9').day-calendarDate('2026.3.8').day,1);
@@ -20,17 +20,17 @@ test('AHU comparison preserves leading zero, letters and punctuation, sorts and 
 });
 test('AHU duplicates, missing keys, one-sided rows and date errors keep all provenance without selecting a winner',()=>{
   const result=comparePnd([row('D','2026-11-10'),row('D','2026-11-12',{row:3}),row('B',''),row('X','2026-02-30'),row('','2026-11-10'),row('only','2026-11-10')],[row('D','2026-11-10'),row('B','2026-11-10'),row('X','2026-11-10'),row('','2026-11-10'),row('plan-only','2026-11-10')]);
-  assert(result.every(r=>r.status==='review'&&r.diff===null));const duplicate=result.find(r=>r.hull==='D');assert.equal(duplicate.label,'중복 확인 필요');assert.equal(duplicate.erp.length,2);assert.equal(result.filter(r=>!r.hull).length,2);assert(result.find(r=>r.hull==='B').reasons.some(r=>r.includes('빈 날짜')));assert(result.find(r=>r.hull==='X').reasons.some(r=>r.includes('날짜')));
-  assert(exportRows([duplicate])[0][7].includes('3행'));assert.equal(exportRows([duplicate])[0].length,exportColumns.length);
+  assert(result.every(r=>r.status==='review'&&r.diff===null));const duplicate=result.filter(r=>r.hull==='D');assert.equal(duplicate.length,3);assert(duplicate.every(r=>r.erp.length+r.plan.length===1&&r.reasons.some(s=>s.includes('복수'))));assert.equal(result.filter(r=>!r.hull).length,2);assert(result.find(r=>r.hull==='B').reasons.some(r=>r.includes('빈 날짜')));assert(result.find(r=>r.hull==='X').reasons.some(r=>r.includes('날짜')));
+  assert(exportRows(duplicate).some(r=>r[7].includes('3행')));assert.equal(exportRows(duplicate)[0].length,exportColumns.length);
 });
-test('AHU yard aliases require supplied exact mapping and can create duplicates rather than merge records',()=>{
+test('AHU yard aliases annotate confirmed names without replacing hull/spec uniqueness or merging records',()=>{
   const a=[row('001','2026-11-10',{yard:'가상 정식'})],b=[row('001','2026-11-10',{yard:'가상 별칭'})];
-  assert.equal(comparePnd(a,b).length,2);assert.equal(comparePnd(a,b,{'가상 별칭':'가상 정식'})[0].status,'same');
-  assert.equal(comparePnd(a,[...b,row('001','2026-11-10',{yard:'가상 정식'})],{'가상 별칭':'가상 정식'})[0].label,'중복 확인 필요');
+  assert.equal(comparePnd(a,b).length,1);assert.equal(comparePnd(a,b)[0].linkBasis,'호선·규격 일치 / 야드 표기 다름');assert.equal(comparePnd(a,b,{'가상 별칭':'가상 정식'})[0].status,'same');
+  const duplicate=comparePnd(a,[...b,row('001','2026-11-10',{yard:'가상 정식'})],{'가상 별칭':'가상 정식'});assert.equal(duplicate.length,3);assert(duplicate.every(r=>!r.linked));
 });
 test('AHU arbitrary sheets, header rows, columns and explicit mixed-product selections work without schema inference',async()=>{
-  const extracted={};for(const side of ['erp','plan']){const fixture=await ahuFixture(side),book=openAhuWorkbook(fixture.bytes);assert.equal(book.sheets.length,2);const sheet=book.readSheet(1);assert.equal(sheet.rows[0].number,1);const selected=sheet.rows.filter(r=>r.number>fixture.header&&r.cells.get(1)?.value==='가상 AHU').map(r=>r.number);extracted[side]=extractAhuRows(sheet,{header:fixture.header,yard:2,hull:3,pnd:4,selected},fixture.filename);assert(extracted[side].some(r=>r.hull==='00123'));assert(!extracted[side].some(r=>r.pnd==='2026-12-31'));assert.throws(()=>extractAhuRows(sheet,{header:fixture.header,yard:2,hull:3,pnd:4,selected:[]},fixture.filename),/직접 선택/);}
-  const result=comparePnd(extracted.erp,extracted.plan);assert.equal(result.filter(r=>r.status==='advanced').length,2);assert.equal(result.filter(r=>r.status==='delayed').length,1);assert.equal(result.filter(r=>r.label==='중복 확인 필요').length,2);assert.equal(result.find(r=>r.hull==='00123').status,'same');assert.equal(result[0].hull,'00102');
+  const extracted={};for(const side of ['erp','plan']){const fixture=await ahuFixture(side),book=openAhuWorkbook(fixture.bytes);assert.equal(book.sheets.length,2);const sheet=book.readSheet(1);assert.equal(sheet.rows[0].number,1);const selected=sheet.rows.filter(r=>r.number>fixture.header&&r.cells.get(1)?.value==='가상 AHU').map(r=>r.number);extracted[side]=extractAhuRows(sheet,{header:fixture.header,yard:2,hull:3,pnd:4,spec:6,selected},fixture.filename);assert(extracted[side].some(r=>r.hull==='00123'));assert(!extracted[side].some(r=>r.pnd==='2026-12-31'));assert.throws(()=>extractAhuRows(sheet,{header:fixture.header,yard:2,hull:3,pnd:4,spec:6,selected:[]},fixture.filename),/직접 선택/);}
+  const result=comparePnd(extracted.erp,extracted.plan);assert.equal(result.filter(r=>r.status==='advanced').length,2);assert.equal(result.filter(r=>r.status==='delayed').length,1);assert.equal(result.filter(r=>r.reasons.some(s=>s.includes('중복·복수'))).length,6);assert.equal(result.find(r=>r.hull==='00123').status,'same');assert.equal(result[0].hull,'00102');
 });
 test('AHU numeric identifiers preserve supported format literals; unsafe precision and cached formula absence are review reasons',async()=>{
   const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('임의 시트');sheet.addRow(['야드','호선','PND']);sheet.addRow(['가상',12,{formula:'1+1'}]);sheet.getCell('B2').numFmt='"H-"00000';sheet.addRow(['가상',1234567890123456,'2026-11-10']);sheet.addRow(['가상','0000',{formula:'DATE(2026,11,10)',result:46336}]);

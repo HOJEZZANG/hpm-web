@@ -44,10 +44,10 @@ export function openAhuWorkbook(bytes){
   return {sheets:sheets.map(s=>s.name),readSheet};
 }
 export function extractAhuRows(sheet,config,file){
-  const {header,yard,hull,pnd,selected}=config;
+  const {header,yard,hull,pnd,spec,selected}=config;
   requireValue(Number.isInteger(header)&&header>=1&&sheet.rows.some(r=>r.number===header),'내용이 있는 헤더 행 번호를 선택하세요.');
-  requireValue(new Set([yard,hull,pnd]).size===3&&[yard,hull,pnd].every(c=>sheet.columns.includes(c)),'야드·호선번호·PND에 서로 다른 열을 선택하세요.');
+  const fields=spec===undefined?[yard,hull,pnd]:[yard,hull,pnd,spec];requireValue(new Set(fields).size===fields.length&&fields.every(c=>sheet.columns.includes(c)),'야드·호선번호·PND·규격/품번에 서로 다른 열을 선택하세요.');
   const picks=new Set(selected);requireValue(picks.size>0||config.targetConfirmed===true,'AHU 대상 행을 직접 선택하세요. 0행이라면 현재 필터 전체 0행 선택으로 확인하세요.');
   const rows=sheet.rows.filter(r=>picks.has(r.number));requireValue(rows.length===picks.size&&rows.every(r=>r.number>header),'대상 행은 선택 시트의 헤더 다음 데이터 행이어야 합니다.');
-  return rows.map(r=>{const y=r.cells.get(yard),h=r.cells.get(hull),p=r.cells.get(pnd);return {file,sheet:sheet.name,row:r.number,yard:identity(y?.display),hull:identity(h?.display),pnd:p?.value??'',notices:sheet.notices||[],keyIssue:[y?.keyIssue?`야드: ${y.keyIssue}`:'',h?.keyIssue?`호선번호: ${h.keyIssue}`:''].filter(Boolean).join(' / '),date:p?.issue?{iso:'',reason:p.issue}:calendarDate(p?.value??'',sheet.date1904)};});
+  return rows.map(r=>{const y=r.cells.get(yard),h=r.cells.get(hull),p=r.cells.get(pnd),s=r.cells.get(spec);return {file,sheet:sheet.name,row:r.number,yard:identity(y?.display),hull:identity(h?.display),spec:s?.display??'',pnd:p?.value??'',notices:sheet.notices||[],keyIssue:[y?.keyIssue?`야드: ${y.keyIssue}`:'',h?.keyIssue?`호선번호: ${h.keyIssue}`:'',s?.issue?`규격/품번: ${s.issue}`:''].filter(Boolean).join(' / '),date:p?.issue?{iso:'',reason:p.issue}:calendarDate(p?.value??'',sheet.date1904)};});
 }
