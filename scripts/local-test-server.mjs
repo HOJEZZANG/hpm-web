@@ -16,7 +16,9 @@ export async function startTestServer(){
     try{
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')){
-        state.requests.push({path:url.pathname,method:req.method});
+        state.requests.push({path:url.pathname,query:url.search,method:req.method});
+        if(state.failPlanReads&&req.method==='GET'&&(url.pathname==='/api/business/production'||url.pathname==='/api/business/imports/latest')){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 생산 조회 실패'}));return;}
+        if(state.pauseChunkMs&&url.pathname.endsWith('/chunk'))await new Promise(resolve=>setTimeout(resolve,state.pauseChunkMs));
         if(req.method==='POST'&&url.pathname.endsWith('/chunk')&&state.failChunkAfter!=null){if(state.failChunkAfter--<=0){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 분할 전송 실패'}));return;}}
         if(url.pathname==='/api/fire-status'&&req.method==='GET'){const row={company:'합성 점검 구역',total:5,normal:3,abnormal:1,pending:1,inspectionRate:80};res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,year:Number(url.searchParams.get('year')),month:Number(url.searchParams.get('month')),companies:[row],summary:row}));return;}
         if(state.failIssueReads&&req.method==='GET'&&url.pathname==='/api/issues'){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 조회 실패'}));return;}
@@ -28,7 +30,9 @@ export async function startTestServer(){
         if(req.headers['content-type']?.includes('application/json'))bytes=Buffer.from(JSON.stringify(translate(JSON.parse(bytes.toString()),state.url,remote)));
         const headers=new Headers(req.headers);headers.set('Origin','https://hojezzang.github.io');
         const request=new Request('https://hpmanagement-web.lotusland1995.workers.dev'+req.url,{method:req.method,headers,...(['GET','HEAD'].includes(req.method)?{}:{body:bytes})});
-        const response=await worker.fetch(request,env);res.writeHead(response.status,Object.fromEntries(response.headers));
+        const response=await worker.fetch(request,env);
+        if(state.loseApplyResponse&&req.method==='POST'&&url.pathname.endsWith('/apply')&&response.ok){state.loseApplyResponse=false;res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 최종 응답 유실'}));return;}
+        res.writeHead(response.status,Object.fromEntries(response.headers));
         if(response.headers.get('content-type')?.includes('application/json'))res.end(JSON.stringify(translate(await response.json(),remote,state.url)));
         else res.end(Buffer.from(await response.arrayBuffer()));return;
       }

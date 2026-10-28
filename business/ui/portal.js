@@ -1,6 +1,6 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261027-access';
-import {init as production} from './production.js?v=20261023';
+import {init as production} from './production.js?v=20261028-dashboard';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261027-model2';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261027-supplies';

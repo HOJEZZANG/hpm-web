@@ -1,4 +1,4 @@
-import {BusinessError,ensure,text,date,productionSummary,isProductionCompletionTitle} from './domain.mjs';
+import {BusinessError,ensure,text,date,productionSummary,isProductionCompletionTitle,productionEquipment} from './domain.mjs';
 import {parseWorkbook,template,createWorkbook,MIME,excelDate} from './excel.mjs';
 import {multipart,binary} from './http.mjs';
 import {idOk,now,admin} from './access.mjs';
@@ -48,14 +48,14 @@ export async function rowsApi(env,kind,url){
     const completionColumns=meta.columns.filter(c=>isProductionCompletionTitle(c.title)),completion=meta.mapping?.['실제완료일']|| (completionColumns.length===1?completionColumns[0].id:null),index=meta.columns.findIndex(c=>c.id===completion);
     const completionFieldState=index>=0?'present':completionColumns.length>1?'ambiguous':'missing';
     const records=(await env.DB.prepare("SELECT id,row_number,json_remove(data,'$.__cells','$.__formulas','$.__cellCount') AS data"+(index>=0?",json_extract(data,'$.__cells["+index+"]') AS completion_raw":"")+" FROM production_rows WHERE import_id=? ORDER BY row_number LIMIT 200 OFFSET ?").bind(id,offset).all()).results.map(r=>{const data=JSON.parse(r.data);if(index>=0&&!Object.hasOwn(data,'실제완료일')){try{data['실제완료일']=excelDate(r.completion_raw??'','실제 완료일',meta.date1904);}catch{data['실제완료일']=String(r.completion_raw??'');}}return {id:r.id,...data};});
-    ensure(records.length||offset>=meta.rowCount,'저장 자료 조회가 불완전합니다. 기존 자료를 유지하고 다시 조회하세요.',503);
+    ensure(records.length===Math.min(200,Math.max(0,meta.rowCount-offset)),'저장 자료 조회가 불완전합니다. 기존 자료를 유지하고 다시 조회하세요.',503);
     return {importId:id,imported:{id,filename:imported.filename,row_count:imported.row_count,applied_at:imported.applied_at},version:2,records,total:meta.rowCount,nextOffset:offset+records.length<meta.rowCount?offset+records.length:null,meta,completionFieldState};
   }
   const table=kind==='production'?'production_rows':'supply_items';
   const rows=(await env.DB.prepare(`SELECT * FROM ${table} WHERE import_id=? ORDER BY row_number`).bind(id).all()).results.map(r=>({id:r.id,...JSON.parse(r.data)}));
   const eqColumn=['제조사양관리구분','분류','LINE 5000'].find(k=>rows.some(r=>Object.hasOwn(r,k))),from=url.searchParams.get('from'),to=url.searchParams.get('to');
   if(from)date(from);if(to)date(to);ensure(!from||!to||from<=to,'PND 종료일은 시작일 이후여야 합니다.');
-  const q=url.searchParams.get('q')?.trim().toLowerCase();const filtered=rows.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!url.searchParams.get('equipment')||r[eqColumn]===url.searchParams.get('equipment'))&&['제조사양관리구분','Yard','현공정','작업장'].every(k=>!url.searchParams.get(k)||r[k]===url.searchParams.get(k))&&(!from||(r.PND&&r.PND>=from))&&(!to||(r.PND&&r.PND<=to)));
+  const q=url.searchParams.get('q')?.trim().toLowerCase();const filtered=rows.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!url.searchParams.get('equipment')||productionEquipment(r,eqColumn)===url.searchParams.get('equipment'))&&['제조사양관리구분','Yard','현공정','작업장'].every(k=>!url.searchParams.get(k)||r[k]===url.searchParams.get(k))&&(!from||(r.PND&&r.PND>=from))&&(!to||(r.PND&&r.PND<=to)));
   if(url.searchParams.get('download')==='1')return binary(await createWorkbook([...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>k!=='id'),filtered),'조회결과.xlsx');
   return {importId:id,imported:{id,filename:imported.filename,row_count:imported.row_count,applied_at:imported.applied_at},records:filtered,...(kind==='production'?{summary:productionSummary(filtered)}:{})};
 }

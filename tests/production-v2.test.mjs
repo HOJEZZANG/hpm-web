@@ -8,6 +8,7 @@ import {makeEnv,TOKEN} from './support/env.mjs';
 import {writeTable,readTable} from '../business/ooxml.mjs';
 import {parseProductionSheet,validateMetadata,normalizeProductionRow} from '../business/production-sheet.mjs';
 import {productionLimits as L,byteLength} from '../business/production-limits.mjs';
+import {productionSummary} from '../business/domain.mjs';
 const base='https://hpmanagement-web.lotusland1995.workers.dev/api/business/',origin='https://hojezzang.github.io';
 const headers=['PND','현공정','수량','분류','Yard'];
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -68,4 +69,36 @@ test('more than 500 rows, 40 columns and 2MiB are parsed, chunk-stored, paged an
   const id=await upload(env,bytes,p);let offset=0,records=[];do{const r=await ok(await req(env,'production?import='+id+'&offset='+offset));records.push(...r.records);offset=r.nextOffset;}while(offset!=null);assert.equal(records.length,620);assert.equal(new Set(records.map(r=>r.id)).size,620);assert.equal(records.at(-1)['수량'],619);
   let raw=[],at=0;do{const r=await ok(await req(env,'imports/'+id+'/rows?offset='+at));raw.push(...r.records);at=r.nextOffset;}while(at!=null);assert.deepEqual(raw.at(-1).values,rows.at(-1));assert.deepEqual(new Uint8Array(await (await req(env,'imports/'+id+'/file')).arrayBuffer()),bytes);
   const round=parseProductionSheet(writeTable(p.meta.columns,raw.map(r=>r.values)));assert.equal(round.rows.length,620);assert.deepEqual(round.rows[619].values,rows[619]);console.log(`Synthetic large XLSX: ${bytes.length} bytes, 620 rows, 55 columns; parse/protocol/export ${Math.round(performance.now()-startTime)}ms (local Node, not production CPU measurement).`);
+});
+
+test('PND adherence uses only explicit actual completion dates, reports exclusions and never infers from scheduled/process dates',()=>{
+  const row={PND:'2026-10-23','현공정':'납품준비','수량':1,'분류':'AC','생산완료예정일':'2026-10-20','최신공정완료일':'2026-10-20','FAT':'2026-10-20'};
+  assert.equal(productionSummary([row],'2026-10-28').adherence.status,'unavailable');
+  const s=productionSummary([{...row,'실제완료일':'2026-10-23'},{...row,'실제완료일':'2026-10-24'},{...row,'실제완료일':''},{...row,'현공정':'조립','실제완료일':''},{...row,'실제완료일':'2026-02-30'},{...row,PND:'','실제완료일':'2026-10-23'}],'2026-10-28');
+  assert.equal(s.adherence.rate,50);assert.equal(s.adherence.onTime,1);assert.equal(s.adherence.eligible,2);assert.equal(s.adherence.excluded,4);assert.equal(Object.values(s.adherence.reasons).reduce((a,b)=>a+b,0),4);
+  assert.equal(productionSummary([{...row,'실제완료일':''}]).adherence.status,'empty');
+  assert.equal(productionSummary([{...row,'실제완료일':'2026-10-23','최종완료일':'2026-10-22'}]).adherence.status,'unavailable');
+  const malicious=productionSummary([{...row,'분류':'__proto__','현공정':'constructor'},{...row,'분류':'AC / CHILLER'}]);assert.equal(malicious.equipment.__proto__.constructor,1);assert.equal(Object.keys(malicious.equipment).length,2);
+});
+
+test('latest is shared, ignores staging, pins every page to one applied import and retains all old rows/originals',async()=>{
+  const env=makeEnv();assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record,null);assert.equal((await ok(await req(env,'production'))).importId,null);
+  const bytes=writeTable(headers,Array.from({length:205},(_,i)=>['2026-10-23','조립',i,'AC','합성'+i])),plan=parseProductionSheet(bytes),first=await upload(env,bytes,plan);
+  const page=await ok(await req(env,'production'));assert.equal(page.importId,first);assert.equal(page.records.length,200);assert.equal(page.nextOffset,200);
+  const newer=writeTable(headers,[['2026-10-25','납품준비',2,'DECK','새 합성']]),p=parseProductionSheet(newer),second=await start(env,newer,p);
+  assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record.id,first);
+  await ok(await req(env,'imports/'+second+'/file','PUT',newer));await ok(await req(env,'imports/'+second+'/chunk','POST',{rows:p.rows}));await ok(await req(env,'imports/'+second+'/ready','POST'));
+  env.objects.delete('business/imports/'+second+'.xlsx');assert.equal((await req(env,'imports/'+second+'/apply','POST')).status,409);assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record.id,first);
+  env.objects.set('business/imports/'+second+'.xlsx',{bytes:newer});await ok(await req(env,'imports/'+second+'/apply','POST'));
+  assert.equal((await ok(await req(env,'production'))).importId,second);const rest=await ok(await req(env,'production?import='+first+'&offset=200'));assert.equal(rest.importId,first);assert.equal(rest.records.length,5);assert.equal(rest.records[4]['수량'],204);
+  assert.equal(env.sqlite.prepare('SELECT count(*) n FROM production_rows').get().n,206);assert.equal((await req(env,'imports/'+first+'/file')).status,200);
+  const bad=(await req(env,'imports/latest?kind=production','GET',undefined,null));assert.equal(bad.status,401);
+});
+
+test('explicit completion titles recover preserved cells and dates while ambiguous or planned titles stay unavailable',async()=>{
+  const env=makeEnv(),bytes=writeTable([...headers,'생산 완료일'],[['2026-10-23','납품준비',1,'AC','합성',46318]]),p=parseProductionSheet(bytes),id=await upload(env,bytes,p);
+  env.sqlite.prepare("UPDATE production_rows SET data=json_remove(data,'$.실제완료일') WHERE import_id=?").run(id);
+  const r=await ok(await req(env,'production'));assert.equal(r.completionFieldState,'present');assert.match(r.records[0]['실제완료일'],/^\d{4}-\d{2}-\d{2}$/);
+  const b=writeTable([...headers,'실제완료일','최종완료일'],[['2026-10-23','조립',1,'AC','합성','2026-10-22','2026-10-21']]),plan=parseProductionSheet(b);assert.equal(plan.meta.mapping['실제완료일'],undefined);
+  const other=await upload(env,b,plan),ambiguous=await ok(await req(env,'production?import='+other));assert.equal(ambiguous.completionFieldState,'ambiguous');assert.equal(productionSummary(ambiguous.records,undefined,{completionFieldState:ambiguous.completionFieldState}).adherence.status,'unavailable');
 });

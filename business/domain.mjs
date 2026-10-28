@@ -48,17 +48,17 @@ export function productionEquipment(row,column){
   const raw=String(row[column]??'').trim();return raw?(/^(AC|PROV|DECK|IGG|CHILLER)$/i.test(raw)?raw.toUpperCase():raw):'미분류';
 }
 export function productionSummary(rows, today = koreanToday(), options = {}) {
-  let quantity=0, pndCount=0, due=0, complete=0; const delayed=[], imminent=[], equipment={}; const pnds=[];
+  let quantity=0, pndCount=0, due=0, complete=0; const delayed=[], imminent=[], equipment=Object.create(null); const pnds=[];
   const eqColumn=options.equipment||['제조사양관리구분','분류','LINE 5000'].find(k=>rows.some(r=>Object.hasOwn(r,k)));
   const reasons={missingPnd:0,invalidPnd:0,notCompleted:0,missingCompletion:0,invalidCompletion:0,ambiguousCompletion:0};
-  let onTime=0,eligible=0,hasCompletion=options.completionFieldState==='present';
+  let onTime=0,eligible=0,hasCompletion=options.completionFieldState==='present',hasAmbiguity=false;
   const valid=value=>{try{return date(value);}catch{return '';}};
   for (const row of rows) {
     quantity += Number(row['수량'] || 0); const pnd=valid(row.PND), done=String(row['현공정']||'').includes('납품준비');
     if(pnd){pndCount++;pnds.push(pnd);if(pnd<=today||done){due++;if(done)complete++;}if(!done&&pnd<today)delayed.push(row);if(!done&&pnd>=today&&pnd<=addDays(today,7))imminent.push(row);}
-    const name=productionEquipment(row,eqColumn),process=row['현공정']||'미정';equipment[name] ||= {};equipment[name][process]=(equipment[name][process]||0)+1;
+    const name=productionEquipment(row,eqColumn),process=row['현공정']||'미정';equipment[name] ||= Object.create(null);equipment[name][process]=(equipment[name][process]||0)+1;
     const fields=Object.keys(row).filter(isProductionCompletionTitle),ambiguous=options.completionFieldState==='ambiguous'||fields.length>1;
-    hasCompletion ||= fields.length>0;const raw=fields.length===1?row[fields[0]]:'',actual=valid(raw);
+    hasCompletion ||= fields.length>0;hasAmbiguity ||= ambiguous;const raw=fields.length===1?row[fields[0]]:'',actual=valid(raw);
     if(!row.PND)reasons.missingPnd++;
     else if(!pnd)reasons.invalidPnd++;
     else if(ambiguous)reasons.ambiguousCompletion++;
@@ -66,8 +66,8 @@ export function productionSummary(rows, today = koreanToday(), options = {}) {
     else if(!actual){if(done)reasons.missingCompletion++;else reasons.notCompleted++;}
     else {eligible++;if(actual<=pnd)onTime++;}
   }
-  const status=!rows.length?'empty':!hasCompletion||options.completionFieldState==='ambiguous'?'unavailable':eligible?'available':'empty';
-  const adherence={status,onTime,eligible,late:eligible-onTime,excluded:rows.length-eligible,reasons,rate:eligible?onTime/eligible*100:null,reason:status==='unavailable'?(options.completionFieldState==='ambiguous'?'실제 완료일 열이 여러 개여서 판정할 수 없습니다.':'실제 완료일 근거가 없습니다. 현재 공정과 PND만으로는 산정할 수 없습니다.'):status==='empty'?'판정 가능한 완료 건이 없습니다.':''};
+  const status=!rows.length?'empty':!hasCompletion||options.completionFieldState==='ambiguous'||(!eligible&&hasAmbiguity)?'unavailable':eligible?'available':'empty';
+  const adherence={status,onTime,eligible,late:eligible-onTime,excluded:rows.length-eligible,reasons,rate:eligible?onTime/eligible*100:null,reason:status==='unavailable'?(hasAmbiguity?'실제 완료일 열이 여러 개여서 판정할 수 없습니다.':'실제 완료일 근거가 없습니다. 현재 공정과 PND만으로는 산정할 수 없습니다.'):status==='empty'?'판정 가능한 완료 건이 없습니다.':''};
   pnds.sort(); return {count:rows.length,quantity,pndCount,due,complete,rate:due?complete/due*100:0,adherence,delayed,imminent,equipment,pndStart:pnds[0]||'',pndEnd:pnds.at(-1)||''};
 }
 export const productionColumns=['PND','제조사양관리구분','프로젝트상태','초기호선','Yard','HullNo','분류','LINE 5000','현공정','작업장','수량','구동방식','FAT','Work Order','작업지시일','ALIGN.완료일자','생산도접수일','SHELL PIPE 절단요청일','COND PIPE 절단완료일','실제완료일'];

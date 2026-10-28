@@ -1,6 +1,6 @@
 import {parseProductionSheet,validateMetadata,normalizeProductionRow} from '../production-sheet.mjs';
 import {productionLimits as L,byteLength} from '../production-limits.mjs';
-import {productionSummary,ensure} from '../domain.mjs';
+import {productionSummary,productionEquipment,ensure} from '../domain.mjs';
 import {writeTable} from '../ooxml.mjs';
 let plan;
 self.onmessage=async({data:m})=>{try{
@@ -15,8 +15,8 @@ self.onmessage=async({data:m})=>{try{
   }else if(m.type==='chunk'){
     const rows=[];let bytes=32;for(const row of plan.rows.slice(m.offset,m.offset+L.chunkRows)){const size=byteLength(row)+1;if(rows.length&&bytes+size>L.chunk)break;rows.push(row);bytes+=size;}result={rows,next:m.offset+rows.length,total:plan.rows.length};
   }else if(m.type==='view'){
-    const q=String(m.filters.q||'').toLowerCase(),eq=m.equipment;
-    const records=m.records.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!m.filters.equipment||r[eq]===m.filters.equipment)&&['Yard','현공정','작업장'].every(k=>!m.filters[k]||r[k]===m.filters[k])&&(!m.filters.from||r.PND>=m.filters.from)&&(!m.filters.to||r.PND&&r.PND<=m.filters.to));
+    const q=String(m.filters.q||'').trim().toLowerCase(),eq=m.equipment;
+    const records=m.records.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!m.filters.equipment||productionEquipment(r,eq)===m.filters.equipment)&&['Yard','현공정','작업장'].every(k=>!m.filters[k]||r[k]===m.filters[k])&&(!m.filters.from||r.PND&&r.PND>=m.filters.from)&&(!m.filters.to||r.PND&&r.PND<=m.filters.to));
     result={records,summary:productionSummary(records,undefined,{equipment:eq,completionFieldState:m.completionFieldState})};
   }else if(m.type==='export'){const bytes=writeTable(m.columns,m.rows);self.postMessage({id:m.id,result:{bytes:bytes.buffer}},[bytes.buffer]);return;}
   else throw Error('지원하지 않는 처리입니다.');self.postMessage({id:m.id,result});
