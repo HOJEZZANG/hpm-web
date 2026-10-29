@@ -17,6 +17,8 @@ export async function startTestServer(){
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')){
         state.requests.push({path:url.pathname,query:url.search,method:req.method});
+        if(state.authDelayMs&&url.pathname==='/api/auth/me')await new Promise(resolve=>setTimeout(resolve,state.authDelayMs));
+        if(state.failAuthRead&&url.pathname==='/api/auth/me'){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 인증 확인 실패'}));return;}
         if(state.failPlanReads&&req.method==='GET'&&(url.pathname==='/api/business/production'||url.pathname==='/api/business/imports/latest')){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 생산 조회 실패'}));return;}
         if(state.pauseChunkMs&&url.pathname.endsWith('/chunk'))await new Promise(resolve=>setTimeout(resolve,state.pauseChunkMs));
         if(req.method==='POST'&&url.pathname.endsWith('/chunk')&&state.failChunkAfter!=null){if(state.failChunkAfter--<=0){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 분할 전송 실패'}));return;}}

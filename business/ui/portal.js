@@ -4,13 +4,14 @@ import {init as production} from './production.js?v=20261028-dashboard';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261027-model2';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261027-supplies';
-import {initIssueView} from './issue-view.js?v=20261021-brand';
+import {initIssueView} from './issue-view.js?v=20261029-home';
 import {initIssueLoadState} from './issue-load-state.js?v=20261023';
-import {initHistory} from './history.js?v=20261026-ahu';
+import {initHistory} from './history.js?v=20261029-home';
+import {initEntry,noticePreview} from './home.js?v=20261029-home';
 import {accounts} from './accounts.js?v=20261027-access';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
 window.HpmPasswordPolicy=passwordPolicy;
-initNavigation();initIssueView();initIssueLoadState();initHistory();
+initEntry();initNavigation();initIssueView();initIssueLoadState();initHistory();
 window.createHpmPresentation=createPresentation;
 const modules={weekly,production,ahuPnd,notices,search,accounts};
 const initialized=new Set();
@@ -34,11 +35,14 @@ document.addEventListener('hpm:auth',()=>{const accountId=user()?JSON.stringify(
 window.addEventListener('beforeunload',e=>{if(document.querySelector('.business-form[data-dirty=true],.portal-page[data-dirty=true],#issueForm[data-dirty=true]')){e.preventDefault();e.returnValue='';}});
 window.HpmBusiness={open};
 const homeGrid=document.querySelector('#homePage .home-grid');
-homeGrid?.insertAdjacentHTML('beforeend',`<div class="card"><div class="card-head"><h2>공지사항 · 통합검색</h2></div><div class="card-body"><form id="homeBusinessSearch" class="business-toolbar"><label>통합검색 <input name="q" type="search" minlength="2" maxlength="100" required placeholder="업무 제목 · 대표 항목"></label><button type="submit" class="btn outline">검색</button></form><div id="homeBusinessNotices">로그인 후 공지사항을 조회할 수 있습니다.</div></div></div>`);
+homeGrid?.insertAdjacentHTML('beforeend',`<section class="card home-notices" aria-labelledby="homeNoticesTitle"><div class="card-head"><h2 id="homeNoticesTitle">공지사항</h2><a href="#/notices" id="homeNoticesLink">전체 공지 보기</a></div><div class="card-body" id="homeBusinessNotices" aria-live="polite"></div></section><section class="card home-search" aria-labelledby="homeSearchTitle"><div class="card-head"><h2 id="homeSearchTitle">통합검색</h2></div><div class="card-body"><form id="homeBusinessSearch" class="business-toolbar"><label>업무 검색 <input name="q" type="search" minlength="2" maxlength="100" required placeholder="문제점 · 일정 · 생산계획 · 공지사항"></label><button type="submit" class="btn primary">검색</button></form></div></section>`);
+document.getElementById('homeNoticesLink').onclick=e=>{e.preventDefault();window.navigatePortal('notices');};
+let noticesSequence=0;
 async function refreshHomeNotices(){
+  const sequence=++noticesSequence,owner=user()?.id;
   const el=document.getElementById('homeBusinessNotices');if(!el)return;
   if(!user()){el.textContent='로그인 후 공지사항을 조회할 수 있습니다.';return;}
-  try{const r=await api('notices');el.innerHTML=r.records.slice(0,5).map(n=>`<p><strong>${esc(n.title)}</strong><br>${esc(n.content)}</p>`).join('')||'등록된 공지사항이 없습니다.';}catch(e){el.textContent=e.message;}
+  try{const r=await api('notices');if(sequence!==noticesSequence||user()?.id!==owner)return;el.innerHTML=r.records.slice(0,5).map(noticePreview).join('')||'<p class="hint">등록된 공지사항이 없습니다.</p>';}catch(e){if(sequence===noticesSequence&&user()?.id===owner)el.textContent=e.message;}
 }
 document.addEventListener('hpm:auth',()=>void refreshHomeNotices());
 document.addEventListener('hpm:navigate',e=>{if(e.detail==='home')void refreshHomeNotices();});

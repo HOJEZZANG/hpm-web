@@ -7,6 +7,7 @@
     "check": "node scripts/check.mjs",
     "test:browser": "node scripts/business-browser-check.mjs",
     "test:experience": "node scripts/experience-browser-check.mjs",
+    "test:home:browser": "node scripts/home-browser-check.mjs",
     "build:xlsx": "node scripts/build-xlsx-worker.mjs",
     "build:ahu-pnd": "node scripts/build-ahu-pnd.mjs",
     "test:ahu-pnd:browser": "node scripts/ahu-pnd-browser-check.mjs",

@@ -4,9 +4,9 @@
   let preference=null;try{const saved=localStorage.getItem(key);if(['light','dark'].includes(saved))preference=saved;}catch{}
   function apply(){
     const dark=(preference||(media.matches?'dark':'light'))==='dark';document.documentElement.dataset.theme=dark?'dark':'light';
-    const button=document.getElementById('themeToggle');if(button){button.setAttribute('aria-pressed',String(dark));button.setAttribute('aria-label',dark?'라이트 모드로 전환':'다크 모드로 전환');button.title=button.getAttribute('aria-label');button.textContent=dark?'☀':'☾';}
+    for(const button of document.querySelectorAll('#themeToggle,#authThemeToggle')){button.setAttribute('aria-pressed',String(dark));button.setAttribute('aria-label',dark?'라이트 모드로 전환':'다크 모드로 전환');button.title=button.getAttribute('aria-label');button.textContent=dark?'☀':'☾';}
   }
   apply();media.addEventListener('change',()=>{if(!preference)apply();});
   window.addEventListener('storage',e=>{if(e.key===key){preference=['light','dark'].includes(e.newValue)?e.newValue:null;apply();}});
-  document.addEventListener('DOMContentLoaded',()=>{apply();document.getElementById('themeToggle')?.addEventListener('click',()=>{preference=document.documentElement.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem(key,preference);}catch{}apply();});});
+  document.addEventListener('DOMContentLoaded',()=>{apply();for(const button of document.querySelectorAll('#themeToggle,#authThemeToggle'))button.addEventListener('click',()=>{preference=document.documentElement.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem(key,preference);}catch{}apply();});});
 })();

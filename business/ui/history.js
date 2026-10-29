@@ -33,8 +33,8 @@ export function initHistory(){
     const entry={id:'hpm-'+(++sequence),index:options.replace?(current?.index||0):(current?.index||0)+1,route:r};current=entry;
     history[options.replace?'replaceState':'pushState']({hpm:1,id:entry.id,index:entry.index},'',url(r));await restore(entry);return true;
   }
-  window.HpmHistory={rendering:false,navigate,async start(){
-    const requested=read();started=true;const r=requested.page==='accounts'&&window.hpmServerUser?.role!=='admin'?route('home'):requested;current={id:'hpm-'+(++sequence),index:0,route:r};history.replaceState({hpm:1,id:current.id,index:0},'',url(r));render(r);await restore(current);
+  window.HpmHistory={rendering:false,navigate,async resume(){if(!window.hpmServerUser||!current)return;if(current.route.page==='accounts'&&window.hpmServerUser.role!=='admin')return navigate('home',null,{replace:true});render(current.route);await restore(current);},async start(){
+    const requested=read();started=true;const r=requested.page==='accounts'&&window.hpmServerUser&&window.hpmServerUser.role!=='admin'?route('home'):requested;current={id:'hpm-'+(++sequence),index:0,route:r};history.replaceState({hpm:1,id:current.id,index:0},'',url(r));if(window.hpmServerUser){render(r);await restore(current);}
   }};
   window.addEventListener('popstate',async event=>{
     if(!started||skipPop){skipPop=false;return;}capture();const target=read(),index=event.state?.hpm?event.state.index:(current?.index||0)+1;

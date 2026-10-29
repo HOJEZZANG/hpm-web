@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko"><head>
+<html lang="ko" data-auth="checking"><head>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<script src="business/ui/theme.js?v=20261021-brand"></script>
+<script src="business/ui/theme.js?v=20261029-home"></script>
 <title>HPM 생산관리 통합 업무 플랫폼</title>
 <style>
 
@@ -1033,8 +1033,14 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"><link rel="stylesheet" href="business/ui/home.css?v=20261029-home"></head>
 <body>
+<section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
+  <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
+  <div class="auth-entry-brand"><div class="auth-entry-logo"><img src="assets/hi-air-korea-logo.png" width="116" height="116" alt="하이에어코리아 로고"></div><strong>HPM</strong><small>HI AIR KOREA PRODUCTION MANAGEMENT</small><h1>생산관리 통합 업무 플랫폼</h1><p>함께 확인하고, 연결하고, 해결하는 업무 공간.<br>승인된 개인 계정으로 로그인하세요.</p></div>
+  <div><div id="authEntryLoading" role="status" aria-live="polite"><span class="auth-loading-dot" aria-hidden="true"></span>서버 로그인 상태를 확인하고 있습니다.</div><div id="authEntryForm" hidden></div><noscript>로그인하려면 브라우저의 JavaScript를 켜 주세요.</noscript></div>
+</section>
+<div id="portalWorkspace" hidden inert>
 <div class="portal-topbar"><button type="button" id="menuToggle" class="menu-toggle" aria-label="업무 메뉴 열기/닫기" aria-controls="portalSidebar" aria-expanded="false">☰</button>
   <div class="portal-brand" role="button" tabindex="0" title="홈으로 이동" aria-label="HPM 로고, 홈으로 이동" onclick="navigatePortal('home')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigatePortal('home');}">
     <span class="brand-logo-panel"><img src="assets/hi-air-korea-logo.png" width="447" height="447" alt="하이에어 로고"></span>
@@ -1042,7 +1048,7 @@
   </div>
   <div class="portal-top-actions">
     <button type="button" id="themeToggle" class="theme-toggle" aria-label="다크 모드로 전환" aria-pressed="false">☾</button>
-    <div class="clock-box"><div id="portalClockDate" class="clock-date"></div><div id="portalClockTime" class="clock-time"></div></div>
+    <div class="clock-box" title="한국 시간 (Asia/Seoul) · PC 시스템 시간 기준"><div id="portalClockDate" class="clock-date"></div><div id="portalClockTime" class="clock-time"></div></div>
     <button id="topLoginBtn" class="top-login-btn" onclick="openLoginModal('login')">로그인</button>
     <div id="authChip" hidden class="auth-chip" role="button" tabindex="0" title="마이페이지 열기" onclick="openMyPage()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMyPage();}" style="display:none"><span id="authAvatar" class="auth-avatar"></span><span id="authName" class="auth-name"></span></div>
     <button id="topLogoutBtn" hidden class="top-logout-btn" onclick="logoutPortal()" style="display:none">로그아웃</button>
@@ -1092,12 +1098,11 @@
     </div>
     <div class="hero-bot">HPM</div>
   </div>
-  <div id="homeLoginNotice" class="home-login-notice logged"></div>
   <div class="home-metrics">
-    <div class="home-metric"><div class="icon">⚠️</div><div><strong id="homeOpenIssues">—</strong><span>미완료 공정 문제</span></div></div>
-    <div class="home-metric"><div class="icon">🧳</div><div><strong id="homeMonthAs">—</strong><span>이번 달 AS출장</span></div></div>
-    <div class="home-metric"><div class="icon">📅</div><div><strong id="homeTodayTeam">—</strong><span>오늘 팀 일정</span></div></div>
-    <div class="home-metric"><div class="icon">🔔</div><div><strong id="homeOverdueIssues">—</strong><span>PND 확인 필요</span></div></div>
+    <button type="button" class="home-metric" onclick="void openHomeSummary('open')"><div class="icon" aria-hidden="true">⚠️</div><div><strong id="homeOpenIssues">—</strong><span>미완료 공정 문제</span></div></button>
+    <button type="button" class="home-metric" onclick="void openHomeSummary('as')"><div class="icon" aria-hidden="true">🧳</div><div><strong id="homeMonthAs">—</strong><span>이번 달 A/S출장</span></div></button>
+    <button type="button" class="home-metric" onclick="void openHomeSummary('team')"><div class="icon" aria-hidden="true">📅</div><div><strong id="homeTodayTeam">—</strong><span>오늘 팀 일정</span></div></button>
+    <button type="button" class="home-metric" onclick="void openHomeSummary('pnd')"><div class="icon" aria-hidden="true">🔔</div><div><strong id="homeOverdueIssues">—</strong><span>PND 확인 필요</span></div></button>
   </div>
   <div class="home-grid">
     <div class="card">
@@ -1109,15 +1114,6 @@
       <div class="card-body">
         <div class="dashboard-pnd-guide">미완료 문제 중 공정 PND가 7일 이내이거나 이미 경과한 항목입니다.</div>
         <div class="home-alert-list" id="homePndAlerts"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>바로가기</h2><span class="badge primary">MENU</span></div>
-      <div class="card-body quick-links">
-        <button class="quick-link" onclick="navigatePortal('issue','manage')"><strong>🛠 문제 등록 · Feedback</strong><span>현장 문제 및 조치사항 등록</span></button>
-        <button class="quick-link" onclick="navigatePortal('issue','statistics')"><strong>📊 통계 · 개선자료</strong><span>제품·공정·부서별 현황 확인</span></button>
-        <button class="quick-link" onclick="navigatePortal('as')"><strong>🧳 AS출장 캘린더</strong><span>출장 일정과 작업내용 관리</span></button>
-        <button class="quick-link" onclick="navigatePortal('team')"><strong>📅 팀 캘린더</strong><span>연차·교육·행사 일정 관리</span></button>
       </div>
     </div>
   </div>
@@ -1238,7 +1234,7 @@
 <h2 id="issueEditorTitle">신규 문제점 등록</h2><span class="badge primary" id="formModeBadge">신규</span>
 </div>
 <div id="issueApiStatus" class="badge blue" role="status" aria-live="polite" hidden></div>
-<form class="issue-entry-form" id="issueForm"><input id="issueId" type="hidden"><p class="hint" style="padding:0 18px">필수 입력은 문제점 상세내용입니다. 관리번호와 작성자는 서버에서 확정합니다.</p><div class="issue-form-grid"><div class="form-field"><label for="issueNo">관리번호</label><input readonly id="issueNo" type="text"></div><div class="form-field"><label for="occurDate">발생일자</label><input id="occurDate" type="date"></div><div class="form-field"><label for="reporter">작성자</label><input id="reporter" placeholder="현재 사용자 자동 입력" readonly title="등록자는 현재 사용자로 자동 지정됩니다." type="text"></div><div class="form-field"><label for="responsibleDept">귀책부서</label><select id="responsibleDept">
+<form class="issue-entry-form" id="issueForm"><input id="issueId" type="hidden"><p class="hint" style="padding:0 18px">필수 입력은 문제점 상세내용입니다. 작성자는 현재 사용자로 자동 지정됩니다.</p><div class="issue-form-grid"><div class="form-field"><label for="occurDate">발생일자</label><input id="occurDate" type="date"></div><div class="form-field"><label for="reporter">작성자</label><input id="reporter" placeholder="현재 사용자 자동 입력" readonly title="등록자는 현재 사용자로 자동 지정됩니다." type="text"></div><div class="form-field"><label for="responsibleDept">귀책부서</label><select id="responsibleDept">
 <option value="">선택</option>
 <option>A/C생산팀</option>
 <option>생산계획팀</option>
@@ -1293,7 +1289,7 @@
 <h2>등록 현황</h2><span class="badge gray" id="listCountBadge">—</span>
 </div>
 <div class="toolbar">
-<input aria-label="문제점 검색" id="keywordFilter" oninput="applyFilters()" placeholder="관리번호 · 문제점 · YARD/HULL · 작성자 검색" type="search">
+<input aria-label="문제점 검색" id="keywordFilter" oninput="applyFilters()" placeholder="문제점 · Yard / Hull No. · 작성자 검색" type="search">
 <select aria-label="제품명 필터" id="productFilter" onchange="applyFilters()">
 <option value="전체">제품명</option>
 <option>NAVY</option><option>CHILLER</option><option>A/C</option><option>DECK</option><option>COND</option><option>IGG</option><option>UREA</option><option>PROV</option><option>AHU</option>
@@ -1306,8 +1302,8 @@
 <option value="전체">부서명</option>
 <option>A/C생산팀</option><option>생산계획팀</option><option>생산기술팀</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option>
 </select>
-<select aria-label="상태 필터" id="statusFilter" onchange="applyFilters()">
-<option value="전체">상태</option>
+<select aria-label="상태 필터" id="statusFilter" onchange="applyFilters()"><option>미완료</option><option>PND 확인 필요</option>
+<option value="전체" selected>상태 · 전체</option>
 <option>접수</option><option>원인검토중</option><option>조치중</option><option>조치완료</option><option>종결</option>
 </select>
 </div>
@@ -1401,7 +1397,7 @@
 <div class="card-head"><h3>반복 문제 및 선반영 검토 목록</h3><span class="badge red">ACTION</span></div>
 <div class="card-body data-table-wrap">
 <table>
-<thead><tr><th>문제번호</th><th>제품</th><th>YARD / HULL NO.</th><th>공정</th><th>문제유형</th><th>문제 제목</th><th>귀책부서</th><th>상태</th><th>선반영 내용</th></tr></thead>
+<thead><tr><th>Yard / Hull No.</th><th>제품</th><th>기존 프로젝트 정보</th><th>공정</th><th>문제유형</th><th>문제 제목</th><th>귀책부서</th><th>상태</th><th>선반영 내용</th></tr></thead>
 <tbody id="followupTable"></tbody>
 </table>
 </div>
@@ -1537,6 +1533,7 @@
 <input id="calendarImportFile" type="file" accept=".json,application/json" hidden onchange="void previewCalendarImport(this)">
 <dialog id="calendarImportDialog" class="schedule-import-dialog" aria-labelledby="calendarImportTitle"><h2 id="calendarImportTitle">일정 가져오기 미리보기</h2><p>신규 ID만 추가합니다. 중복과 충돌 항목은 덮어쓰지 않습니다.</p><div id="calendarImportSummary"></div><div id="calendarImportConflicts"></div><p id="calendarImportMessage" role="status"></p><div class="btns"><button id="calendarImportConfirm" class="btn green" onclick="void confirmCalendarImport()">신규 일정만 저장</button><button id="calendarImportCancel" class="btn light" onclick="closeCalendarImport()">닫기</button></div></dialog>
 </main>
+</div>
 
 <div class="auth-modal" id="authModal" onclick="if(event.target===this) closeLoginModal()">
   <div aria-labelledby="authDialogTitle" aria-modal="true" role="dialog" class="auth-dialog">
@@ -1577,6 +1574,7 @@
 </dialog>
 
 <div class="toast" id="toast">수정 내용이 저장되었습니다.</div>
+<div id="loginSuccess" class="login-success" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="presentationPortabilityNote" style="display:none"></div>
 <script>
 
@@ -1591,8 +1589,8 @@
 
     function getEmbeddedPortalSnapshot(){return window.__HPM_PRESENTATION_SNAPSHOT__||null;}
 
-    function openLoginModal(mode='login') { setAuthMode(mode); authModal.classList.add('show'); setTimeout(() => authUserId.focus(),30); }
-    function closeLoginModal() { authModal.classList.remove('show'); authMessage.textContent=''; authPassword.value=''; }
+    function openLoginModal(mode='login') { if(!window.hpmServerUser)window.HpmEntry?.set('anonymous');setAuthMode(mode); authModal.classList.add('show'); setTimeout(() => authUserId.focus(),30); }
+    function closeLoginModal() { if(!window.hpmServerUser)return;authModal.classList.remove('show'); authMessage.textContent=''; authPassword.value=''; }
     function setAuthMode(mode){
       authMode=mode==='register'?'register':'login';loginModeBtn.classList.toggle('active',authMode==='login');registerModeBtn.classList.toggle('active',authMode==='register');authNameField.style.display=authMode==='register'?'block':'none';authTeamField.hidden=authMode!=='register';authPassword.autocomplete=authMode==='register'?'new-password':'current-password';authDialogTitle.textContent=authMode==='register'?'가입 신청':'로그인';authSubmitBtn.textContent=authDialogTitle.textContent;authMessage.textContent='';
       authPassword.minLength=authMode==='register'?4:1;authPassword.inputMode=authMode==='register'?'numeric':'text';authPassword.placeholder=authMode==='register'?'숫자만 4자리 이상 · 앞자리 0 유지':'기존 또는 개인 비밀번호';
@@ -1603,7 +1601,7 @@
       try{if(authMode==='register'){const invalid=window.HpmPasswordPolicy.newPasswordError(authPassword.value,'numeric');if(invalid)throw new Error(invalid);}const result=await apiRequest('/api/auth/'+(authMode==='register'?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:authUserId.value.trim(),name:authDisplayName.value.trim(),team:authTeam.value.trim(),password:authPassword.value})});
         if(authMode==='register'){authMessage.textContent='가입 신청을 저장했습니다. 관리자 승인 후 로그인하세요.';authPassword.value='';return;}
         authRestoreMessage='';const switched=currentUser&&currentUser.id!==result.user.id;sessionStorage.setItem('hpmServerToken',result.token);currentUser=normalizePortalUser(result.user);window.hpmServerUser=currentUser;if(switched){resetForm();document.getElementById('myPageForm').reset();}
-        closeLoginModal();renderAuthState();syncModulesAfterAuth();document.dispatchEvent(new Event('hpm:auth'));await reloadSharedModules();showToast('로그인했습니다.');
+        closeLoginModal();renderAuthState();syncModulesAfterAuth();document.dispatchEvent(new Event('hpm:auth'));window.HpmEntry.success();await reloadSharedModules();await window.HpmHistory?.resume();
       }catch(e){authMessage.textContent=e.message;authMessage.dataset.code=e.code||'';}finally{authSubmitBtn.disabled=false;}
     }
 
@@ -1621,7 +1619,7 @@
     }
    function renderAuthState(){
       const logged=!!window.hpmServerUser;topLogoutBtn.hidden=!logged;authChip.hidden=!logged;topLoginBtn.hidden=logged;topLoginBtn.style.display=logged?'none':'inline-block';authChip.style.display=logged?'flex':'none';topLogoutBtn.style.display=logged?'inline-block':'none';authName.textContent=logged?currentUser.name:'';authChip.setAttribute('aria-label',logged?currentUser.name+' · 마이페이지':'마이페이지');authAvatar.textContent=logged?(currentUser.name||currentUser.id).slice(0,1):'';
-      const admin=document.querySelector('#portalNavigation [data-page=accounts]');if(admin)admin.hidden=!logged||currentUser.role!=='admin';const notice=document.getElementById('homeLoginNotice');notice.classList.toggle('logged',logged);notice.textContent=logged?'승인된 계정으로 로그인했습니다.':(authRestoreMessage||'로그인 후 내부 업무를 조회하고 저장할 수 있습니다.');
+      const admin=document.querySelector('#portalNavigation [data-page=accounts]');if(admin)admin.hidden=!logged||currentUser.role!=='admin';if(logged)window.HpmEntry?.set('authenticated');
     }
 
     function syncModulesAfterAuth() {
@@ -1661,9 +1659,9 @@
       catch(e){myPasswordMessage.textContent=e.message;}finally{button.disabled=false;}
     });
     function clearPortalSession(){
-      sessionStorage.removeItem('hpmServerToken');currentUser=null;window.hpmServerUser=null;issues=[];issuesLoaded=false;resetForm();document.getElementById('myPageForm').reset();document.getElementById('myPasswordForm').reset();
+      sessionStorage.removeItem('hpmServerToken');currentUser=null;window.hpmServerUser=null;window.HpmEntry?.set('anonymous');issues=[];issuesLoaded=false;resetForm();document.getElementById('myPageForm').reset();document.getElementById('myPasswordForm').reset();
       for(const type of ['as','team']){calendarState[type].events=[];calendarState[type].loaded=false;renderCalendar(type);}
-      document.getElementById('issueDetailDialog').close();closePhotoLightbox();renderAuthState();syncModulesAfterAuth();renderDashboard();renderStatistics();document.dispatchEvent(new Event('hpm:auth'));navigatePortal('home');
+      document.getElementById('issueDetailDialog').close();closePhotoLightbox();renderAuthState();syncModulesAfterAuth();renderDashboard();renderStatistics();document.dispatchEvent(new Event('hpm:auth'));openLoginModal('login');
     }
     let identityRefresh=null;
     async function refreshPortalIdentity(){
@@ -1688,7 +1686,7 @@
     function rememberIssueValues(){issueInitialValues.clear();for(const n of document.querySelectorAll("#issueForm input,#issueForm select,#issueForm textarea"))issueInitialValues.set(n.id,n.type==="checkbox"?n.checked:n.value);}
     function omitUnchangedIssueFields(data){for(const field of "occurDate registerDate product projectNo processPnd deliveryDate process issueType title description finder responsibleDept status priority dueDate feedbackOwner causeFeedback actionDetail completedDate verifier prevention followupFlag yard hullNo productNo remark part factory".split(" ")){const id=["yard","hullNo","productNo","remark","part","factory"].includes(field)?"issueExtra_"+field:field,n=document.getElementById(id);if(!issueTouched.has(id)&&issueInitialValues.has(id)&&(n.type==="checkbox"?n.checked:n.value)===issueInitialValues.get(id))delete data[field];}}
     function issueMessage(message,error=false){const n=document.getElementById('issueFeedback');n.textContent=message;n.hidden=!message;n.classList.toggle('error',error);}
-    async function prepareIssueDraft(){if(issueId.value||draftIssueId)return;if(draftPromise)return draftPromise;if(!window.hpmServerUser)return;const generation=issueDraftVersion;issueNo.value='발급 중…';draftPromise=apiRequest('/api/issues/draft').then(r=>{if(generation===issueDraftVersion&&!issueId.value){draftIssueId=r.id;issueNo.value=r.issueNo;}}).finally(()=>{if(generation===issueDraftVersion)draftPromise=null;});return draftPromise;}
+    async function prepareIssueDraft(){if(issueId.value||draftIssueId)return;if(draftPromise)return draftPromise;if(!window.hpmServerUser)return;const generation=issueDraftVersion;draftPromise=apiRequest('/api/issues/draft').then(r=>{if(generation===issueDraftVersion&&!issueId.value){draftIssueId=r.id;}}).finally(()=>{if(generation===issueDraftVersion)draftPromise=null;});return draftPromise;}
     const pendingPhotoUrls = new Set();
     const disabledIssueControls = new Map();
 
@@ -1723,7 +1721,7 @@
         const response = await window.authorizedFetch(API_BASE_URL + path, { ...requestOptions, signal: controller.signal });
         let result;
         try { result = await response.json(); } catch { throw new Error('서버 응답을 읽지 못했습니다. Worker 배포 상태를 확인하세요.'); }
-        if(!response.ok||result.ok!==true){const error=new Error(result.error||'요청을 처리하지 못했습니다. 다시 시도하세요.');error.status=response.status;error.code=result.code;if(response.status===401&&currentUser&&path!=='/api/auth/login'){sessionStorage.removeItem('hpmServerToken');window.hpmServerUser=null;renderAuthState();openLoginModal('login');authUserId.value=currentUser.loginId;authMessage.textContent='로그인이 만료되었습니다. 같은 계정으로 다시 로그인하면 입력을 이어서 저장할 수 있습니다.';}if(response.status===403&&['ACCOUNT_PENDING','ACCOUNT_DISABLED'].includes(result.code)){clearPortalSession();authRestoreMessage=result.error;renderAuthState();}else if(response.status===403&&path!=='/api/auth/me')void refreshPortalIdentity();throw error;}
+        if(!response.ok||result.ok!==true){const error=new Error(result.error||'요청을 처리하지 못했습니다. 다시 시도하세요.');error.status=response.status;error.code=result.code;if(response.status===401&&currentUser&&path!=='/api/auth/login'){sessionStorage.removeItem('hpmServerToken');window.hpmServerUser=null;renderAuthState();openLoginModal('login');authUserId.value=currentUser.loginId;authMessage.textContent='로그인이 만료되었습니다. 같은 계정으로 다시 로그인하면 입력을 이어서 저장할 수 있습니다.';}if(response.status===403&&currentUser&&['ACCOUNT_PENDING','ACCOUNT_DISABLED'].includes(result.code)){clearPortalSession();authRestoreMessage=result.error;authMessage.textContent=result.error;authMessage.dataset.code=result.code;renderAuthState();}else if(response.status===403&&path!=='/api/auth/me')void refreshPortalIdentity();throw error;}
 
         if (result.photosCleaned === false) alert('문제점 데이터는 반영되었지만 일부 미사용 사진을 정리하지 못했습니다. R2 저장소 상태를 확인하세요.');
         return result;
@@ -1830,7 +1828,7 @@
     const PAGE_SIZE = 7;
     const closedStatuses = ['조치완료', '종결'];
     const el = id => document.getElementById(id);
-    const issueId = el('issueId'), issueNo = el('issueNo'), occurDate = el('occurDate'), registerDate = el('registerDate');
+    const issueId = el('issueId'), occurDate = el('occurDate'), registerDate = el('registerDate');
     const product = el('product'), projectNo = el('projectNo'), processPnd = el('processPnd'), deliveryDate = el('deliveryDate'), process = el('process'), issueType = el('issueType'), title = el('title'), description = el('description');
     const finder = el('finder'), reporter = el('reporter'), responsibleDept = el('responsibleDept'), status = el('status'), priority = el('priority');
     const dueDate = el('dueDate'), feedbackOwner = el('feedbackOwner'), causeFeedback = el('causeFeedback'), actionDetail = el('actionDetail');
@@ -1950,7 +1948,7 @@
 
     function setCurrentUser() { openLoginModal('login'); }
     function updateCurrentUserUI() {
-      if (!issueId.value){reporter.value=window.hpmServerUser?currentUser.name:'';if(window.hpmServerUser&&!draftIssueId)void prepareIssueDraft().catch(()=>{issueNo.value='서버 발급 재시도 필요';});}
+      if (!issueId.value){reporter.value=window.hpmServerUser?currentUser.name:'';if(window.hpmServerUser&&!draftIssueId)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));}
       const editing = issues.find(x => x.id === issueId.value);
       if (editing) updateFormDeleteButton(editing);
       updateSelectionControls();
@@ -2112,8 +2110,8 @@
     document.getElementById('issueForm').addEventListener('submit',async function(e){
       e.preventDefault();if(issueBusy)return;if(!window.hpmServerUser){openLoginModal('login');return;}
       try{assertIssueWriteReady();}catch(e){issueMessage(e.message,true);return;}setIssueBusy('저장 준비 중…');
-      try{await prepareIssueDraft();const id=issueId.value||draftIssueId;if(!id)throw new Error('서버에서 관리번호를 발급하지 못했습니다. 다시 저장하세요.');const existing=issues.find(x=>x.id===id);
-        const data={...existing,...Object.fromEntries(['yard','hullNo','productNo','remark','part','factory'].map(k=>[k,document.getElementById('issueExtra_'+k).value.trim()])),id,issueNo:issueNo.value,occurDate:occurDate.value,registerDate:registerDate.value,product:product.value,projectNo:projectNo.value.trim(),processPnd:processPnd.value,deliveryDate:deliveryDate.value,process:process.value,issueType:issueType.value,title:title.value.trim(),description:description.value.trim(),finder:finder.value.trim(),reporter:existing?.reporter||currentUser.name,reporterId:existing?existing.reporterId||'':currentUser.id,images:[...currentImages],afterImages:[...currentAfterImages],sample:existing?.sample||false,responsibleDept:responsibleDept.value,status:status.value,priority:priority.value,dueDate:dueDate.value,feedbackOwner:feedbackOwner.value.trim(),causeFeedback:causeFeedback.value.trim(),actionDetail:actionDetail.value.trim(),completedDate:completedDate.value,verifier:verifier.value.trim(),prevention:prevention.value.trim(),followupFlag:followupFlag.checked,createdAt:existing?.createdAt||nowIso(),updatedAt:nowIso()};
+      try{await prepareIssueDraft();const id=issueId.value||draftIssueId;if(!id)throw new Error('저장 준비를 완료하지 못했습니다. 다시 저장하세요.');const existing=issues.find(x=>x.id===id);
+        const data={...existing,...Object.fromEntries(['yard','hullNo','productNo','remark','part','factory'].map(k=>[k,document.getElementById('issueExtra_'+k).value.trim()])),id,occurDate:occurDate.value,registerDate:registerDate.value,product:product.value,projectNo:projectNo.value.trim(),processPnd:processPnd.value,deliveryDate:deliveryDate.value,process:process.value,issueType:issueType.value,title:title.value.trim(),description:description.value.trim(),finder:finder.value.trim(),reporter:existing?.reporter||currentUser.name,reporterId:existing?existing.reporterId||'':currentUser.id,images:[...currentImages],afterImages:[...currentAfterImages],sample:existing?.sample||false,responsibleDept:responsibleDept.value,status:status.value,priority:priority.value,dueDate:dueDate.value,feedbackOwner:feedbackOwner.value.trim(),causeFeedback:causeFeedback.value.trim(),actionDetail:actionDetail.value.trim(),completedDate:completedDate.value,verifier:verifier.value.trim(),prevention:prevention.value.trim(),followupFlag:followupFlag.checked,createdAt:existing?.createdAt||nowIso(),updatedAt:nowIso()};
         for(const field of ['occurDate','registerDate','processPnd','deliveryDate','dueDate','completedDate'])if(existing?.[field]&&!data[field]&&!issueTouched.has(field))data[field]=existing[field];
         if(!data.description)throw new Error('문제점 상세내용을 입력하세요.');if(data.dueDate&&data.occurDate&&data.dueDate<data.occurDate)throw new Error('조치 예정일은 발생일보다 빠를 수 없습니다.');if(data.completedDate&&data.occurDate&&data.completedDate<data.occurDate)throw new Error('실제 완료일은 발생일보다 빠를 수 없습니다.');
         data.history=[...(existing?.history||[]),{at:nowIso(),status:data.status,actor:currentUser.name,note:buildHistoryNote(existing,data)}];if(existing)omitUnchangedIssueFields(data);await saveIssue(data);setIssueBusy('');resetForm();refreshIssueViews();window.switchManageView('list');const n=document.getElementById('issueRecordsStatus');n.textContent=existing?'수정 내용을 저장했습니다.':'문제점을 등록했습니다.';n.hidden=false;showToast(n.textContent);
@@ -2126,7 +2124,7 @@
       void discardPendingPhotos();
       draftIssueId = issue.id;
       issueId.value = issue.id;
-      issueNo.value = issue.issueNo || '';
+
       occurDate.value = issue.occurDate || '';
       registerDate.value = issue.registerDate || '';
       ensureSelectValue(product, issue.product || '');
@@ -2156,7 +2154,7 @@
       renderAfterPreviews();
       renderHistoryTimeline(issue);
       updateFormDeleteButton(issue);
-      formModeBadge.textContent = issue.issueNo || '수정';
+      formModeBadge.textContent = '수정';
       formModeBadge.className = 'badge blue';
       switchIssueTab('manage');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2180,7 +2178,7 @@
     alert(`이 항목은 등록자 ${issue.reporter || '-'}만 삭제할 수 있습니다.`);
     return;
   }
-  if (!confirm(`${issue.issueNo || '선택한 항목'}을 삭제하시겠습니까?`)) return;
+  if (!confirm(`${window.HpmHome.issueLocation(issue)} · ${issue.title||'선택한 항목'}을 삭제하시겠습니까?`)) return;
 
   try {
     setIssueBusy('문제점 삭제 중…');
@@ -2201,7 +2199,7 @@
 }
 
     function resetForm(){
-      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';issueNo.value='로그인 후 서버 발급';occurDate.value=todayStr();registerDate.value='';reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';priority.value='보통';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();document.getElementById('historyTimeline').innerHTML='<p class="hint">신규 등록 후 처리 이력이 표시됩니다.</p>';deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('issueAdditional').open=false;issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(()=>{issueNo.value='서버 발급 재시도 필요';});
+      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();registerDate.value='';reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';priority.value='보통';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();document.getElementById('historyTimeline').innerHTML='<p class="hint">신규 등록 후 처리 이력이 표시됩니다.</p>';deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('issueAdditional').open=false;issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
     }
 
     function getFilteredIssues() {
@@ -2218,10 +2216,10 @@
       }
       return [...issues]
         .filter(x => {
-          const haystack = [x.issueNo, x.product, x.projectNo, x.processPnd, x.deliveryDate, x.title, x.description, x.yard,x.hullNo,x.productNo,x.remark,x.finder, x.reporter, x.feedbackOwner, x.causeFeedback, x.actionDetail, x.prevention].join(' ').toLowerCase();
+          const haystack = [x.product, x.projectNo, x.processPnd, x.deliveryDate, x.title, x.description, x.yard,x.hullNo,x.productNo,x.remark,x.finder, x.reporter, x.feedbackOwner, x.causeFeedback, x.actionDetail, x.prevention].join(' ').toLowerCase();
           const processMatch = p === '전체' || x.process === p;
           const occurMatch = (!occurStart || x.occurDate >= occurStart) && (!occurEnd || x.occurDate <= occurEnd);
-          return (!keyword || haystack.includes(keyword)) && (productValue === '전체' || x.product === productValue) && processMatch && (d === '전체' || x.responsibleDept === d) && (s === '전체' || x.status === s) && occurMatch;
+          return (!keyword || haystack.includes(keyword)) && (productValue === '전체' || x.product === productValue) && processMatch && (d === '전체' || x.responsibleDept === d) && (s === '전체' || s === '미완료' && !closedStatuses.includes(x.status) || s === 'PND 확인 필요' && !!getDeliveryWarning(x) || x.status === s) && occurMatch;
         })
         .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     }
@@ -2311,7 +2309,7 @@
       if(!issuesLoaded&&!issues.length){document.getElementById('issueList').innerHTML='<p class="empty">'+(issueLoadError?'조회에 실패했습니다. 위 안내에서 다시 조회해 주세요.':window.hpmServerUser?'서버 조회 대기 중':'로그인 후 조회할 수 있습니다.')+'</p>';listCountBadge.textContent='미확인';if(scope)scope.textContent='서버 조회 미확인';window.renderIssueLoadState?.();return;}
       const list=document.getElementById('issueList'),totalPages=Math.max(1,Math.ceil(currentFiltered.length/PAGE_SIZE));if(currentPage>totalPages)currentPage=totalPages;listCountBadge.textContent=currentFiltered.length+'건';list.innerHTML='';const pageItems=currentFiltered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
       if(!pageItems.length)list.innerHTML='<div class="empty">조회 조건에 해당하는 문제점이 없습니다.</div>';
-      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(issue.issueNo||'문제점')} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-no">${esc(issue.issueNo||'관리번호 미지정')}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta"><span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc([issue.yard,issue.hullNo].filter(Boolean).join(' / ')||issue.projectNo||'YARD/HULL 미지정')}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
+      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(window.HpmHome.issueLocation(issue)+' · '+(issue.title||'문제점'))} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-location">${esc(window.HpmHome.issueLocation(issue))}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta"><span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc(window.HpmHome.issueLocation(issue))}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
     }
     window.getIssueForView=id=>issues.find(i=>i.id===id);
 
@@ -2411,7 +2409,7 @@
       const recent = [...issues].sort((a,b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 6);
       recentList.innerHTML = recent.length ? recent.map(x => `
         <li onclick="editIssue('${x.id}')" style="cursor:pointer;">
-          <div class="recent-title">${esc(x.issueNo || '-')} · ${esc(x.title)}</div>
+          <div class="recent-title">${esc(window.HpmHome.issueLocation(x))} · ${esc(x.title)}</div>
           <div class="recent-sub">${esc(x.product || '미분류')} / ${esc(x.process)} / ${esc(x.responsibleDept)} / ${esc(x.status)} · ${new Date(x.updatedAt || x.createdAt).toLocaleString('ko-KR')}</div>
         </li>`).join('') : '<li class="empty">등록된 문제점이 없습니다.</li>';
     }
@@ -2445,7 +2443,7 @@
       const followups = items.filter(x => x.followupFlag || x.prevention);
       followupTable.innerHTML = followups.length ? followups.map(x => `
         <tr onclick="editIssue('${x.id}')" style="cursor:pointer;">
-          <td>${esc(x.issueNo)}</td><td>${esc(x.product || '미분류')}</td><td>${esc(x.projectNo)}</td><td>${esc(x.process)}</td><td>${esc(x.issueType)}</td><td>${esc(x.title)}</td><td>${esc(x.responsibleDept)}</td><td>${esc(x.status)}</td><td>${esc(shortText(x.prevention || '-', 80))}</td>
+          <td>${esc(window.HpmHome.issueLocation(x))}</td><td>${esc(x.product || '미분류')}</td><td>${esc(x.projectNo)}</td><td>${esc(x.process)}</td><td>${esc(x.issueType)}</td><td>${esc(x.title)}</td><td>${esc(x.responsibleDept)}</td><td>${esc(x.status)}</td><td>${esc(shortText(x.prevention || '-', 80))}</td>
         </tr>`).join('') : '<tr><td colspan="9" class="empty">선반영 검토 항목이 없습니다.</td></tr>';
     }
 
@@ -2455,8 +2453,8 @@
 
     function exportCsv() {
       if (!issues.length) { showToast('내보낼 데이터가 없습니다.'); return; }
-      const headers = ['문제번호','발생일','등록일','제품분류','YARD/HULL NO.','공정 PND','실제 납품일','공정','문제유형','문제제목','문제내용','발견자','등록자','귀책부서','상태','우선순위','예정일','담당자','원인Feedback','조치내용','완료일','확인자','재발방지/선반영','선반영대상'];
-      const rows = issues.map(x => [x.issueNo,x.occurDate,x.registerDate,x.product || '미분류',x.projectNo,x.processPnd,x.deliveryDate,x.process,x.issueType,x.title,x.description,x.finder,x.reporter,x.responsibleDept,x.status,x.priority,x.dueDate,x.feedbackOwner,x.causeFeedback,x.actionDetail,x.completedDate,x.verifier,x.prevention,x.followupFlag ? 'Y':'N']);
+      const headers = ['Yard','Hull No.','발생일','등록일','제품분류','기존 프로젝트 정보','공정 PND','실제 납품일','공정','문제유형','문제제목','문제내용','발견자','등록자','귀책부서','상태','우선순위','예정일','담당자','원인Feedback','조치내용','완료일','확인자','재발방지/선반영','선반영대상'];
+      const rows = issues.map(x => [x.yard||'미입력',x.hullNo||'미입력',x.occurDate,x.registerDate,x.product || '미분류',x.projectNo,x.processPnd,x.deliveryDate,x.process,x.issueType,x.title,x.description,x.finder,x.reporter,x.responsibleDept,x.status,x.priority,x.dueDate,x.feedbackOwner,x.causeFeedback,x.actionDetail,x.completedDate,x.verifier,x.prevention,x.followupFlag ? 'Y':'N']);
       const csv = [headers, ...rows].map(row => row.map(v => `"${String(v ?? '').replaceAll('"','""')}"`).join(',')).join('\n');
       downloadBlob('\ufeff' + csv, `공정문제점_${todayStr()}.csv`, 'text/csv;charset=utf-8');
     }
@@ -2959,7 +2957,7 @@
       finally{setCalendarTransferBusy(false);document.getElementById('calendarImportCancel').disabled=false;document.getElementById('calendarImportConfirm').disabled=!pendingCalendarImport;}
     }
 
-    function updatePortalClock(){const d=new Date(),days=['일','월','화','수','목','금','토'];portalClockDate.textContent=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;portalClockTime.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':')}
+    function updatePortalClock(){window.HpmClock?.start();}
     let fireStatusRequest = null;
     function initializeFireStatus() {
       const yearSelect = document.getElementById('fireStatusYear'), monthSelect = document.getElementById('fireStatusMonth');
@@ -3025,6 +3023,7 @@
       }
     }
     function navigatePortal(page,issueTab,options={}){
+      if(!window.hpmServerUser){if(document.documentElement.dataset.auth!=='checking')openLoginModal('login');return false;}
       if(window.HpmHistory&&!options.render)return window.HpmHistory.navigate(page,issueTab,options);
       if(['vehicles','safety','supplies','meals'].includes(page)){showToast('현재 메뉴에서 제공하지 않는 기능입니다.');return false;}if(page==='accounts'&&window.hpmServerUser?.role!=='admin'){showToast('관리자 권한이 필요합니다.');return false;}if(page==='calendar')page=lastCalendarTab;for(const type of ['as','team'])if(document.getElementById(type+'Editor').open&&!closeCalendarEditor(type))return false;if(page==='as'||page==='team')lastCalendarTab=page;
       document.querySelectorAll('.portal-page').forEach(p=>p.classList.toggle('active',p.id===page+'Page'));document.querySelectorAll('#portalNavigation [data-page]').forEach(b=>{const active=(b.dataset.page===page||b.dataset.page==='calendar'&&['as','team'].includes(page))&&(!b.dataset.issueTab||b.dataset.issueTab===(issueTab||'manage'));b.classList.toggle('active',active);if(active){b.setAttribute('aria-current','page');const g=b.closest('.menu-group');if(g)setPortalMenuExpanded(g.querySelector('.menu-parent'),true);}else b.removeAttribute('aria-current');});
@@ -3050,15 +3049,15 @@
     }
     function renderPortalHome(){
       if(typeof issues==='undefined'||typeof calendarState==='undefined')return;
-      const today=calFmt(new Date()),month=today.slice(0,7),open=issues.filter(x=>!closedStatuses.includes(x.status));
+      const today=todayStr(),period=window.HpmHome.monthPeriod(today),open=issues.filter(x=>!closedStatuses.includes(x.status));
       const pndWarnings=issues.map(getDeliveryWarning).filter(Boolean).sort((a,b)=>a.days-b.days);
       homeOpenIssues.textContent=open.length;
       homeOverdueIssues.textContent=pndWarnings.length;
-      homeMonthAs.textContent=calendarState.as.loaded?calendarState.as.events.filter(e=>calGetStart(e).slice(0,7)===month||calGetEnd(e).slice(0,7)===month).length:'—';
+      homeMonthAs.textContent=calendarState.as.loaded?calendarState.as.events.filter(e=>rangesOverlapCal(calGetStart(e),calGetEnd(e),period.start,period.end)).length:'—';
       homeTodayTeam.textContent=calendarState.team.loaded?calendarState.team.events.filter(e=>calInRange(today,calGetStart(e),calGetEnd(e))).length:'—';
       const calendarStatus=document.getElementById('homeCalendarStatus');if(calendarStatus){const failed=['as','team'].some(t=>calendarState[t].error),busy=['as','team'].some(t=>calendarState[t].busy);calendarStatus.hidden=!window.hpmServerUser||!failed&&!busy;calendarStatus.classList.toggle('error',failed);calendarStatus.replaceChildren(Object.assign(document.createElement('span'),{textContent:failed?'AS·팀 일정 조회 실패 · 집계는 미확인입니다. 다시 조회해 주세요.':'AS·팀 일정 서버 조회 중…'}));if(failed&&!busy){const b=document.createElement('button');b.className='btn outline';b.textContent='일정 다시 조회';b.onclick=()=>void initializeCalendars();calendarStatus.append(b);}}
       const recent=[...issues].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,5);
-      homeRecentIssues.innerHTML=recent.length?recent.map(x=>`<li onclick="navigatePortal('issue','manage');editIssue('${x.id}')" style="cursor:pointer"><strong>${escapePortal(x.issueNo||'-')} · ${escapePortal(x.title||'-')}</strong><span>${escapePortal(x.product||'미분류')} / ${escapePortal(x.process||'-')} / ${escapePortal(x.status||'-')} · PND ${escapePortal(x.processPnd||'-')} ${getPndDdayText(x)?'('+getPndDdayText(x)+')':''} · 등록자 ${escapePortal(x.reporter||'-')}</span></li>`).join(''):'<li><span>등록된 문제점이 없습니다.</span></li>';
+      homeRecentIssues.innerHTML=recent.length?recent.map(x=>`<li><button type="button" class="home-recent-link" onclick="navigatePortal('issue','manage');openIssueDetails('${x.id}')"><strong>${escapePortal(window.HpmHome.issueLocation(x))} · ${escapePortal(x.title||'-')}</strong><span>${escapePortal(x.product||'미분류')} / ${escapePortal(x.process||'-')} / ${escapePortal(x.status||'-')} · PND ${escapePortal(x.processPnd||'-')} ${getPndDdayText(x)?'('+getPndDdayText(x)+')':''} · 등록자 ${escapePortal(x.reporter||'-')}</span></button></li>`).join(''):'<li><span>등록된 문제점이 없습니다.</span></li>';
       const alertCount=document.getElementById('homePndAlertCount');
       const alertBox=document.getElementById('homePndAlerts');
       if(alertCount)alertCount.textContent=`${pndWarnings.length}건`;
@@ -3068,21 +3067,32 @@
           const kind=days<0?'PND 경과':days===0?'PND 당일':'PND 임박';
           return `<button class="home-alert-item ${days<0?'past':''}" onclick="navigatePortal('issue','manage');editIssue('${issue.id}')">
             <span class="badge ${days<0?'red':'orange'}">${kind}</span>
-            <span class="home-alert-copy"><strong>${escapePortal(issue.title||'-')}</strong><span>${escapePortal(issue.projectNo||'-')} · PND ${escapePortal(issue.processPnd||'-')} · ${escapePortal(issue.status||'-')}</span></span>
+            <span class="home-alert-copy"><strong>${escapePortal(issue.title||'-')}</strong><span>${escapePortal(window.HpmHome.issueLocation(issue))} · PND ${escapePortal(issue.processPnd||'-')} · ${escapePortal(issue.status||'-')}</span></span>
             <span class="home-alert-dday">${dday}</span>
           </button>`;
         }).join(''):'<div class="empty">현재 PND 확인 필요 항목이 없습니다.</div>';
       }
       renderAuthState();window.renderIssueLoadState?.();
     }
+    async function openHomeSummary(scope){
+      if(!window.hpmServerUser)return;
+      if(scope==='open'||scope==='pnd'){
+        if(await navigatePortal('issue','manage')===false)return;
+        resetFilters();statusFilter.value=scope==='open'?'미완료':'PND 확인 필요';applyFilters();window.switchManageView('list');
+      }else{
+        const today=todayStr(),period=scope==='as'?window.HpmHome.monthPeriod(today):{start:today,end:today};
+        if(await navigatePortal(scope)===false)return;
+        resetCalendarFilter(scope);document.getElementById(scope+'FilterStartDate').value=period.start;document.getElementById(scope+'FilterEndDate').value=period.end;
+        const [y,m]=today.split('-').map(Number);calendarState[scope].current=new Date(y,m-1,1);calendarState[scope].selected=today;renderCalendar(scope);applyCalendarFilter(scope);
+      }
+    }
 async function initializePortal() {
   updatePortalClock();
-  setInterval(updatePortalClock, 1000);
   renderAuthState();
   resetForm();
 
   try{const r=await apiRequest('/api/auth/me');currentUser=normalizePortalUser(r.user);window.hpmServerUser=currentUser;renderAuthState();syncModulesAfterAuth();document.dispatchEvent(new Event('hpm:auth'));}catch(e){currentUser=null;window.hpmServerUser=null;if([401,403].includes(e.status)){if(sessionStorage.getItem('hpmServerToken'))authRestoreMessage=e.message;sessionStorage.removeItem('hpmServerToken');}else authRestoreMessage='서버 로그인 상태를 확인하지 못했습니다. 연결을 확인하고 새로고침하세요.';}
-  if (!window.hpmServerUser){renderAuthState();issues=[];renderDashboard();applyFilters();renderStatistics();resetCalendarForm('as');resetCalendarForm('team');renderPortalHome();navigatePortal('home');return;}
+  if (!window.hpmServerUser){renderAuthState();issues=[];renderDashboard();applyFilters();renderStatistics();resetCalendarForm('as');resetCalendarForm('team');renderPortalHome();openLoginModal('login');authMessage.textContent=authRestoreMessage;return;}
   // Wait for the authoritative API before rendering issue data.
   try {
     await loadIssues();
@@ -3106,4 +3116,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261028-dashboard"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261029-home"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
