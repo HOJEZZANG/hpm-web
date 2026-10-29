@@ -449,3 +449,10 @@ Get-Content WORK_PROGRESS.md -Encoding UTF8
 - 검증: 문법·소스 보안, 자동 테스트 **135/135**, 새 검색 Chrome 검사와 기존 홈/업무 Chrome 회귀 통과. Enter/돋보기·닫기/Escape·키보드 결과 열기/뒤로가기·기존 검색 페이지·0건·오류·응답 경합·권한 거절을 확인했다. 라이트/다크 및 1366/1920/390/320px에서 PC 300px/제목 오른쪽, 모바일 제목 아래, 공지 전체 폭과 가로 넘침 없음·JavaScript 예외 0건을 검증했다.
 - 전용 검사는 `npm.cmd run test:home-search:browser -- "<Chrome 실행 파일>"`로 실행한다. 가상 계정·자료만 사용했으며 운영 계정 로그인·업무 쓰기는 없다. 현재 운영 Worker 소스가 로컬 서버 번들과 같음을 확인했다. 이번 변경은 화면·검사·문서이며 Worker/DB/migration 변경과 수동 재배포는 없다.
 - 이 기록 시점에는 검증 코드 commit·main 일반 push·Pages 배포 및 운영 자산/익명 화면 확인이 남았다. 결과와 상세 근거는 후속 기록 및 Git 제외 `.wrangler/home-search-20261029/`에 보관한다.
+
+### 홈 통합검색 운영 반영 완료
+
+- 구현 커밋 **`2169187f4337efe95079947e761a2fee6e8085e4`**를 origin/main에 일반 push했다. [Pages 빌드/배포](https://github.com/HOJEZZANG/hpm-web/actions/runs/40866034950)가 **success / built**이며 운영 주소는 **https://hojezzang.github.io/hpm-web/**다.
+- 새 검색 모듈·스타일을 포함한 운영 **정적 자산 40개**가 검증본과 일치한다. 새 익명 Chrome에서 홈 본문 제목 안의 검색창, 하단 검색 카드 제거, 초기 결과 숨김, 기존 로그인 전용 진입·직접 URL 보호와 라이트/다크·4개 화면 폭을 확인했다. 인증 후 검색 실행·결과 닫기/이동은 앞선 격리된 가상 계정/자료로 검사했다. 운영 계정으로 로그인하거나 업무자료를 시험 변경하지 않았다.
+- 보호 API **12개가 익명/위조 권한 요청을 401로 거절**했고 health·소화기 조회는 200이었다. 연결된 자동 Worker **`3abf884b-d83d-4a94-8f0c-14ca0864517b`**의 소스가 검증 서버 번들과 동일하고 기존 바인딩·호환 설정도 유지됨을 확인했다. 수동 Worker 배포·DB/migration 변경은 없다.
+- **요청된 수정·검증·main push·Pages 반영 완료.** 이 완료 기록의 후속 일반 push와 최종 Pages/운영 자산/Worker 확인 결과는 Git 제외 `.wrangler/home-search-20261029/`에 보관한다. 추가 기능 개발이나 수동 배포 대기 항목은 없다.
