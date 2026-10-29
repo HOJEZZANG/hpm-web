@@ -470,3 +470,11 @@ Get-Content WORK_PROGRESS.md -Encoding UTF8
 - 재실행: `npm.cmd test`, `npm.cmd run check`, `npm.cmd run check:security`, `npm.cmd run test:issue:browser -- "<Chrome 실행 파일>"`, `npm.cmd run test:runtime`, `node scripts/issue-runtime-check.mjs`.
 - 배포 전 운영 Worker가 기존 main 번들과 같음을 확인했다(분리한 소스 폴더의 의존성 경로 표기만 정규화). 운영 D1 **23개 테이블**의 전체 SQL 백업과 로컬 메모리 복원 검증, 참조 원본/사진 **3개**의 지문 확보를 별도 CLI로 수행했다. 버튼 제거를 백업 체계 구축으로 간주하지 않는다. 증거·백업은 Git 제외 `.wrangler/issues-20261029/`와 `backups/`에 보관한다.
 - 이 기록 시점에는 commit·호환성을 유지한 Worker 반영·main 일반 push·Pages 배포 및 운영 소스/자산/데이터 보존 재확인이 남았다. 운영 자료·계정을 시험 수정하지 않으며 migration 재적용도 하지 않는다. 결과는 후속 기록에 추가한다.
+
+### 공정 문제점 간소화 — 운영 반영·자료 보존 확인 완료
+
+- 구현 커밋 **`14753013ba4601a48b860322abc4dee9739f347c`**를 저장한 뒤 기존 운영 버전/소스 재확인 가드를 통과했다. 호환 서버를 Worker **`d92167da-af70-4e85-a686-b6faa760afb7`**로 먼저 배포하고 검증 번들·기존 바인딩/호환 설정 일치를 확인한 후 origin/main에 일반 push했다.
+- [Pages 빌드/배포](https://github.com/HOJEZZANG/hpm-web/actions/runs/40871721717)가 구현 커밋으로 **success / built**이며 운영 주소는 **https://hojezzang.github.io/hpm-web/**다. 새 폼 CSS와 상세 모듈을 포함한 **정적 자산 41개**가 검증본과 같고, 연결된 자동 Worker **`feee5759-6d0c-4ab8-93e1-fe04fd891c3a`**도 같은 검증 서버 소스와 기존 바인딩/호환 설정을 유지한다.
+- 실제 운영 사이트를 새 익명 Chrome으로 조회해 제품 규격 표시·간소화 폼·독립 사진 두 영역·제거한 컨트롤 부재·로그인 전용/직접 URL 보호·라이트/다크·1366/1920/390/320px를 확인했다. 인증된 등록·수정·사진 업로드는 격리된 가상 자료/계정과 실제 로컬 D1/R2에서 검사했다. 운영 계정 로그인·가입·업무 시험 수정/삭제/업로드는 하지 않았다. JavaScript 예외는 0건이다.
+- 보호 API **12개가 익명/위조 권한 요청을 401로 거절**했고 health·소화기 조회는 200, 비공개 검증 경로는 404였다. 반영 후 전체 SQL 백업의 로컬 메모리 복원도 검증했으며, 배포 전후 **23개 테이블의 모든 값·스키마·참조 원본/사진 3개의 크기/해시가 전부 동일**하다. 기존 계정·권한·세션·비밀번호 해시·문제점 내부 ID/제목/규격/추가 정보·사진·이력을 보존했다. migration·운영 자료 시험 쓰기는 없다.
+- **요청된 간소화·검증·Worker/Pages 반영·main push 완료.** 이 기록도 후속 일반 커밋으로 push한다. 후속 Pages/자동 Worker의 최종 상태와 소스/자산/보존 확인은 Git 제외 `.wrangler/issues-20261029/`에 보관한다. 추가 개발·배포 대기 항목은 없다.
