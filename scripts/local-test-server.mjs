@@ -19,6 +19,10 @@ export async function startTestServer(){
         state.requests.push({path:url.pathname,query:url.search,method:req.method});
         if(state.authDelayMs&&url.pathname==='/api/auth/me')await new Promise(resolve=>setTimeout(resolve,state.authDelayMs));
         if(state.failAuthRead&&url.pathname==='/api/auth/me'){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 인증 확인 실패'}));return;}
+        if(url.pathname==='/api/business/search'){
+          const delay=state.searchDelays?.[url.searchParams.get('q')];if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+          if(state.failSearchRead){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 검색 조회 실패'}));return;}
+        }
         if(state.failPlanReads&&req.method==='GET'&&(url.pathname==='/api/business/production'||url.pathname==='/api/business/imports/latest')){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 생산 조회 실패'}));return;}
         if(state.pauseChunkMs&&url.pathname.endsWith('/chunk'))await new Promise(resolve=>setTimeout(resolve,state.pauseChunkMs));
         if(req.method==='POST'&&url.pathname.endsWith('/chunk')&&state.failChunkAfter!=null){if(state.failChunkAfter--<=0){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 분할 전송 실패'}));return;}}

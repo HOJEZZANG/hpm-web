@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"><link rel="stylesheet" href="business/ui/home.css?v=20261029-home"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"><link rel="stylesheet" href="business/ui/home.css?v=20261029-search"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1093,8 +1093,19 @@
   <div class="home-hero">
     <div class="hero-content">
       <span class="hero-kicker">HAK PRODUCTION MANAGEMENT PORTAL</span>
-      <h1>생산관리 통합 업무 플랫폼</h1>
+      <div class="home-heading">
+        <h1>생산관리 통합 업무 플랫폼</h1>
+        <form id="homeBusinessSearch" class="home-search-form" role="search" aria-label="홈 통합검색">
+          <input name="q" type="search" minlength="2" maxlength="100" required placeholder="통합검색" aria-label="통합검색" aria-controls="homeSearchResults" autocomplete="off">
+          <button type="submit" aria-label="통합검색 실행" aria-controls="homeSearchResults" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+        </form>
+      </div>
       <p>공정 문제점과 생산 일정, 현장 지원업무를 한곳에서 관리합니다.</p>
+      <section id="homeSearchResults" class="home-search-results" aria-labelledby="homeSearchResultsTitle" hidden>
+        <div class="home-search-results-head"><h2 id="homeSearchResultsTitle">검색 결과</h2><button type="button" class="btn light small" data-home-search-close aria-label="검색 결과 닫기">닫기 <span aria-hidden="true">×</span></button></div>
+        <p data-home-search-status role="status" aria-live="polite" aria-atomic="true"></p>
+        <div data-home-search-list></div>
+      </section>
     </div>
     <div class="hero-bot">HPM</div>
   </div>
@@ -3116,4 +3127,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261029-home"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261029-search"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
