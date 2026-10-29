@@ -11,7 +11,7 @@ test('server-only management numbers and authors: minimal input, unique draft, n
   const env=makeEnv(),[a,b]=await Promise.all([ok(request(env,'/api/issues/draft')),ok(request(env,'/api/issues/draft'))]);
   assert.notEqual(a.id,b.id);assert.notEqual(a.issueNo,b.issueNo);assert.equal(env.sqlite.prepare('SELECT count(*) n FROM issues').get().n,0);
   const input={description:'합성 최소 상세내용',actionDetail:'조치를 적어도 완료로 바뀌지 않음',reporter:'위조 작성자',reporterId:'somebody',issueNo:'위조 번호'};
-  const saved=(await ok(request(env,'/api/issues/'+a.id,'PUT',input))).issue;assert.equal(saved.issueNo,a.issueNo);assert.equal(saved.reporterId,'owner');assert.equal(saved.reporter,'등록자');assert.equal(saved.title,input.description);assert.equal(saved.status,'접수');assert.equal(saved.processPnd,'');assert.equal(saved.process,'');assert.equal(saved.feedbackOwner,'');assert.equal(saved.deliveryDate,'');assert.equal(saved.completedDate,'');assert.equal(saved.registerDate,'');
+  const saved=(await ok(request(env,'/api/issues/'+a.id,'PUT',input))).issue;assert.equal(saved.issueNo,a.issueNo);assert.equal(saved.reporterId,'owner');assert.equal(saved.reporter,'등록자');assert.equal(saved.title,input.description);assert.equal(saved.status,'접수');assert.equal(saved.processPnd,'');assert.equal(saved.process,'');assert.equal(saved.feedbackOwner,'');assert.equal(saved.deliveryDate,'');assert.equal(saved.completedDate,'');assert.equal(saved.registerDate,new Date(Date.now()+9*3600000).toISOString().slice(0,10));
   const retry=(await ok(request(env,'/api/issues/'+a.id,'PUT',{...input,issueNo:'다른 번호'}))).issue;assert.equal(retry.issueNo,a.issueNo);assert.equal(env.sqlite.prepare('SELECT count(*) n FROM issues').get().n,1);
   assert.equal((await request(env,'/api/issues/bad','PUT',{description:'날짜 검증',occurDate:'2026-02-30'})).status,400);
   env.sqlite.prepare('UPDATE issues SET issue_no=? WHERE id=?').run('HPM-collision',a.id);assert.equal((await request(env,'/api/issues/collision','PUT',{description:'충돌 검증'})).status,409);assert.equal(env.sqlite.prepare('SELECT count(*) n FROM issues').get().n,1);
@@ -21,8 +21,8 @@ test('partial issue edits preserve hidden legacy columns, owner, unknown dates, 
   const inline='data:image/png;base64,iVBORw==';env.sqlite.prepare('UPDATE issues SET register_date=?,process_pnd=?,reporter_id=?,reporter=?,images=? WHERE id=?').run('','기존 미지정 PND','','기존 표시 이름',JSON.stringify([inline]),'legacy');
   const before={...env.sqlite.prepare("SELECT * FROM issues WHERE id='legacy'").get()};
   await ok(request(env,'/api/issues/legacy','PUT',{description:'합성 수정 내용',reporter:'탈취',reporterId:'owner',issueNo:'탈취'}));const after={...env.sqlite.prepare("SELECT * FROM issues WHERE id='legacy'").get()};
-  for(const key of Object.keys(before))if(!['description','updated_at'].includes(key))assert.equal(after[key],before[key],key+' should survive partial update');
-  assert.equal(env.objects.size,0,'Existing inline photo was not automatically moved');
+  for(const key of Object.keys(before))if(!['description','updated_at','history'].includes(key))assert.equal(after[key],before[key],key+' should survive partial update');
+  assert.equal(env.objects.size,0,'Existing inline photo was not automatically moved');assert.deepEqual(JSON.parse(after.history).slice(0,-1),JSON.parse(before.history));assert.equal(JSON.parse(after.history).at(-1).actor,'등록자');
 });
 test('legacy payload extensions survive partial updates',async()=>{
   const env=makeEnv(true);await ok(request(env,'/api/issues/payload','PUT',{description:'합성 payload'}));

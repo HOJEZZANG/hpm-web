@@ -228,7 +228,7 @@ test('UPSERT all fields, bound SQL, preserved creation and normalized reads', as
   assert.equal((await put(env, 'one', { ...fields, createdAt:'2030-01-01', title:'수정' })).status, 200);
   const list = await (await request(env, '/api/issues')).json();
   assert.equal(list.issues.length, 1);
-  assert.equal(list.issues[0].createdAt, createdAt);
+  assert.equal(list.issues[0].createdAt, row.created_at);assert.notEqual(row.created_at,createdAt);
   assert.equal(list.issues[0].title, '수정'); assert.equal(list.issues[0].process, '조립');
   assert.equal(list.issues[0].sample, true);
   assert.equal(list.issues[0].history[0].actor, '등록자');
@@ -237,6 +237,7 @@ test('UPSERT all fields, bound SQL, preserved creation and normalized reads', as
 test('existing required payload column supports inserts and updates without changing its constraint', async () => {
   const env = makeEnv(true);
   assert.equal((await put(env, 'legacy', { createdAt: '2020-01-01T00:00:00.000Z' })).status, 200);
+  env.sqlite.prepare('UPDATE issues SET created_at=? WHERE id=?').run('2020-01-01T00:00:00.000Z','legacy');
   assert.equal((await put(env, 'legacy', { title: 'updated' })).status, 200);
   const row = env.sqlite.prepare('SELECT * FROM issues WHERE id = ?').get('legacy');
   assert.equal(JSON.parse(row.payload).title, 'updated');

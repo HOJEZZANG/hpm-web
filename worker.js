@@ -2,6 +2,7 @@ import { normalizeCalendar, planCalendarImport, calendarBackup } from './calenda
 import { businessApi } from './business/api.mjs';
 import { authenticate, authApi } from './business/auth.mjs';
 import { auditRequest } from './business/audit.mjs';
+import { issueChanges } from './business/issue-history.mjs';
 import { BusinessError, koreanToday, date as businessDate } from './business/domain.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
@@ -63,7 +64,7 @@ function toIssue(row) {
   const issue = {};
   for (const [camel, snake] of Object.entries(fields)) issue[camel] = String(row[snake] ?? row[camel] ?? '');
   for(const key of ['yard','hullNo','productNo','remark','part','factory']) issue[key]=String(row[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())]??row[key]??'');
-  issue.product ||= '미분류'; issue.status ||= '접수'; issue.priority ||= '보통';
+  issue.product ||= '미분류'; issue.status ||= '접수';
   issue.updatedAt ||= issue.createdAt;
   if (/^조립[123]$/.test(issue.process)) issue.process = '조립';
   issue.followupFlag = bool(row.followup_flag ?? row.followupFlag);
@@ -107,7 +108,7 @@ function validateIssue(body, id, old) {
     issue[camel] = value;
   }
   if (!issue.title.trim() && !issue.description.trim()) throw new ApiError(400, '문제점 상세내용을 입력하세요.');
-  if (!issue.title.trim()) issue.title=issue.description.trim().replace(/\s+/g,' ').slice(0,100);
+  if (!old && !issue.title.trim()) issue.title=issue.description.trim().replace(/\s+/g,' ').slice(0,100);
   for (const key of ['occurDate','registerDate','processPnd','deliveryDate','dueDate','completedDate']) {
     if (issue[key] && issue[key]!==old?.[fields[key]]) businessDate(issue[key],key);
   }
@@ -191,40 +192,53 @@ async function saveIssue(request, env, id, user) {
   if (!body || typeof body!=='object' || Array.isArray(body)) throw new ApiError(400,'문제점 데이터를 확인하세요.');
   const old = await env.DB.prepare('SELECT * FROM issues WHERE id = ?').bind(id).first();
   const previous=old ? {...Object.fromEntries(Object.entries(fields).map(([key,column])=>[key,old[column]??''])),followupFlag:bool(old.followup_flag),sample:bool(old.sample),images:array(old.images),afterImages:array(old.after_images),history:array(old.history)} : {occurDate:koreanToday()};
-  const issue = validateIssue({...previous,...body}, id, old);
+  const issue = validateIssue({...previous,...body,history:body.history??[]}, id, old);
   // The primary-key namespace makes the number stable on retry and unique for new records.
   // Existing management numbers are immutable, including legacy formats.
   issue.issueNo = old ? old.issue_no || '' : 'HPM-'+id;
   if(!old&&await env.DB.prepare('SELECT id FROM issues WHERE issue_no=? AND id<>? LIMIT 1').bind(issue.issueNo,id).first())throw new ApiError(409,'이미 사용 중인 관리번호입니다. 새로 작성에서 서버 관리번호를 다시 발급받으세요.');
   issue.reporterId = old ? old.reporter_id || '' : user.id;
   issue.reporter = old ? old.reporter || '' : user.name;
+  for(const [field,column]of [['images','images'],['afterImages','after_images']])if(old&&!Object.hasOwn(body,field))issue[field]=array(old[column]);
   for (const key of new Set([...issue.images, ...issue.afterImages])) {
-    if (photoKey(key) && !await env.PHOTOS.head(key)) throw new ApiError(400, '사진이 존재하지 않습니다. 사진을 다시 선택하세요.');
+    if (photoKey(key) && !await env.PHOTOS.head(photoKey(key))) throw new ApiError(400, '사진이 존재하지 않습니다. 사진을 다시 선택하세요.');
   }
   const now = new Date().toISOString();
-  const created = old?.created_at ?? (issue.createdAt && Number.isFinite(Date.parse(issue.createdAt)) ? new Date(issue.createdAt).toISOString() : now);
+  const created = old?.created_at ?? now;
+  issue.registerDate=old?.register_date??koreanToday();
+  issue.status=old?issue.status:(issue.status||'접수');
+  issue.priority=old?issue.priority:(issue.priority||'보통');
   const columns = await env.DB.prepare('PRAGMA table_info(issues)').all();
   const hasLegacyPayload = columns.results.some(column => column.name === 'payload');
-  const values = [
-    id, issue.issueNo, issue.occurDate, issue.registerDate, issue.product,
-    issue.projectNo, issue.processPnd, issue.deliveryDate, issue.process, issue.issueType, issue.title,
-    issue.description, issue.finder, issue.reporter, issue.reporterId, issue.responsibleDept,
-    issue.status || '접수', issue.priority || '보통', issue.dueDate, issue.feedbackOwner, issue.causeFeedback,
-    issue.actionDetail, issue.completedDate, issue.verifier, issue.prevention, Number(issue.followupFlag),
-    JSON.stringify(issue.images), JSON.stringify(issue.afterImages), created, now,
-    JSON.stringify(issue.history), Number(issue.sample),
-  ];
   const extra = body;
   const supplemental = ['yard','hullNo','productNo','remark','part','factory'];
   for (const key of supplemental) if (extra[key] != null && (typeof extra[key] !== 'string' || extra[key].length > 1000)) throw new ApiError(400, '추가 필드를 확인하세요.');
   const savedExtras = Object.fromEntries(supplemental.map(key=>[key,extra[key] ?? old?.[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())] ?? '']));
+  const previousExtras=old?Object.fromEntries(supplemental.map(key=>[key,old[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())]??''])):null;
+  const changes=issueChanges(old?{...previous,...previousExtras}:null,{...issue,...savedExtras});
+  // Existing history is append-only; old clients cannot replace it with a stale array.
+  // Historical entries supplied when importing a new record remain intact.
+  issue.history=old?array(old.history):issue.history;
+  if(changes.length)issue.history=[...issue.history,{at:now,actor:user.name,status:issue.status,note:changes.join(' · ')}];
+  const values = [
+    id, issue.issueNo, issue.occurDate, issue.registerDate, issue.product,
+    issue.projectNo, issue.processPnd, issue.deliveryDate, issue.process, issue.issueType, issue.title,
+    issue.description, issue.finder, issue.reporter, issue.reporterId, issue.responsibleDept,
+    issue.status, issue.priority, issue.dueDate, issue.feedbackOwner, issue.causeFeedback,
+    issue.actionDetail, issue.completedDate, issue.verifier, issue.prevention, Number(issue.followupFlag),
+    JSON.stringify(issue.images), JSON.stringify(issue.afterImages), created, now,
+    JSON.stringify(issue.history), Number(issue.sample),
+  ];
   // Preserve unknown legacy payload keys as well as the normalized columns.
   let previousPayload={};try{const value=JSON.parse(old?.payload||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))previousPayload=value;}catch{}
   if (hasLegacyPayload) values.push(JSON.stringify({...previousPayload,...issue,...savedExtras,createdAt:created,updatedAt:now}));
-  await env.DB.batch([
-    env.DB.prepare(hasLegacyPayload ? UPSERT_ISSUE_WITH_PAYLOAD : UPSERT_ISSUE).bind(...values),
-    env.DB.prepare('UPDATE issues SET yard=?,hull_no=?,product_no=?,remark=?,part=?,factory=? WHERE id=?').bind(...supplemental.map(k=>savedExtras[k]),id),
+  const guard=old?' WHERE issues.updated_at IS ? AND issues.history IS ?':' WHERE 0';
+  if(old)values.push(old.updated_at,old.history);
+  const results=await env.DB.batch([
+    env.DB.prepare((hasLegacyPayload ? UPSERT_ISSUE_WITH_PAYLOAD : UPSERT_ISSUE)+guard).bind(...values),
+    env.DB.prepare('UPDATE issues SET yard=?,hull_no=?,product_no=?,remark=?,part=?,factory=? WHERE id=? AND changes()=1').bind(...supplemental.map(k=>savedExtras[k]),id),
   ]);
+  if(results[0].meta.changes!==1)throw new ApiError(409,'다른 PC에서 문제점을 변경했습니다. 입력과 사진을 보관하고 새로 조회해 비교하세요.');
   const photosCleaned = await cleanupPhotos(env, rowPhotoKeys(old));
   const saved=await env.DB.prepare('SELECT * FROM issues WHERE id=?').bind(id).first();
   return json({ ok: true, issue:toIssue(saved), photosCleaned });

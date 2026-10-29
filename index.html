@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"><link rel="stylesheet" href="business/ui/home.css?v=20261029-search"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261028-dashboard"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261023-experience"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261027-model"><link rel="stylesheet" href="business/ui/home.css?v=20261029-search"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261029-issues"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1245,7 +1245,11 @@
 <h2 id="issueEditorTitle">신규 문제점 등록</h2><span class="badge primary" id="formModeBadge">신규</span>
 </div>
 <div id="issueApiStatus" class="badge blue" role="status" aria-live="polite" hidden></div>
-<form class="issue-entry-form" id="issueForm"><input id="issueId" type="hidden"><p class="hint" style="padding:0 18px">필수 입력은 문제점 상세내용입니다. 작성자는 현재 사용자로 자동 지정됩니다.</p><div class="issue-form-grid"><div class="form-field"><label for="occurDate">발생일자</label><input id="occurDate" type="date"></div><div class="form-field"><label for="reporter">작성자</label><input id="reporter" placeholder="현재 사용자 자동 입력" readonly title="등록자는 현재 사용자로 자동 지정됩니다." type="text"></div><div class="form-field"><label for="responsibleDept">귀책부서</label><select id="responsibleDept">
+<form class="issue-entry-form" id="issueForm"><input id="issueId" type="hidden"><p class="hint" style="padding:0 18px">문제점 상세내용만 필수입니다. 조치내용과 사진은 나중에 추가할 수 있습니다.</p>
+<div class="issue-form-grid">
+<div class="form-field"><label for="occurDate">발생일자</label><input id="occurDate" type="date"></div>
+<div class="form-field"><label for="reporter">작성자</label><input id="reporter" type="text" readonly title="등록자는 서버에서 자동 지정됩니다."></div>
+<div class="form-field"><label for="responsibleDept">귀책부서</label><select id="responsibleDept">
 <option value="">선택</option>
 <option>A/C생산팀</option>
 <option>생산계획팀</option>
@@ -1254,46 +1258,30 @@
 <option>QM팀</option>
 <option>외주업체</option>
 <option>공통/협의필요</option>
-</select></div><div class="form-field"><label for="issueExtra_yard">YARD</label><input id="issueExtra_yard" maxlength="1000" type="text"></div><div class="form-field"><label for="issueExtra_hullNo">HULL NO.</label><input id="issueExtra_hullNo" maxlength="1000" type="text"></div><div class="form-field"><label for="product">제품명</label><select id="product">
+</select></div>
+<div class="form-field"><label for="issueExtra_yard">Yard</label><input id="issueExtra_yard" type="text" maxlength="1000"></div>
+<div class="form-field"><label for="issueExtra_hullNo">Hull No.</label><input id="issueExtra_hullNo" type="text" maxlength="1000"></div>
+<div class="form-field"><label for="product">제품명</label><select id="product">
 <option value="">선택</option>
 <option>NAVY</option><option>CHILLER</option><option>A/C</option><option>DECK</option><option>COND</option><option>IGG</option><option>UREA</option><option>PROV</option><option>AHU</option>
-</select></div><div class="form-field"><label for="issueExtra_productNo">제품 NO.</label><input id="issueExtra_productNo" maxlength="1000" type="text"></div><div class="form-field"><label for="issueExtra_remark">비고</label><input id="issueExtra_remark" maxlength="1000" type="text"></div><div class="form-field wide"><label for="description" class="required">문제점 상세내용</label><textarea required id="description" placeholder="발생 위치, 현상, 수량, 작업 영향 등을 구체적으로 입력하세요."></textarea></div><div class="form-field wide"><label for="actionDetail">조치내용</label><textarea id="actionDetail" placeholder="현장 조치, 재작업, 도면 수정, 자재 교체 등의 내용을 작성하세요."></textarea></div></div><section class="issue-photos" aria-labelledby="beforePhotoTitle"><h3 id="beforePhotoTitle">현장 사진 첨부</h3><label for="photoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 저장 전에 미리보기에서 제거할 수 있습니다.</label><input accept="image/jpeg,image/png,image/webp" id="photoInput" multiple type="file"><div id="previewGrid" class="preview-grid"></div></section><details class="issue-additional" id="issueAdditional"><summary>추가 관리정보 · 조치 후 사진 · 처리 이력</summary><div class="issue-form-grid"><div class="form-field"><label for="title">문제 제목 (미입력 시 상세내용으로 생성)</label><input id="title" placeholder="예: FAN FLEXIBLE의 HOLE 규격 상이" type="text"></div><div class="form-field"><label for="registerDate">등록일</label><input id="registerDate" type="date"></div><div class="form-field"><label for="projectNo">기존 YARD / HULL 정보</label><input id="projectNo" placeholder="예: HHI / HN-1234" type="text"></div><div class="form-field"><label for="process">공정</label><select id="process">
-<option value="">선택</option>
-<option>CASING PANEL</option>
-<option>PIPE</option>
-<option>COIL</option>
-<option>BED 제작</option>
-<option>BED 도장</option>
-<option>조립</option>
-<option>냉매라인</option>
-<option>스팀라인</option>
-<option>결선</option>
-<option>검사(FAT)</option>
-<option>포장/출하</option>
-<option>기타</option>
-</select></div><div class="form-field"><label for="issueType">문제 유형</label><select id="issueType">
-<option value="">선택</option>
-<option>자재불량</option>
-<option>치수불량</option>
-<option>용접불량</option>
-<option>도장불량</option>
-<option>조립불량</option>
-<option>설치누락</option>
-<option>설계오류</option>
-<option>작업오류</option>
-<option>납기지연</option>
-<option>기타</option>
-</select></div><div class="form-field"><label for="status">처리 상태</label><select id="status">
+</select></div>
+<div class="form-field"><label for="issueExtra_productNo">제품 규격</label><input id="issueExtra_productNo" type="text" maxlength="1000" placeholder="예: HKA-08SN"></div>
+<div class="form-field"><label for="issueExtra_remark">비고</label><input id="issueExtra_remark" type="text" maxlength="1000"></div>
+<div class="wide issue-state-fields"><div class="form-field"><label for="status">처리 상태</label><select id="status">
 <option>접수</option>
 <option>원인검토중</option>
 <option>조치중</option>
 <option>조치완료</option>
 <option>종결</option>
-</select></div><div class="form-field"><label for="priority">우선순위</label><select id="priority">
-<option>보통</option>
-<option>높음</option>
-<option>긴급</option>
-</select></div><div class="form-field"><label for="processPnd">공정 PND</label><input id="processPnd" type="date"></div><div class="form-field"><label for="deliveryDate">납품일</label><input id="deliveryDate" type="date"></div><div class="form-field"><label for="dueDate">조치 예정일</label><input id="dueDate" type="date"></div><div class="form-field"><label for="feedbackOwner">담당자</label><input id="feedbackOwner" placeholder="귀책부서 담당자" type="text"></div><div class="form-field"><label for="finder">발견자</label><input id="finder" placeholder="성명 / 파트" type="text"></div><div class="form-field"><label for="completedDate">실제 완료일</label><input id="completedDate" type="date"></div><div class="form-field"><label for="verifier">효과 확인자</label><input id="verifier" placeholder="확인자" type="text"></div><div class="form-field"><label for="issueExtra_part">파트</label><input id="issueExtra_part" maxlength="1000" type="text"></div><div class="form-field"><label for="issueExtra_factory">공장</label><input id="issueExtra_factory" maxlength="1000" type="text"></div><div class="form-field wide"><label for="causeFeedback">원인 분석 / Feedback</label><textarea id="causeFeedback" placeholder="발생 원인, 설계·자재·작업 조건 등을 작성하세요."></textarea></div><div class="form-field wide"><label for="prevention">재발방지 / 선반영 사항</label><textarea id="prevention" placeholder="도면 표준 수정, 체크리스트 반영, 작업표준 개정, 후속 HULL 선확인 등의 내용을 입력하세요."></textarea></div><label class="wide"><input id="followupFlag" type="checkbox"> 후속 프로젝트 사전 반영 또는 표준화 관리 필요</label></div><section class="issue-photos"><h3>조치 후 사진</h3><label for="afterPhotoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 조치내용과 처리 상태는 별도로 관리합니다.</label><input accept="image/jpeg,image/png,image/webp" id="afterPhotoInput" multiple type="file"><div id="afterPreviewGrid" class="preview-grid"></div></section><h3>처리 이력</h3><div id="historyTimeline" class="history-timeline"></div></details><div class="issue-form-actions"><button class="btn primary" type="submit" id="saveIssueButton">저장</button><button class="btn light" type="button" onclick="if(!issueForm.dataset.dirty||confirm('작성 중인 내용을 지우고 새로 작성하시겠습니까?'))resetForm()">새로 작성</button><span class="hint">저장 실패 시 입력과 사진을 유지합니다.</span><button class="btn danger" id="deleteBtn" type="button" style="display:none" onclick="deleteIssue()">삭제</button></div></form>
+</select></div><div class="form-field"><label for="processPnd">공정 PND(선택)</label><input id="processPnd" type="date"></div></div>
+<div class="form-field wide"><label for="description" class="required">문제점 상세내용</label><textarea required id="description" placeholder="발생 위치, 현상, 수량, 작업 영향 등을 구체적으로 입력하세요."></textarea></div>
+<div class="form-field wide"><label for="actionDetail">조치내용</label><textarea id="actionDetail" placeholder="조치한 내용이 있으면 입력하세요. 나중에 추가할 수 있습니다."></textarea></div>
+</div>
+<div class="issue-photo-pair">
+<section class="issue-photos" aria-labelledby="beforePhotoTitle"><h3 id="beforePhotoTitle">현장 사진(조치 전)</h3><label for="photoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 사진 없이도 저장할 수 있습니다.</label><input accept="image/jpeg,image/png,image/webp" id="photoInput" multiple type="file"><div id="previewGrid" class="preview-grid"></div></section>
+<section class="issue-photos" aria-labelledby="afterPhotoTitle"><h3 id="afterPhotoTitle">조치 후 사진</h3><label for="afterPhotoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 업로드해도 처리 상태는 바뀌지 않습니다.</label><input accept="image/jpeg,image/png,image/webp" id="afterPhotoInput" multiple type="file"><div id="afterPreviewGrid" class="preview-grid"></div></section>
+</div>
+<div class="issue-form-actions"><button class="btn primary" type="submit" id="saveIssueButton">저장</button><button class="btn light" type="button" onclick="if(!issueForm.dataset.dirty||confirm('작성 중인 내용을 지우고 새로 작성하시겠습니까?'))resetForm()">새로 작성</button><span class="hint">저장 실패 시 입력과 사진을 유지합니다.</span><button class="btn danger" id="deleteBtn" type="button" style="display:none" onclick="deleteIssue()">삭제</button></div></form>
 <p id="issueFeedback" class="issue-feedback" role="status" aria-live="polite" hidden></p></div>
 <div aria-labelledby="issueListTab" role="tabpanel" hidden id="issueRecordsPane" class="card"><p id="issueRecordsStatus" role="status" class="issue-feedback" hidden></p>
 <div class="card-head">
@@ -1329,13 +1317,7 @@
 <input id="selectVisibleCheckbox" onchange="toggleSelectFiltered(this.checked)" type="checkbox"> 삭제 가능 조회항목 전체 선택
             </label>
 <button class="btn danger small" disabled id="bulkDeleteBtn" onclick="deleteSelectedIssues()">선택 삭제 (0)</button>
-<button class="btn green small" onclick="exportCsv()">CSV 내보내기</button>
-<button class="btn orange small" onclick="runPresentationPreflight()" title="로그인 계정·PND·데이터 용량·공정값을 발표 전에 자동 점검합니다.">발표 전 점검</button>
-<button class="btn primary small" onclick="exportPresentationHtml()" title="현재 조회 자료를 계정 정보 없이 읽기 전용 HTML로 내보냅니다.">발표용 HTML 내보내기</button>
-<button class="btn blue small" onclick="exportJson()">백업파일 저장</button>
-<label class="btn outline small" style="margin:0; display:inline-flex; align-items:center;">
-              백업파일 불러오기<input accept="application/json" id="importInput" style="display:none;" type="file">
-</label>
+
 </div>
 <div role="list" class="issue-list" id="issueList"></div>
 <div class="pagination" id="pagination"></div>
@@ -1695,7 +1677,8 @@
     let issueBusy = '';
     let draftIssueId = '';let issueDraftVersion=0,draftPromise=null;const issueTouched=new Set(),issueInitialValues=new Map();
     function rememberIssueValues(){issueInitialValues.clear();for(const n of document.querySelectorAll("#issueForm input,#issueForm select,#issueForm textarea"))issueInitialValues.set(n.id,n.type==="checkbox"?n.checked:n.value);}
-    function omitUnchangedIssueFields(data){for(const field of "occurDate registerDate product projectNo processPnd deliveryDate process issueType title description finder responsibleDept status priority dueDate feedbackOwner causeFeedback actionDetail completedDate verifier prevention followupFlag yard hullNo productNo remark part factory".split(" ")){const id=["yard","hullNo","productNo","remark","part","factory"].includes(field)?"issueExtra_"+field:field,n=document.getElementById(id);if(!issueTouched.has(id)&&issueInitialValues.has(id)&&(n.type==="checkbox"?n.checked:n.value)===issueInitialValues.get(id))delete data[field];}}
+    const issueEditableFields={occurDate:'occurDate',product:'product',processPnd:'processPnd',description:'description',responsibleDept:'responsibleDept',status:'status',actionDetail:'actionDetail',yard:'issueExtra_yard',hullNo:'issueExtra_hullNo',productNo:'issueExtra_productNo',remark:'issueExtra_remark'};
+    function omitUnchangedIssueFields(data){for(const [field,id]of Object.entries(issueEditableFields)){const n=document.getElementById(id);if(!issueTouched.has(id)&&issueInitialValues.has(id)&&n.value===issueInitialValues.get(id))delete data[field];}}
     function issueMessage(message,error=false){const n=document.getElementById('issueFeedback');n.textContent=message;n.hidden=!message;n.classList.toggle('error',error);}
     async function prepareIssueDraft(){if(issueId.value||draftIssueId)return;if(draftPromise)return draftPromise;if(!window.hpmServerUser)return;const generation=issueDraftVersion;draftPromise=apiRequest('/api/issues/draft').then(r=>{if(generation===issueDraftVersion&&!issueId.value){draftIssueId=r.id;}}).finally(()=>{if(generation===issueDraftVersion)draftPromise=null;});return draftPromise;}
     const pendingPhotoUrls = new Set();
@@ -1768,8 +1751,8 @@
         const snake = key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
         data[key] = String(value[key] ?? value[snake] ?? '');
       }
-      data.product ||= '미분류'; data.status ||= '접수'; data.priority ||= '보통';
-      data.registerDate ||= data.occurDate; data.updatedAt ||= data.createdAt;
+      data.product ||= '미분류'; data.status ||= '접수';
+      data.updatedAt ||= data.createdAt;
       const truthy = v => v === true || v === 1 || v === '1' || v === 'true';
       data.followupFlag = truthy(value.followupFlag ?? value.followup_flag);
       data.sample = truthy(value.sample);
@@ -1826,8 +1809,8 @@
       await cleanPhotoUrls(urls);
     }
     async function saveIssue(data){
-      assertIssueWriteReady();const draft={...data,images:[...(data.images||[])],afterImages:[...(data.afterImages||[])]};
-      try{for(const [field,category] of [['images','before'],['afterImages','after']]){for(let i=0;i<draft[field].length;i++){const source=issuePhotoUrl(draft[field][i]);if(!source)throw new Error('지원하지 않는 사진입니다.');if(source.startsWith('data:')&&!issues.find(x=>x.id===draft.id)?.[field]?.includes(source)){setIssueBusy('사진 업로드 중…');const blob=await(await fetch(source)).blob();draft[field][i]=await uploadPhotoBlob(blob,draft.id,category);pendingPhotoUrls.add(draft[field][i]);(field==='images'?currentImages:currentAfterImages)[i]=draft[field][i];}else draft[field][i]=source;}}
+      assertIssueWriteReady();const draft={...data};for(const field of ['images','afterImages'])if(Object.hasOwn(data,field))draft[field]=[...data[field]];
+      try{for(const [field,category] of [['images','before'],['afterImages','after']]){if(!Object.hasOwn(draft,field))continue;for(let i=0;i<draft[field].length;i++){const source=issuePhotoUrl(draft[field][i]);if(!source)throw new Error('지원하지 않는 사진입니다.');if(source.startsWith('data:')&&!issues.find(x=>x.id===draft.id)?.[field]?.includes(source)){setIssueBusy('사진 업로드 중…');const blob=await(await fetch(source)).blob();draft[field][i]=await uploadPhotoBlob(blob,draft.id,category);pendingPhotoUrls.add(draft[field][i]);(field==='images'?currentImages:currentAfterImages)[i]=draft[field][i];}else draft[field][i]=source;}}
         setIssueBusy('문제점 저장 중…');const result=await apiRequest('/api/issues/'+encodeURIComponent(draft.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)}),saved=normalizeClientIssue(result.issue),index=issues.findIndex(x=>x.id===saved.id);if(index>=0)issues[index]=saved;else issues.unshift(saved);for(const url of [...saved.images,...saved.afterImages])pendingPhotoUrls.delete(url);return saved;
       }finally{renderPreviews();renderAfterPreviews();}
     }
@@ -1839,11 +1822,8 @@
     const PAGE_SIZE = 7;
     const closedStatuses = ['조치완료', '종결'];
     const el = id => document.getElementById(id);
-    const issueId = el('issueId'), occurDate = el('occurDate'), registerDate = el('registerDate');
-    const product = el('product'), projectNo = el('projectNo'), processPnd = el('processPnd'), deliveryDate = el('deliveryDate'), process = el('process'), issueType = el('issueType'), title = el('title'), description = el('description');
-    const finder = el('finder'), reporter = el('reporter'), responsibleDept = el('responsibleDept'), status = el('status'), priority = el('priority');
-    const dueDate = el('dueDate'), feedbackOwner = el('feedbackOwner'), causeFeedback = el('causeFeedback'), actionDetail = el('actionDetail');
-    const completedDate = el('completedDate'), verifier = el('verifier'), prevention = el('prevention'), followupFlag = el('followupFlag');
+    const issueId = el('issueId'), occurDate = el('occurDate');
+    const product=el('product'),processPnd=el('processPnd'),description=el('description'),reporter=el('reporter'),responsibleDept=el('responsibleDept'),status=el('status'),actionDetail=el('actionDetail');
     const deleteBtn = el('deleteBtn'), formModeBadge = el('formModeBadge'), keywordFilter = el('keywordFilter');
     const productFilter = el('productFilter'), processFilter = el('processFilter'), deptFilter = el('deptFilter'), statusFilter = el('statusFilter'), listCountBadge = el('listCountBadge');
     const occurStartFilter = el('occurStartFilter'), occurEndFilter = el('occurEndFilter');
@@ -2056,12 +2036,12 @@
       currentImages.forEach((src, index) => {
         const div = document.createElement('div');
         div.className = 'preview';
-        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="문제 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
+        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="문제 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
     }
-    function removeImage(index) { if (issueBusy) return; currentImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderPreviews(); }
+    function removeImage(index) { if (issueBusy||!confirm('현장 사진을 목록에서 제거하시겠습니까? 저장하면 반영됩니다.')) return; currentImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderPreviews(); }
 
     function renderAfterPreviews() {
       const grid = document.getElementById('afterPreviewGrid');
@@ -2069,36 +2049,14 @@
       currentAfterImages.forEach((src, index) => {
         const div = document.createElement('div');
         div.className = 'preview';
-        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
+        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
     }
-    function removeAfterImage(index) { if (issueBusy) return; currentAfterImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderAfterPreviews(); }
+    function removeAfterImage(index) { if (issueBusy||!confirm('조치 후 사진을 목록에서 제거하시겠습니까? 저장하면 반영됩니다.')) return; currentAfterImages.splice(index, 1); document.getElementById("issueForm").dataset.dirty="true"; renderAfterPreviews(); }
 
-    function buildHistoryNote(existing, draft) {
-      if (!existing) return '문제점 신규 등록';
-      const changes = [];
-      const addChange = (label, oldV, newV) => {
-        oldV = oldV ?? ''; newV = newV ?? '';
-        if (String(oldV) !== String(newV)) {
-          if (oldV && newV) changes.push(`${label}: ${oldV} → ${newV}`);
-          else if (newV) changes.push(`${label} 입력`);
-          else changes.push(`${label} 삭제`);
-        }
-      };
-      addChange('처리상태', existing.status, draft.status);
-      addChange('귀책부서', existing.responsibleDept, draft.responsibleDept);
-      addChange('공정 PND', existing.processPnd, draft.processPnd);
-      addChange('담당자', existing.feedbackOwner, draft.feedbackOwner);
-      if ((existing.causeFeedback || '') !== (draft.causeFeedback || '')) changes.push('원인 분석 / Feedback 수정');
-      if ((existing.actionDetail || '') !== (draft.actionDetail || '')) changes.push('조치 내용 수정');
-      addChange('실제 완료일', existing.completedDate, draft.completedDate);
-      if ((existing.prevention || '') !== (draft.prevention || '')) changes.push('재발방지 / 선반영 사항 수정');
-      if (JSON.stringify(existing.images || []) !== JSON.stringify(draft.images || [])) changes.push('문제 발생 사진 변경');
-      if (JSON.stringify(existing.afterImages || []) !== JSON.stringify(draft.afterImages || [])) changes.push('조치 후 사진 변경');
-      return changes.length ? changes.join(' · ') : '문제점 정보 수정';
-    }
+
 
     function renderHistoryTimeline(issue) {
       const box = document.getElementById('historyTimeline');
@@ -2122,60 +2080,25 @@
       e.preventDefault();if(issueBusy)return;if(!window.hpmServerUser){openLoginModal('login');return;}
       try{assertIssueWriteReady();}catch(e){issueMessage(e.message,true);return;}setIssueBusy('저장 준비 중…');
       try{await prepareIssueDraft();const id=issueId.value||draftIssueId;if(!id)throw new Error('저장 준비를 완료하지 못했습니다. 다시 저장하세요.');const existing=issues.find(x=>x.id===id);
-        const data={...existing,...Object.fromEntries(['yard','hullNo','productNo','remark','part','factory'].map(k=>[k,document.getElementById('issueExtra_'+k).value.trim()])),id,occurDate:occurDate.value,registerDate:registerDate.value,product:product.value,projectNo:projectNo.value.trim(),processPnd:processPnd.value,deliveryDate:deliveryDate.value,process:process.value,issueType:issueType.value,title:title.value.trim(),description:description.value.trim(),finder:finder.value.trim(),reporter:existing?.reporter||currentUser.name,reporterId:existing?existing.reporterId||'':currentUser.id,images:[...currentImages],afterImages:[...currentAfterImages],sample:existing?.sample||false,responsibleDept:responsibleDept.value,status:status.value,priority:priority.value,dueDate:dueDate.value,feedbackOwner:feedbackOwner.value.trim(),causeFeedback:causeFeedback.value.trim(),actionDetail:actionDetail.value.trim(),completedDate:completedDate.value,verifier:verifier.value.trim(),prevention:prevention.value.trim(),followupFlag:followupFlag.checked,createdAt:existing?.createdAt||nowIso(),updatedAt:nowIso()};
-        for(const field of ['occurDate','registerDate','processPnd','deliveryDate','dueDate','completedDate'])if(existing?.[field]&&!data[field]&&!issueTouched.has(field))data[field]=existing[field];
-        if(!data.description)throw new Error('문제점 상세내용을 입력하세요.');if(data.dueDate&&data.occurDate&&data.dueDate<data.occurDate)throw new Error('조치 예정일은 발생일보다 빠를 수 없습니다.');if(data.completedDate&&data.occurDate&&data.completedDate<data.occurDate)throw new Error('실제 완료일은 발생일보다 빠를 수 없습니다.');
-        data.history=[...(existing?.history||[]),{at:nowIso(),status:data.status,actor:currentUser.name,note:buildHistoryNote(existing,data)}];if(existing)omitUnchangedIssueFields(data);await saveIssue(data);setIssueBusy('');resetForm();refreshIssueViews();window.switchManageView('list');const n=document.getElementById('issueRecordsStatus');n.textContent=existing?'수정 내용을 저장했습니다.':'문제점을 등록했습니다.';n.hidden=false;showToast(n.textContent);
+        const data={id,...Object.fromEntries(Object.entries(issueEditableFields).map(([field,inputId])=>[field,document.getElementById(inputId).value])),images:[...currentImages],afterImages:[...currentAfterImages]};
+        if(!data.description.trim())throw new Error('문제점 상세내용을 입력하세요.');
+        if(existing){omitUnchangedIssueFields(data);for(const field of ['images','afterImages'])if(JSON.stringify(data[field])===JSON.stringify(existing[field]))delete data[field];}
+        await saveIssue(data);setIssueBusy('');resetForm();refreshIssueViews();window.switchManageView('list');const n=document.getElementById('issueRecordsStatus');n.textContent=existing?'수정 내용을 저장했습니다.':'문제점을 등록했습니다.';n.hidden=false;showToast(n.textContent);
       }catch(error){issueMessage('저장하지 못했습니다. '+error.message+' 입력과 사진을 유지했습니다.',true);renderPreviews();renderAfterPreviews();}finally{setIssueBusy('');}
     });
 
-    function fillForm(issue) {
-      issueTouched.clear();delete document.getElementById("issueForm").dataset.dirty;document.getElementById("issueEditorTitle").textContent="문제점 수정";window.switchManageView("create");issueMessage("");
-      if (issueBusy) { showToast(issueBusy); return; }
-      void discardPendingPhotos();
-      draftIssueId = issue.id;
-      issueId.value = issue.id;
-
-      occurDate.value = issue.occurDate || '';
-      registerDate.value = issue.registerDate || '';
-      ensureSelectValue(product, issue.product || '');
-      projectNo.value = issue.projectNo || '';
-      processPnd.value = issue.processPnd || '';
-      deliveryDate.value = issue.deliveryDate || '';
-      ensureSelectValue(process, issue.process || '');
-      issueType.value = issue.issueType || '';
-      title.value = issue.title || '';
-      description.value = issue.description || '';
-      finder.value = issue.finder || '';
-      reporter.value = issue.reporter || '';
-      ensureSelectValue(responsibleDept, issue.responsibleDept || '');
-      status.value = issue.status || '접수';
-      priority.value = issue.priority || '보통';
-      dueDate.value = issue.dueDate || '';
-      feedbackOwner.value = issue.feedbackOwner || '';
-      causeFeedback.value = issue.causeFeedback || '';
-      actionDetail.value = issue.actionDetail || '';
-      completedDate.value = issue.completedDate || '';
-      verifier.value = issue.verifier || '';
-      prevention.value = issue.prevention || '';
-      followupFlag.checked = !!issue.followupFlag;
-      currentImages = [...(issue.images || [])];
-      currentAfterImages = [...(issue.afterImages || [])];
-      renderPreviews();
-      renderAfterPreviews();
-      renderHistoryTimeline(issue);
-      updateFormDeleteButton(issue);
-      formModeBadge.textContent = '수정';
-      formModeBadge.className = 'badge blue';
-      switchIssueTab('manage');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    function fillForm(issue){
+      if(issueBusy){showToast(issueBusy);return;}
+      issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;document.getElementById('issueEditorTitle').textContent='문제점 수정';window.switchManageView('create');issueMessage('');void discardPendingPhotos();draftIssueId=issue.id;issueId.value=issue.id;
+      for(const [field,inputId]of Object.entries(issueEditableFields)){const n=document.getElementById(inputId);if(n.tagName==='SELECT')ensureSelectValue(n,issue[field]||'');else n.value=issue[field]||'';}
+      reporter.value=issue.reporter||'';currentImages=[...(issue.images||[])];currentAfterImages=[...(issue.afterImages||[])];renderPreviews();renderAfterPreviews();updateFormDeleteButton(issue);formModeBadge.textContent='수정';formModeBadge.className='badge blue';switchIssueTab('manage');window.scrollTo({top:0,behavior:'smooth'});
     }
 
     function editIssue(id) {
       if(issueBusy)return false;
       if(document.getElementById('issueForm').dataset.dirty==='true'&&!confirm('작성 중인 내용을 버리고 선택한 문제점을 수정하시겠습니까?'))return false;
       const issue = issues.find(x => x.id === id);
-      if (issue) { fillForm(issue); for(const k of ['yard','hullNo','productNo','remark','part','factory'])document.getElementById('issueExtra_'+k).value=issue[k]||'';rememberIssueValues(); }
+      if (issue) { fillForm(issue);rememberIssueValues(); }
     }
 
  async function deleteIssue() {
@@ -2210,7 +2133,7 @@
 }
 
     function resetForm(){
-      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();registerDate.value='';reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';priority.value='보통';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();document.getElementById('historyTimeline').innerHTML='<p class="hint">신규 등록 후 처리 이력이 표시됩니다.</p>';deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('issueAdditional').open=false;issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
+      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
     }
 
     function getFilteredIssues() {
@@ -2320,7 +2243,7 @@
       if(!issuesLoaded&&!issues.length){document.getElementById('issueList').innerHTML='<p class="empty">'+(issueLoadError?'조회에 실패했습니다. 위 안내에서 다시 조회해 주세요.':window.hpmServerUser?'서버 조회 대기 중':'로그인 후 조회할 수 있습니다.')+'</p>';listCountBadge.textContent='미확인';if(scope)scope.textContent='서버 조회 미확인';window.renderIssueLoadState?.();return;}
       const list=document.getElementById('issueList'),totalPages=Math.max(1,Math.ceil(currentFiltered.length/PAGE_SIZE));if(currentPage>totalPages)currentPage=totalPages;listCountBadge.textContent=currentFiltered.length+'건';list.innerHTML='';const pageItems=currentFiltered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
       if(!pageItems.length)list.innerHTML='<div class="empty">조회 조건에 해당하는 문제점이 없습니다.</div>';
-      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(window.HpmHome.issueLocation(issue)+' · '+(issue.title||'문제점'))} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-location">${esc(window.HpmHome.issueLocation(issue))}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta"><span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc(window.HpmHome.issueLocation(issue))}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
+      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(window.HpmHome.issueLocation(issue)+' · '+(issue.title||'문제점'))} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-location">${esc(window.HpmHome.issueLocation(issue))}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta">${issue.productNo?`<span>제품 규격 ${esc(issue.productNo)}</span>`:''}<span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc(window.HpmHome.issueLocation(issue))}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
     }
     window.getIssueForView=id=>issues.find(i=>i.id===id);
 
@@ -2554,7 +2477,7 @@
       setTimeout(() => URL.revokeObjectURL(url), 500);
     }
 
-    document.getElementById('importInput').addEventListener('change', async function(e) {
+    document.getElementById('importInput')?.addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file || issueBusy) return;
       let count = 0;
@@ -3127,4 +3050,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261029-search"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261029-issues"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
