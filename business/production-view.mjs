@@ -31,3 +31,20 @@ export function productionView(rows,filters={},equipment='',selection={},today=k
   const last=addDays(today,7),records=context.filter(r=>{const state=productionProcessState(r['현공정']),day=productionPnd(r);return (selected.status==='all'||state===selected.status)&&(selected.risk==='all'||state==='active'&&day&&(selected.risk==='overdue'?day<today:day>=today&&day<=last));});
   return {records,summary:productionCounts(context,today),groups,selection:selected,baseCount:base.length,today};
 }
+// AHU states come from the supplied workbook's explicit Korean process names.
+export const ahuStateLabels={active:'진행 중',ready:'완료(원본 공정)',unknown:'공정 미기재·미분류'};
+export function ahuProcessState(value){
+ const p=String(value??'').trim();if(p==='완료')return 'ready';
+ return ['FRAME 도장[HFP]','냉매라인 보온작업[HIS]','결선AH [HEL]','조립3[HA3]','조립2[HA2]','BED FRAME 제작[HBE]'].includes(p)?'active':'unknown';
+}
+export function ahuView(rows,filters={},selection={},today=koreanToday()){
+ const q=String(filters.q||'').trim().toLowerCase(),last=addDays(today,7);
+ const base=rows.filter(r=>{const day=productionPnd(r);return (!q||Object.entries(r).some(([k,v])=>!k.startsWith('__')&&String(v).toLowerCase().includes(q)))&&(!filters.equipment||r['LINE 5000']===filters.equipment)&&['Yard','현공정','규격'].every(k=>!filters[k]||r[k]===filters[k])&&(!filters.from||day&&day>=filters.from)&&(!filters.to||day&&day<=filters.to);});
+ const selected={equipment:selection.equipment||'',process:selection.process??null,status:selection.status||'all',risk:selection.risk||'all'};
+ if(!base.some(r=>r['LINE 5000']===selected.equipment)){selected.equipment='';selected.process=null;}
+ const context=base.filter(r=>(!selected.equipment||r['LINE 5000']===selected.equipment)&&(selected.process===null||String(r['현공정']??'')===selected.process));
+ const counts=rs=>{const s={total:rs.length,quantity:0,active:0,ready:0,unknown:0,overdue:0,upcoming:0,missingPnd:0,invalidPnd:0};for(const r of rs){const p=productionPnd(r),raw=String(r.PND??'').trim();s.quantity+=r['수량'];s[ahuProcessState(r['현공정'])]++;if(!raw)s.missingPnd++;else if(!p)s.invalidPnd++;if(p&&p<today)s.overdue++;if(p&&p>=today&&p<=last)s.upcoming++;}return s;};
+ const records=context.filter(r=>{const p=productionPnd(r);return (selected.status==='all'||ahuProcessState(r['현공정'])===selected.status)&&(selected.risk==='all'||p&&(selected.risk==='overdue'?p<today:p>=today&&p<=last));});
+ const groups=[...new Set(base.map(r=>r['LINE 5000']))].map(name=>({name,...counts(base.filter(r=>r['LINE 5000']===name))})).sort((a,b)=>b.total-a.total);
+ return {records,summary:counts(context),groups,selection:selected,baseCount:base.length,today};
+}

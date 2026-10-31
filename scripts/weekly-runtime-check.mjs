@@ -13,6 +13,8 @@ try{
   async function req(path,method='GET',body,status=200){const r=await mf.dispatchFetch('http://local.test/api/'+path,{method,headers:{Origin:'https://hojezzang.github.io',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});assert.equal(r.status,status,await r.clone().text());return r.json();}
   const account={id:'weekly-admin',name:'합成 관리자',password:'synthetic-weekly-password',bootstrapSecret:'synthetic-weekly-bootstrap-key-2026'};
   await req('auth/bootstrap','POST',account);token=(await req('auth/login','POST',account)).token;
+  const partSql=readFileSync(new URL('../migrations/0008_production_parts.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').trim();
+  for(const statement of partSql.split(/;\s*(?=(?:CREATE|ALTER|UPDATE|DROP)\b)/i).map(s=>s.trim().replace(/;$/,'')))await db.prepare(statement).run();
   const base={part:'2 PART',product:'합성 제품',manager:'합성 담당',problem:'현황 원문',remark:'비고 원문',plan:'기존 계획',action:'기존 실행',pnd:'  협의 중  ',key:'2026-W44',monday:'2026-10-26'};
   for(const [id,date,day]of [['sat','2026-10-31','2026-10-31'],['sun','2026-11-01','2026-11-01'],['unknown',undefined,'2026-W44'],['invalid','2026-02-30','2026-02-30'],['day-only',undefined,'2026-11-01']])await db.prepare('INSERT INTO weekly_issues(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?)').bind(id,account.id,JSON.stringify({...base,...(date?{date}:{})}),day,'2026-10-01','2026-10-01').run();
   const sat=await req('business/weekly?week=2026-10-31'),sun=await req('business/weekly?week=2026-11-01');

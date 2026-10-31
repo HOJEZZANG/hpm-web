@@ -14,6 +14,8 @@ try{
     const statements=sql.split(/;\s*(?=(?:CREATE|ALTER)\b)/i).map(s=>s.trim().replace(/;$/,'')).filter(Boolean);
     for(const statement of statements)await db.prepare(statement).run();
   }
+  const partSql=readFileSync(new URL('../migrations/0008_production_parts.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').trim();
+  for(const statement of partSql.split(/;\s*(?=(?:CREATE|ALTER|UPDATE|DROP)\b)/i).map(s=>s.trim().replace(/;$/,'')))await db.prepare(statement).run();
   const base='http://local.test';let token;
   async function req(path,method='GET',body){const response=await mf.dispatchFetch(base+path,{method,headers:{Origin:'https://hojezzang.github.io',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});assert.equal(response.status,200,await response.clone().text());return response.json();}
   const account={id:'runtime-admin',name:'합성 런타임 관리자',password:'synthetic-runtime-password',bootstrapSecret:'synthetic-runtime-bootstrap-key-0000'};

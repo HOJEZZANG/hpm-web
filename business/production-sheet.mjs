@@ -1,7 +1,9 @@
-import {ensure,productionColumns,dateColumns,isProductionCompletionTitle} from './domain.mjs';
+import {ensure,BusinessError,productionColumns,dateColumns,isProductionCompletionTitle} from './domain.mjs';
 import {readTable} from './ooxml.mjs';
 import {inspectZip,excelDate} from './excel.mjs';
 import {productionLimits as L,byteLength} from './production-limits.mjs';
+import {parseAhuProductionSheet,validateAhuMetadata,normalizeAhuRow} from './production-ahu-sheet.mjs';
+import {productionPart,assertPartRow} from './production-parts.mjs';
 export const columnLabel=n=>{let s='';for(;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
 export const normalizedTitle=v=>String(v??'').trim();
 export function mappingInfo(columns){
@@ -14,6 +16,8 @@ export function mappingInfo(columns){
 export function validateMetadata(meta){
   ensure(meta&&Array.isArray(meta.columns)&&meta.columns.length&&byteLength(meta)<=L.metadata,'열 정보는 512KiB 처리 예산 이내이어야 합니다.',413);
   let previous=0;for(const c of meta.columns){ensure(c&&Number.isInteger(c.position)&&c.position>previous&&c.position<=L.excelColumns&&c.id==='c'+c.position&&typeof c.title==='string'&&c.title.length<=32767,'열 위치/내부 식별자를 확인하세요.');previous=c.position;}
+  productionPart(meta.part);
+  if(meta.part==='part2'){ensure(typeof meta.date1904==='boolean'&&Number.isInteger(meta.rowCount)&&meta.rowCount>0&&meta.rowCount<L.excelRows,'AHU 행 정보를 확인하세요.');return validateAhuMetadata(meta);}
   const info=mappingInfo(meta.columns);ensure(!info.missing.length,'필수 열 누락: '+info.missing.join(', '));
   ensure(meta.equipment===info.equipment,'장비 구분 열 정보가 올바르지 않습니다.');
   ensure(meta.mapping&&typeof meta.mapping==='object'&&!Array.isArray(meta.mapping),'업무 열 선택이 필요합니다.');
@@ -27,6 +31,7 @@ export function normalizeProductionRow(raw,meta){
   ensure(raw.values.some(v=>v!==''),'빈 데이터 행은 반영하지 않습니다.');
   if(raw.formulas)ensure(Array.isArray(raw.formulas)&&raw.formulas.every(f=>Array.isArray(f)&&Number.isInteger(f[0])&&f[0]>=0&&f[0]<meta.columns.length&&typeof f[1]==='string'&&f[1].length<=32767),'수식 원본 정보가 올바르지 않습니다.');
   ensure(byteLength(raw)<=L.row,'한 행의 원본 데이터는 128KiB 이내이어야 합니다. 파일의 긴 텍스트를 분리해 주세요.',413);
+  if(meta.part==='part2')return normalizeAhuRow(raw,meta);
   const data={};for(const [field,id]of Object.entries(meta.mapping)){
     const c=meta.columns.findIndex(c=>c.id===id),value=raw.values[c];
     if(field==='실제완료일'){try{data[field]=excelDate(typeof value==='string'?value.trim():value,raw.number+'행 '+field,meta.date1904);}catch{data[field]=String(value);}}
@@ -34,9 +39,10 @@ export function normalizeProductionRow(raw,meta){
     else if(field==='수량'){const n=Number(value);ensure(String(value).trim()!==''&&Number.isInteger(n)&&n>=0&&n<=1e9,raw.number+'행 수량: 0~10억 정수를 입력하세요. 수식은 저장된 계산값이 필요합니다.');data[field]=n;}
     else {ensure(String(value).length<=2000,raw.number+'행 '+field+': 업무 값은 2,000자 이내로 입력하세요.');data[field]=String(value).trim();}
   }
-  return {...data,__cells:raw.values,...(raw.formulas?.length?{__formulas:raw.formulas}:{}),__cellCount:raw.values.filter(v=>v!=='').length};
+  assertPartRow(data,'part1');return {...data,__cells:raw.values,...(raw.formulas?.length?{__formulas:raw.formulas}:{}),__cellCount:raw.values.filter(v=>v!=='').length};
 }
-export function parseProductionSheet(bytes,onProgress=()=>{}){
+export function parseProductionSheet(bytes,onProgress=()=>{},part='part1'){
+  productionPart(part);if(part==='part2'){try{return parseAhuProductionSheet(bytes,onProgress);}catch(e){if(e.status)throw e;throw new BusinessError(400,e.message);}}
   inspectZip(bytes,{file:L.file,expanded:L.expanded});onProgress({phase:'파싱',percent:20});
   const sheet=readTable(bytes,'production',{preserveText:true,cachedFormulas:true});onProgress({phase:'행·열 구분',percent:70});
   const columns=sheet.usedColumns.map(position=>({id:'c'+position,position,title:String(sheet.get(1,position))}));

@@ -1,8 +1,9 @@
 import {$,api,esc,table,button,run,message,download,isAdmin,jsonOptions} from './common.js';
-import {xlsxClient} from './xlsx-client.js?v=20261031-production';
+import {xlsxClient} from './xlsx-client.js?v=20261031-parts';
 const FILE_LIMIT=10*1024*1024;
-export function productionImportPanel(){return `<details class="card production-import" data-import-panel open><summary>생산자료 반영</summary><div class="production-current" data-current>최신 자료 확인 중…</div>${isAdmin()?`<div class="production-drop" data-plan-drop tabindex="0" role="button" aria-label="생산 엑셀 파일 선택 또는 드롭"><span>생산 엑셀을 놓거나 파일을 선택하세요</span>${button('파일 선택','data-choose-file')}<input type="file" accept=".xlsx" aria-label="생산 엑셀 파일" data-file hidden></div><p data-selected-file>선택한 파일 없음</p>`:''}<div class="business-toolbar production-actions">${isAdmin()?`<button type="button" class="btn primary" data-apply disabled>현황 반영</button>${button('전송 중지','data-cancel-import hidden')}${button('다른 파일 선택','data-new-import')}`:''}${button('새로 조회','data-refresh-production')}${button('엑셀 다운로드','data-export')}</div><p class="production-export-hint">엑셀: 현재 검색·선택 조건의 전체 조회 결과</p>${isAdmin()?`<details class="production-file-guide"><summary>파일 안내 · 양식</summary><p>Sheet1의 .xlsx 파일 · 최대 10MiB. 추가 열·중복 제목·원본과 이전 자료를 보존합니다. 수식은 저장된 계산값을 읽습니다. 상세 검증은 현황 반영 시 수행합니다.</p>${button('예시 포함 양식 다운로드','data-template')}</details>`:''}<div role="status" aria-live="polite" data-import-progress></div><progress data-import-meter max="100" value="0" aria-label="엑셀 처리 진행률" hidden></progress><div data-preview-area></div></details>`;}
-export async function wireProductionImports(root,onApplied){
+export function productionImportPanel(part='part1'){const label=part==='part2'?'2파트(AHU)':'1파트';return `<details class="card production-import" data-import-panel open><summary>${label} · 생산자료 반영</summary><div class="production-current" data-current>최신 자료 확인 중…</div>${isAdmin()?`<div class="production-drop" data-plan-drop tabindex="0" role="button" aria-label="생산 엑셀 파일 선택 또는 드롭"><span>생산 엑셀을 놓거나 파일을 선택하세요</span>${button('파일 선택','data-choose-file')}<input type="file" accept=".xlsx" aria-label="생산 엑셀 파일" data-file hidden></div><p data-selected-file>선택한 파일 없음</p>`:''}<div class="business-toolbar production-actions">${isAdmin()?`<button type="button" class="btn primary" data-apply disabled>현황 반영</button>${button('전송 중지','data-cancel-import hidden')}${button('다른 파일 선택','data-new-import')}`:''}${button('새로 조회','data-refresh-production')}${button('엑셀 다운로드','data-export')}</div><p class="production-export-hint">엑셀: 현재 검색·선택 조건의 전체 조회 결과</p>${isAdmin()?`<details class="production-file-guide"><summary>파일 안내 · 양식</summary><p>${part==='part2'?'AHU Sheet1 · 헤더 자동 확인 · 규격별 원본 행 1건':'1파트 Sheet1 양식'} · .xlsx 최대 10MiB. 추가 열·중복 제목·원본과 이전 자료를 보존합니다. 수식은 저장된 계산값을 읽습니다. 상세 검증은 현황 반영 시 수행합니다.</p>${part==='part1'?button('예시 포함 양식 다운로드','data-template'):''}</details>`:''}<div role="status" aria-live="polite" data-import-progress></div><progress data-import-meter max="100" value="0" aria-label="엑셀 처리 진행률" hidden></progress><div data-preview-area></div></details>`;}
+export async function wireProductionImports(root,onApplied,part='part1'){
+  const scoped=(path,options)=>api(path+(path.includes('?')?'&':'?')+'part='+part,options);
   let engine=null,local=null,file=null,uploadId=null,server=null,columnPage=0,busy=false,cancelled=false,commitSent=false,closed=false;
   const active=()=>root.isConnected&&!closed;
   const progress=(label,percent)=>{if(!active())return;$('[data-import-progress]',root).textContent=label;const meter=$('[data-import-meter]',root);meter.hidden=false;if(percent==null)meter.removeAttribute('value');else meter.value=percent;};
@@ -25,33 +26,33 @@ export async function wireProductionImports(root,onApplied){
     progress('파일 읽기 · 무결성 확인 중…',0);let candidateEngine;
     try{
       const bytes=await chosen.arrayBuffer(),sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');check();
-      candidateEngine=xlsxClient(p=>progress(p.phase+' 중…',p.percent));const candidate=await candidateEngine.call('parse',{bytes},[bytes]);check();
+      candidateEngine=xlsxClient(p=>progress(p.phase+' 중…',p.percent));const candidate=await candidateEngine.call('parse',{bytes,part},[bytes]);check();
       engine?.close();engine=candidateEngine;candidateEngine=null;local={...candidate,sha256:sha};file=chosen;uploadId=crypto.randomUUID();server=null;columnPage=0;render();
-      $('[data-selected-file]',root).textContent=`${chosen.name} · ${(chosen.size/1024/1024).toFixed(2)}MiB · ${local.meta.rowCount}건`;
+      $('[data-selected-file]',root).textContent=`${part==='part2'?'2파트(AHU)':'1파트'} · ${chosen.name} · ${(chosen.size/1024/1024).toFixed(2)}MiB · ${local.meta.rowCount}건`;
       progress('파일 확인 완료 · 미리보기를 확인하고 현황 반영을 누르세요.',100);
     }finally{candidateEngine?.close();}
   }
   async function apply(){
     if(!local||!file)throw Error('생산 엑셀 파일을 선택하세요.');check();
     const validated=await engine.call('validate',{mapping:local.meta.mapping});local.meta=validated.meta;check();
-    await api('imports/start',jsonOptions('POST',{id:uploadId,filename:file.name,sha256:local.sha256,size:file.size,meta:local.meta}));check();
-    server=await api('imports/'+uploadId);check();if(server.status==='applied')return finish();
-    if(!server.meta.sourceReady){progress('원본 파일 전송 중…',null);check();await api('imports/'+uploadId+'/file',{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:file,timeoutMs:180000});check();}
+    await scoped('imports/start',jsonOptions('POST',{part,id:uploadId,filename:file.name,sha256:local.sha256,size:file.size,meta:local.meta}));check();
+    server=await scoped('imports/'+uploadId);check();if(server.status==='applied')return finish();
+    if(!server.meta.sourceReady){progress('원본 파일 전송 중…',null);check();await scoped('imports/'+uploadId+'/file',{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:file,timeoutMs:180000});check();}
     if(server.meta.phase!=='ready'){
-      let offset=0;while(offset<local.meta.rowCount){check();const part=await engine.call('chunk',{offset});check();const r=await api('imports/'+uploadId+'/chunk',jsonOptions('POST',{rows:part.rows}));check();offset=part.next;progress(`분할 전송 ${r.staged}/${r.total}행 · 이전 현황 유지`,r.staged/r.total*100);await new Promise(resolve=>requestAnimationFrame(resolve));}
-      check();await api('imports/'+uploadId+'/ready',{method:'POST'});check();
+      let offset=0;while(offset<local.meta.rowCount){check();const part=await engine.call('chunk',{offset});check();const r=await scoped('imports/'+uploadId+'/chunk',jsonOptions('POST',{rows:part.rows}));check();offset=part.next;progress(`분할 전송 ${r.staged}/${r.total}행 · 이전 현황 유지`,r.staged/r.total*100);await new Promise(resolve=>requestAnimationFrame(resolve));}
+      check();await scoped('imports/'+uploadId+'/ready',{method:'POST'});check();
     }
-    server=await api('imports/'+uploadId);check();if(server.status==='applied')return finish();if(!server.canApply)throw Error('전체 자료 검증이 끝나지 않았습니다. 같은 파일로 재시도하세요.');
-    commitSent=true;controls();progress('최종 반영 확인 중…',null);await api('imports/'+uploadId+'/apply',{method:'POST'});
-    server=await api('imports/'+uploadId);if(server.status!=='applied')throw Error('최종 반영 확인이 필요합니다. 같은 버튼으로 재조회하세요.');await finish();
+    server=await scoped('imports/'+uploadId);check();if(server.status==='applied')return finish();if(!server.canApply)throw Error('전체 자료 검증이 끝나지 않았습니다. 같은 파일로 재시도하세요.');
+    commitSent=true;controls();progress('최종 반영 확인 중…',null);await scoped('imports/'+uploadId+'/apply',{method:'POST'});
+    server=await scoped('imports/'+uploadId);if(server.status!=='applied')throw Error('최종 반영 확인이 필요합니다. 같은 버튼으로 재조회하세요.');await finish();
   }
   async function act(task){
     if(busy||!active())return;busy=true;root.dataset.importBusy='true';cancelled=false;commitSent=false;controls();
     await run(root,null,async()=>{try{await task();}catch(e){
       if(!active())return;
-      if(commitSent){try{const current=await api('imports/'+uploadId);if(current.status==='applied'){server=current;await finish();return;}}catch{}}
+      if(commitSent){try{const current=await scoped('imports/'+uploadId);if(current.status==='applied'){server=current;await finish();return;}}catch{}}
       // A different PC may have applied the same bytes. Never apply them again.
-      if(e.status===409&&local){try{const {record}=await api('imports/latest?kind=production');if(record?.sha256===local.sha256){server={status:'applied',applyCount:record.row_count};await finish();return;}}catch{}}
+      if(e.status===409&&local){try{const {record}=await scoped('imports/latest?kind=production');if(record?.sha256===local.sha256){server={status:'applied',applyCount:record.row_count};await finish();return;}}catch{}}
       progress((cancelled?'전송 중지':'처리 실패: '+e.message)+' · 이전 현황과 선택 파일을 유지합니다. '+(commitSent?'최종 반영 여부를 확인하지 못했습니다. 현황 반영 재시도로 안전하게 확인하세요.':'같은 파일의 현황 반영을 다시 누르면 이어서 처리합니다.'),null);throw e;
     }finally{busy=false;root.dataset.importBusy='false';commitSent=false;render();controls();}});
   }

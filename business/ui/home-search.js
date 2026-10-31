@@ -13,6 +13,7 @@ export function renderSearchResults(root,records,compact=false){
     if(record){
       window.navigatePortal(record.type);
       if(record.type==='weekly')void window.HpmBusiness.open('weekly').then(()=>document.getElementById('weeklyPage').dispatchEvent(new CustomEvent('hpm:weekly-record',{detail:record})));
+      if(record.type==='production')void window.HpmBusiness.open('production').then(()=>document.getElementById('productionPage').hpmOpenProductionRecord?.(record));
     }
   };
 }

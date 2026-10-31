@@ -13,8 +13,8 @@ export async function search(env,u,url){
     const {results}=await env.DB.prepare(`SELECT id,${label} AS label FROM ${table} WHERE ${columns.map(c=>`${c} LIKE ? ESCAPE '\\'`).join(' OR ')} LIMIT 30`).bind(...columns.map(()=>pattern)).all();records.push(...results.map(r=>({...r,type})));
   }
   for(const [type,table] of [['production','production_rows']]){
-    const {results}=await env.DB.prepare(`SELECT id,data FROM ${table} WHERE data LIKE ? ESCAPE '\\' LIMIT 30`).bind(pattern).all();
-    records.push(...results.map(r=>{const d=JSON.parse(r.data);return {id:r.id,type,label:[d['제조사양관리구분']||d['분류']||d['LINE 5000'],d.Yard,d.HullNo,d['현공정']].filter(Boolean).join(' / ')};}));
+    const {results}=await env.DB.prepare(`SELECT p.id,p.data,i.production_part AS part FROM ${table} p JOIN plan_imports i ON i.id=p.import_id WHERE i.kind='production' AND i.status='applied' AND i.id=(SELECT id FROM plan_imports WHERE kind='production' AND status='applied' AND production_part=i.production_part ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1) AND p.data LIKE ? ESCAPE '\\' LIMIT 30`).bind(pattern).all();
+    records.push(...results.map(r=>{const d=JSON.parse(r.data);return {id:r.id,type,part:r.part,query:d['Work Order']||d.HullNo||d.Yard||'',label:[r.part==='part2'?'2파트(AHU)':'1파트',d['제조사양관리구분']||d['분류']||d['LINE 5000'],d.Yard,d.HullNo,d['규격'],d['현공정']].filter(Boolean).join(' / ')};}));
   }
   return {records};
 }

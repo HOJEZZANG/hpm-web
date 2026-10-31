@@ -4,28 +4,31 @@ import {multipart,binary} from './http.mjs';
 import {idOk,now,admin} from './access.mjs';
 import {beginProduction,productionImport} from './production-import.mjs';
 import {productionWorkbook} from './production-export.mjs';
-export async function latestProduction(env){return env.DB.prepare("SELECT id,filename,row_count,applied_at,created_at,sha256 FROM plan_imports WHERE kind='production' AND status='applied' ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1").first();}
+import {productionPart,assertPartRow} from './production-parts.mjs';
+export async function latestProduction(env,part='part1'){productionPart(part);return env.DB.prepare("SELECT id,filename,row_count,applied_at,created_at,sha256,production_part AS part FROM plan_imports WHERE kind='production' AND production_part=? AND status='applied' ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1").bind(part).first();}
 export async function imports(req,env,u,id,action,url){
-  if(req.method==='GET'&&id==='latest'){ensure(url.searchParams.get('kind')==='production','업로드 구분을 확인하세요.');return {record:await latestProduction(env)};}
+  const part=productionPart(url.searchParams.get('part')??undefined);
+  if(req.method==='GET'&&id==='latest'){ensure(url.searchParams.get('kind')==='production','업로드 구분을 확인하세요.');return {record:await latestProduction(env,part)};}
   if(req.method==='POST'&&id==='start')return beginProduction(req,env,u);
   if(req.method==='GET'&&id==='template'){const kind=url.searchParams.get('kind');ensure(['production','supplies'].includes(kind),'양식 구분을 확인하세요.');return binary(await template(kind),kind+'_양식_예시포함.xlsx');}
   if(req.method==='GET'&&!id){
     const kind=url.searchParams.get('kind');ensure(['production','supplies'].includes(kind),'업로드 구분을 확인하세요.');
-    return {records:(await env.DB.prepare("SELECT id,kind,filename,row_count,status,created_at,applied_at,json_extract(staged_data,'$.version') AS version,json_extract(staged_data,'$.phase') AS phase FROM plan_imports WHERE kind=? ORDER BY created_at DESC,id LIMIT 200").bind(kind).all()).results};
+    return {records:(await env.DB.prepare("SELECT id,kind,filename,row_count,status,created_at,applied_at,json_extract(staged_data,'$.version') AS version,json_extract(staged_data,'$.phase') AS phase FROM plan_imports WHERE kind=? AND (kind<>'production' OR production_part=?) ORDER BY created_at DESC,id LIMIT 200").bind(kind,part).all()).results};
   }
   if(req.method==='POST'&&!id){
-    admin(u);const {form,file}=await multipart(req),kind=form.get('kind');ensure(['production','supplies'].includes(kind),'업로드 구분을 확인하세요.');ensure(/\.xlsx$/i.test(file.name),'지원 형식은 .xlsx입니다. .xls는 .xlsx로 저장하세요.');
+    admin(u);ensure(part==='part1','2파트(AHU)는 전용 파일 반영을 사용하세요.');const {form,file}=await multipart(req),kind=form.get('kind');ensure(['production','supplies'].includes(kind),'업로드 구분을 확인하세요.');ensure(/\.xlsx$/i.test(file.name),'지원 형식은 .xlsx입니다. .xls는 .xlsx로 저장하세요.');
     const bytes=new Uint8Array(await file.arrayBuffer()),parsed=await parseWorkbook(bytes,kind);
+    if(kind==='production')for(const row of parsed.rows)assertPartRow(row.data,'part1');
     ensure(new TextEncoder().encode(JSON.stringify(parsed)).length<=1024*1024,'해석된 데이터가 1MB를 초과합니다. 파일을 나누어 업로드하세요.',413);
     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
     const duplicate=await env.DB.prepare("SELECT id FROM plan_imports WHERE sha256=? AND kind=? AND status='applied' LIMIT 1").bind(hash,kind).first();
     ensure(!duplicate,'이미 반영한 동일 파일입니다. 이력에서 조회하세요.',409);
     const newId=crypto.randomUUID(),key=`business/imports/${newId}.xlsx`,filename=text(file.name.replaceAll('\\','/').split('/').at(-1),'파일명',200,true);
     await env.PHOTOS.put(key,bytes,{httpMetadata:{contentType:MIME}});
-    try{await env.DB.prepare('INSERT INTO plan_imports(id,kind,owner,filename,file_key,sha256,row_count,staged_data,created_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(newId,kind,u.id,filename,key,hash,parsed.rows.length,JSON.stringify(parsed),now()).run();}catch(e){await env.PHOTOS.delete(key);throw e;}
+    try{await env.DB.prepare('INSERT INTO plan_imports(id,kind,owner,filename,file_key,sha256,row_count,staged_data,created_at,production_part) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(newId,kind,u.id,filename,key,hash,parsed.rows.length,JSON.stringify(parsed),now(),kind==='production'?'part1':null).run();}catch(e){await env.PHOTOS.delete(key);throw e;}
     return {id:newId,...parsed,applyCount:parsed.rows.length};
   }
-  ensure(idOk(id),'업로드 ID를 확인하세요.');const r=await env.DB.prepare('SELECT * FROM plan_imports WHERE id=?').bind(id).first();ensure(r,'업로드 이력이 없습니다.',404);
+  ensure(idOk(id),'업로드 ID를 확인하세요.');const r=await env.DB.prepare('SELECT * FROM plan_imports WHERE id=?').bind(id).first();ensure(r,'업로드 이력이 없습니다.',404);if(r.kind==='production')ensure(r.production_part===part,'선택한 파트의 자료가 아닙니다.',404);
   if(req.method==='GET'&&action==='file'){ensure(r.status==='applied'||u.role==='admin','미반영 원본은 관리자만 조회할 수 있습니다.',403);const object=await env.PHOTOS.get(r.file_key);ensure(object,'원본 파일이 없습니다.',404);return binary(object.body,r.filename);}
   if(JSON.parse(r.staged_data).version===2)return productionImport(req,env,u,r,action,url);
   if(req.method==='GET')return {id:r.id,status:r.status,...JSON.parse(r.staged_data),applyCount:r.row_count};
@@ -38,10 +41,10 @@ export async function imports(req,env,u,id,action,url){
   return {applied:r.row_count,id:r.id};
 }
 export async function rowsApi(env,kind,url){
-  let id=url.searchParams.get('import');const latest=!id&&kind==='production'?await latestProduction(env):null;if(latest)id=latest.id;
+  const part=productionPart(url.searchParams.get('part')??undefined);let id=url.searchParams.get('import');const latest=!id&&kind==='production'?await latestProduction(env,part):null;if(latest)id=latest.id;
   if(!id){ensure(url.searchParams.get('download')!=='1','반영된 자료가 없습니다.');return {importId:null,imported:null,records:[],summary:kind==='production'?productionSummary([]):undefined};}
   ensure(idOk(id),'업로드 이력을 선택하세요.');
-  const imported=await env.DB.prepare('SELECT id,filename,row_count,applied_at,created_at,status,kind,staged_data FROM plan_imports WHERE id=?').bind(id).first();ensure(imported&&imported.kind===kind,'업로드 이력이 없습니다.',404);ensure(imported.status==='applied','아직 반영되지 않은 전송/미리보기 자료입니다.',409);
+  const imported=await env.DB.prepare('SELECT id,filename,row_count,applied_at,created_at,status,kind,staged_data,production_part FROM plan_imports WHERE id=?').bind(id).first();ensure(imported&&imported.kind===kind&&(kind!=='production'||imported.production_part===part),'업로드 이력이 없습니다.',404);ensure(imported.status==='applied','아직 반영되지 않은 전송/미리보기 자료입니다.',409);
   const meta=JSON.parse(imported.staged_data);
   if(kind==='production'&&meta.version===2){
     ensure(url.searchParams.get('download')!=='1','대용량 엑셀은 화면의 조회 결과 다운로드를 이용하세요.');

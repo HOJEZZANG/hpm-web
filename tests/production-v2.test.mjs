@@ -88,8 +88,9 @@ test('latest is shared, ignores staging, pins every page to one applied import a
   const newer=writeTable(headers,[['2026-10-25','납품준비',2,'DECK','새 합성']]),p=parseProductionSheet(newer),second=await start(env,newer,p);
   assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record.id,first);
   await ok(await req(env,'imports/'+second+'/file','PUT',newer));await ok(await req(env,'imports/'+second+'/chunk','POST',{rows:p.rows}));await ok(await req(env,'imports/'+second+'/ready','POST'));
-  env.objects.delete('business/imports/'+second+'.xlsx');assert.equal((await req(env,'imports/'+second+'/apply','POST')).status,409);assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record.id,first);
-  env.objects.set('business/imports/'+second+'.xlsx',{bytes:newer});await ok(await req(env,'imports/'+second+'/apply','POST'));
+  const secondKey=env.sqlite.prepare('SELECT file_key FROM plan_imports WHERE id=?').get(second).file_key;
+  env.objects.delete(secondKey);assert.equal((await req(env,'imports/'+second+'/apply','POST')).status,409);assert.equal((await ok(await req(env,'imports/latest?kind=production'))).record.id,first);
+  env.objects.set(secondKey,{bytes:newer});await ok(await req(env,'imports/'+second+'/apply','POST'));
   assert.equal((await ok(await req(env,'production'))).importId,second);const rest=await ok(await req(env,'production?import='+first+'&offset=200'));assert.equal(rest.importId,first);assert.equal(rest.records.length,5);assert.equal(rest.records[4]['수량'],204);
   assert.equal(env.sqlite.prepare('SELECT count(*) n FROM production_rows').get().n,206);assert.equal((await req(env,'imports/'+first+'/file')).status,200);
   const bad=(await req(env,'imports/latest?kind=production','GET',undefined,null));assert.equal(bad.status,401);
