@@ -10,7 +10,10 @@ export function renderSearchResults(root,records,compact=false){
   root.onclick=e=>{
     const index=e.target.closest('[data-index]')?.dataset.index;
     const record=index===undefined?null:records[Number(index)];
-    if(record)window.navigatePortal(record.type);
+    if(record){
+      window.navigatePortal(record.type);
+      if(record.type==='weekly')void window.HpmBusiness.open('weekly').then(()=>document.getElementById('weeklyPage').dispatchEvent(new CustomEvent('hpm:weekly-record',{detail:record})));
+    }
   };
 }
 

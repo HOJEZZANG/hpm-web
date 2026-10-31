@@ -17,6 +17,8 @@ export async function startTestServer(){
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')){
         state.requests.push({path:url.pathname,query:url.search,method:req.method});
+        if(url.pathname==='/api/business/weekly'&&req.method==='GET'&&state.weeklyDelays?.[url.searchParams.get('week')])await new Promise(resolve=>setTimeout(resolve,state.weeklyDelays[url.searchParams.get('week')]));
+        if(url.pathname.startsWith('/api/business/weekly/')&&req.method==='PUT'&&state.pauseWeeklyWritesMs)await new Promise(resolve=>setTimeout(resolve,state.pauseWeeklyWritesMs));
         if(state.authDelayMs&&url.pathname==='/api/auth/me')await new Promise(resolve=>setTimeout(resolve,state.authDelayMs));
         if(state.failAuthRead&&url.pathname==='/api/auth/me'){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 인증 확인 실패'}));return;}
         if(url.pathname==='/api/business/search'){
@@ -43,7 +45,7 @@ export async function startTestServer(){
         else res.end(Buffer.from(await response.arrayBuffer()));return;
       }
       const rel=url.pathname==='/'?'index.html':decodeURIComponent(url.pathname.slice(1));
-      if(!(rel==='index.html'||rel==='assets/hi-air-korea-logo.png'||rel==='assets/xlsx-worker.js'||rel==='assets/ahu-pnd-worker.js'||/^business\/(?:(?:domain|ahu-pnd|ahu-models|ahu-presets|password-policy)\.mjs|ui\/[a-z-]+\.(?:js|css))$/.test(rel))){res.writeHead(404);res.end();return;}
+      if(!(rel==='index.html'||rel==='assets/hi-air-korea-logo.png'||rel==='assets/xlsx-worker.js'||rel==='assets/ahu-pnd-worker.js'||/^business\/(?:(?:domain|weekly-data|ahu-pnd|ahu-models|ahu-presets|password-policy)\.mjs|ui\/[a-z-]+\.(?:js|css))$/.test(rel))){res.writeHead(404);res.end();return;}
       const path=resolve(root,rel);if(!path.startsWith(resolve(root)+sep)||!existsSync(path)){res.writeHead(404);res.end();return;}
       res.writeHead(200,{'Content-Type':rel.endsWith('.png')?'image/png':rel.endsWith('.html')?'text/html; charset=utf-8':rel.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(readFileSync(path));
     }catch{res.writeHead(500);res.end('Local QA request failed');}

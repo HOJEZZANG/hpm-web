@@ -1,9 +1,19 @@
 import {ensure,date,isoWeek,addDays,validateRecord} from './domain.mjs';
 import {bodyJson} from './http.mjs';
 import {collections,adminTypes,idOk,now,readRow,admin,own} from './access.mjs';
+import {weeklyRange,weeklyAnchorSql,weeklyView} from './weekly-data.mjs';
+const view=(row,type)=>type==='weekly'?weeklyView(readRow(row),row.day):readRow(row);
 async function listRecords(env,type,url){
   const table=collections[type];let sql=`SELECT * FROM ${table}`,args=[];
-  if(['weekly','safety'].includes(type)&&url.searchParams.get('week')){
+  if(type==='weekly'){
+    let range=null;
+    if(url.searchParams.get('week')){range=weeklyRange(date(url.searchParams.get('week')));sql+=` WHERE (${weeklyAnchorSql}) BETWEEN ? AND ?`;args=[range.weekStart,range.weekEnd];}
+    else sql+=` WHERE (${weeklyAnchorSql}) IS NOT NULL`;
+    const [{results},{results:legacy}]=await Promise.all([env.DB.prepare(sql+' ORDER BY updated_at DESC, id LIMIT 2001').bind(...args).all(),env.DB.prepare(`SELECT * FROM ${table} WHERE (${weeklyAnchorSql}) IS NULL ORDER BY updated_at DESC, id LIMIT 2001`).all()]);
+    ensure(results.length<=2000&&legacy.length<=2000,'조회 범위가 큽니다. 관리자에게 문의하세요.',413);
+    return {records:results.map(r=>view(r,type)),legacyRecords:legacy.map(r=>view(r,type)),range};
+  }
+  if(type==='safety'&&url.searchParams.get('week')){
     const week=isoWeek(date(url.searchParams.get('week'))).monday;sql+=' WHERE day>=? AND day<=?';args=[week,addDays(week,6)];
   }
   const {results}=await env.DB.prepare(sql+' ORDER BY updated_at DESC, id LIMIT 2001').bind(...args).all();
@@ -23,7 +33,8 @@ export async function recordApi(req,env,u,type,id,url){
     if(!previous)return {deleted:false};
     const result=await env.DB.prepare(`DELETE FROM ${table} WHERE id=? AND revision=?`).bind(id,body.revision).run();ensure(result.meta.changes===1,'다른 PC에서 변경했습니다.',409);return {deleted:true};
   }
-  const data=validateRecord(type,body),stamp=now(),day=data.date||'';
+  const old=previous&&type==='weekly'?{...JSON.parse(previous.data)}:null;
+  const data=validateRecord(type,body,old,previous?.day),stamp=now(),day=type==='weekly'?(data.date||previous?.day||''):data.date||'';
   if(!previous){
     ensure(!body.revision,'대상 기록이 삭제되었습니다. 새 기록으로 등록하세요.',409);
     const result=await env.DB.prepare(`INSERT INTO ${table}(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`).bind(id,u.id,JSON.stringify(data),day,stamp,stamp).run();
@@ -31,5 +42,5 @@ export async function recordApi(req,env,u,type,id,url){
   }else{
     const result=await env.DB.prepare(`UPDATE ${table} SET data=?,day=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?`).bind(JSON.stringify(data),day,stamp,id,body.revision).run();ensure(result.meta.changes===1,'다른 PC에서 수정했습니다.',409);
   }
-  return {record:readRow(await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first())};
+  return {record:view(await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first(),type)};
 }

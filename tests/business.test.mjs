@@ -17,7 +17,7 @@ function viewer(env){
   const token='b'.repeat(64);env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)').run('viewer','합성 사용자','unused','unused','user','active',new Date().toISOString());
   env.sqlite.prepare('INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(createHash('sha256').update(token).digest('hex'),'viewer','2099-01-01T00:00:00Z');return token;
 }
-const weekly={date:'2027-01-01',part:'1 PART',product:'합성 제품',manager:'합성 담당',problem:'합성 문제',pnd:'PND 텍스트',plan:'계획',action:'실행',remark:'비고'};
+const weekly={date:'2027-01-01',part:'1 PART',product:'합성 제품',manager:'합성 담당',problem:'합성 문제',pnd:'2027-01-02',plan:'계획',action:'실행',remark:'비고'};
 async function preview(env,kind='production',bytes){
   const form=new FormData();form.set('kind',kind);form.set('file',new File([bytes||await template(kind)],'합성자료.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   return worker.fetch(new Request(base+'/api/business/imports',{method:'POST',headers:{Origin:origin,Authorization:'Bearer '+TOKEN},body:form}),env);
@@ -45,7 +45,7 @@ test('all new data and file APIs reject browser-only identity; server roles over
 });
 test('weekly CRUD, scoped delete, SQL injection as text, stale writes and cross-session visibility',async()=>{
   const env=makeEnv(),other=viewer(env);assert.equal((await data(await req(env,'weekly'))).records.length,0);
-  let r=await data(await req(env,'weekly/w','PUT',{...weekly,product:"'); DELETE FROM issues; --"}));assert.equal(r.record.key,'2026-W53');assert.equal(r.record.owner,'owner');
+  let r=await data(await req(env,'weekly/w','PUT',{...weekly,product:"'); DELETE FROM issues; --"}));assert.equal(r.record.weekStart,'2026-12-27');assert.equal(r.record.owner,'owner');
   assert.equal((await data(await req(env,'weekly?week=2026-12-28','GET',undefined,other))).records.length,1);
   assert.equal((await req(env,'weekly/w','PUT',{...weekly,revision:0})).status,409);
   assert.equal((await req(env,'weekly/w','DELETE',{revision:1},other)).status,403);

@@ -1,5 +1,5 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
-import {init as weekly} from './weekly.js?v=20261027-access';
+import {init as weekly} from './weekly.js?v=20261031-weekly';
 import {init as production} from './production.js?v=20261028-dashboard';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261027-model2';
 import {createPresentation} from './presentation.js';
@@ -8,7 +8,7 @@ import {initIssueView} from './issue-view.js?v=20261029-issues';
 import {initIssueLoadState} from './issue-load-state.js?v=20261023';
 import {initHistory} from './history.js?v=20261029-home';
 import {initEntry,noticePreview} from './home.js?v=20261029-home';
-import {initHomeSearch,renderSearchResults} from './home-search.js?v=20261029-search';
+import {initHomeSearch,renderSearchResults} from './home-search.js?v=20261031-weekly';
 import {accounts} from './accounts.js?v=20261027-access';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
 window.HpmPasswordPolicy=passwordPolicy;

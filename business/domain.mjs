@@ -1,3 +1,4 @@
+import {weeklyDate,pndDate,weeklyRange,combinedPlan,weeklyAnchor} from './weekly-data.mjs';
 // Shared pure business rules. Dates without times are Korean calendar dates.
 export class BusinessError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -22,14 +23,34 @@ export function isoWeek(day = koreanToday()) {
 }
 export const factories = [...Array.from({length:5},(_,i)=>`AC공장 (B${i+1})`),...Array.from({length:5},(_,i)=>`AHU공장 (C${i+1})`)];
 export const safetyLabels = ['소화기 및 소화전 상태','작업자 보호구(안전모/안전화)','전기 설비 및 누전/배선 상태','작업장 정리정돈 및 청결','비상구 및 안전 통로 확보'];
-export function validateRecord(type, b) {
+export function validateRecord(type, b, previous = null, previousDay = '') {
   ensure(b && typeof b === 'object' && !Array.isArray(b), '입력 형식을 확인하세요.');
   const s = (key, label, required=false, max=2000) => text(b[key] ?? '', label, max, required);
   if(['people','vehicles'].includes(type))ensure(b.active===undefined||typeof b.active==='boolean','사용 여부는 참/거짓 값이어야 합니다.');
   if (type === 'weekly') {
-    ensure(['1 PART','2 PART','3 PART'].includes(b.part), '파트를 선택하세요.');
-    const day = date(b.date, '주차 기준일');
-    return {date:day, ...isoWeek(day), part:b.part, product:s('product','제품',true,200), problem:s('problem','문제점',true), manager:s('manager','담당자',true,100), pnd:s('pnd','PND',false,200), plan:s('plan','계획'), action:s('action','실행'), remark:s('remark','특이사항')};
+    const old=previous||{},merged={...old,...b},result={...old};
+    if(!previous||Object.hasOwn(b,'part')){ensure(['1 PART','2 PART','3 PART'].includes(merged.part), '파트를 선택하세요.');result.part=merged.part;}
+    const day=Object.hasOwn(b,'date')?date(b.date,'등록 기준일'):weeklyAnchor({...old,day:previousDay});
+    ensure(previous||day,'등록 기준일을 입력하세요.');
+    if(day){if(old.date&&!weeklyDate(old.date)&&!Object.hasOwn(old,'legacyDate'))result.legacyDate=old.date;result.date=day;Object.assign(result,weeklyRange(day));}
+    // Unchanged legacy strings (including whitespace and empty required fields)
+    // survive edits to other fields. Unknown stored properties also survive.
+    for(const [key,label,required,max]of [['project','프로젝트명',false,200],['product','제품',true,200],['problem','현황',true,2000],['manager','담당자',true,100],['remark','비고',false,2000],['plan','계획',false,2000],['action','실행',false,2000]]){
+      if(previous&&(!Object.hasOwn(b,key)||b[key]===old[key]))continue;
+      result[key]=text(b[key]??'',label,max,required);
+    }
+    if(Object.hasOwn(b,'pnd')&&(!previous||b.pnd!==old.pnd)){
+      const raw=text(b.pnd,'PND',200),parsed=pndDate(raw);
+      ensure(!raw||parsed,'PND는 유효한 날짜를 선택하세요.');
+      result.pnd=raw?date(parsed,'PND'):'';
+      if(old.pnd&&old.pnd!==pndDate(old.pnd)&&!Object.hasOwn(old,'legacyPnd'))result.legacyPnd=old.pnd;
+    }else if(!previous)result.pnd='';
+    if(Object.hasOwn(b,'planAction'))result.planAction=b.planAction===old.planAction?old.planAction:text(b.planAction,'계획·실행',5000);
+    else{
+      ensure(!Object.hasOwn(old,'planAction')||!['plan','action'].some(k=>Object.hasOwn(b,k)&&b[k]!==old[k]),'새 계획·실행 항목이 있습니다. 화면을 새로고침한 뒤 수정하세요.',409);
+      if(!Object.hasOwn(old,'planAction'))result.planAction=combinedPlan(result);
+    }
+    return result;
   }
   if (type === 'safety') {
     ensure(factories.includes(b.factory), '공장을 선택하세요.');
