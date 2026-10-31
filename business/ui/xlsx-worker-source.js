@@ -3,6 +3,7 @@ import {productionLimits as L,byteLength} from '../production-limits.mjs';
 import {ensure} from '../domain.mjs';
 import {productionWorkbook} from '../production-export.mjs';
 import {productionView,ahuView} from '../production-view.mjs';
+import {productionDisplay} from './production-display.js';
 let plan;
 self.onmessage=async({data:m})=>{try{
   let result;
@@ -17,6 +18,7 @@ self.onmessage=async({data:m})=>{try{
     const rows=[];let bytes=32;for(const row of plan.rows.slice(m.offset,m.offset+L.chunkRows)){const size=byteLength(row)+1;if(rows.length&&bytes+size>L.chunk)break;rows.push(row);bytes+=size;}result={rows,next:m.offset+rows.length,total:plan.rows.length};
   }else if(m.type==='view'){
     result=m.part==='part2'?ahuView(m.records,m.filters,m.selection,m.today):productionView(m.records,m.filters,m.equipment,m.selection,m.today);
+    result.display=productionDisplay(result,m.part,m.equipment);
   }else if(m.type==='export'){const bytes=productionWorkbook(m.columns,m.rows,{date1904:m.date1904});self.postMessage({id:m.id,result:{bytes:bytes.buffer}},[bytes.buffer]);return;}
   else throw Error('지원하지 않는 처리입니다.');self.postMessage({id:m.id,result});
 }catch(e){self.postMessage({id:m.id,error:e.message});}};

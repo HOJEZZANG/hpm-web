@@ -4,6 +4,7 @@ const labels={weekly:'주간 이슈',notices:'공지사항',issue:'공정 문제
 
 // The home disclosure and the full search page share labels and route handling.
 export function renderSearchResults(root,records,compact=false){
+  records=records.map(r=>r.type==='production'?{...r,label:String(r.label||'').replace(/^2파트\(AHU\)/,'2파트')}:r);
   root.innerHTML=compact
     ? records.length?`<ul class="home-search-list">${records.map((r,i)=>`<li><button type="button" data-index="${i}"><span class="badge blue">${esc(labels[r.type]||r.type)}</span><span>${esc(r.label||'제목 미입력')}</span><span aria-hidden="true">↗</span></button></li>`).join('')}</ul>`:'<p class="home-search-empty">검색 결과가 없습니다. 다른 검색어로 다시 검색해 주세요.</p>'
     : table([{label:'업무',value:r=>labels[r.type]||r.type},{label:'제목/대표 항목',key:'label'}],records,(r,i)=>button('업무 열기',`data-index="${i}"`));

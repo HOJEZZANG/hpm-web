@@ -8,7 +8,7 @@ import {koreanToday,addDays} from '../business/domain.mjs';
 import {passwordHash} from '../business/auth.mjs';
 import {startTestServer} from './local-test-server.mjs';
 import {browser} from './browser-harness.mjs';
-const state=await startTestServer(),qa=await browser(process.argv[2],state.url),dir='.wrangler/meeting-production-20261031',today=koreanToday();await mkdir(dir,{recursive:true});
+const state=await startTestServer(),qa=await browser(process.argv[2],state.url),dir='.wrangler/visual-consistency',today=koreanToday();await mkdir(dir,{recursive:true});
 const count=()=>state.env.sqlite.prepare("SELECT count(*) n FROM plan_imports WHERE status='applied'").get().n;
 try{
  const a=await qa.tab(),b=await qa.tab();
