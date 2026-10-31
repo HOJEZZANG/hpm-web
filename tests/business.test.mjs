@@ -45,8 +45,8 @@ test('all new data and file APIs reject browser-only identity; server roles over
 });
 test('weekly CRUD, scoped delete, SQL injection as text, stale writes and cross-session visibility',async()=>{
   const env=makeEnv(),other=viewer(env);assert.equal((await data(await req(env,'weekly'))).records.length,0);
-  let r=await data(await req(env,'weekly/w','PUT',{...weekly,product:"'); DELETE FROM issues; --"}));assert.equal(r.record.weekStart,'2026-12-27');assert.equal(r.record.owner,'owner');
-  assert.equal((await data(await req(env,'weekly?week=2026-12-28','GET',undefined,other))).records.length,1);
+  let r=await data(await req(env,'weekly/w','PUT',{...weekly,product:"'); DELETE FROM issues; --"}));assert.equal(r.record.weekStart,'2026-12-31');assert.equal(r.record.owner,'owner');
+  assert.equal((await data(await req(env,'weekly?week=2027-01-01','GET',undefined,other))).records.length,1);
   assert.equal((await req(env,'weekly/w','PUT',{...weekly,revision:0})).status,409);
   assert.equal((await req(env,'weekly/w','DELETE',{revision:1},other)).status,403);
   r=await data(await req(env,'weekly/w','PUT',{...weekly,revision:1,remark:'수정'}));assert.equal(r.record.revision,2);

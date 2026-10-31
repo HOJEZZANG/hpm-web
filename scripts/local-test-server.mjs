@@ -45,7 +45,7 @@ export async function startTestServer(){
         else res.end(Buffer.from(await response.arrayBuffer()));return;
       }
       const rel=url.pathname==='/'?'index.html':decodeURIComponent(url.pathname.slice(1));
-      if(!(rel==='index.html'||rel==='assets/hi-air-korea-logo.png'||rel==='assets/xlsx-worker.js'||rel==='assets/ahu-pnd-worker.js'||/^business\/(?:(?:domain|weekly-data|ahu-pnd|ahu-models|ahu-presets|password-policy)\.mjs|ui\/[a-z-]+\.(?:js|css))$/.test(rel))){res.writeHead(404);res.end();return;}
+      if(!(rel==='index.html'||rel==='assets/hi-air-korea-logo.png'||rel==='assets/xlsx-worker.js'||rel==='assets/ahu-pnd-worker.js'||/^business\/(?:(?:domain|weekly-data|production-view|production-export|ahu-pnd|ahu-models|ahu-presets|password-policy)\.mjs|ui\/[a-z-]+\.(?:js|css))$/.test(rel))){res.writeHead(404);res.end();return;}
       const path=resolve(root,rel);if(!path.startsWith(resolve(root)+sep)||!existsSync(path)){res.writeHead(404);res.end();return;}
       res.writeHead(200,{'Content-Type':rel.endsWith('.png')?'image/png':rel.endsWith('.html')?'text/html; charset=utf-8':rel.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(readFileSync(path));
     }catch{res.writeHead(500);res.end('Local QA request failed');}

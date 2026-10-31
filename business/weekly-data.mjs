@@ -14,6 +14,14 @@ export function weeklyRange(day) {
   const d=new Date(day+'T00:00:00Z'),start=new Date(+d-d.getUTCDay()*86400000).toISOString().slice(0,10),end=new Date(Date.parse(start+'T00:00:00Z')+6*86400000).toISOString().slice(0,10);
   return {weekStart:start,weekEnd:end,weekBasis:'seoul-sunday-v1'};
 }
+export function meetingDate(day) {
+  if(!weeklyDate(day))throw new RangeError('회의일을 확인하세요.');
+  const d=new Date(day+'T00:00:00Z');return new Date(+d+((3-d.getUTCDay()+7)%7)*86400000).toISOString().slice(0,10);
+}
+export function meetingRange(day) {
+  const end=meetingDate(day),start=new Date(Date.parse(end+'T00:00:00Z')-6*86400000).toISOString().slice(0,10);
+  return {meetingDate:end,weekStart:start,weekEnd:end,weekBasis:'seoul-wednesday-v1'};
+}
 export function weekLabel(range) {
   if(!range?.weekStart||!range?.weekEnd)return '기준일 확인 필요';
   const {weekStart:start,weekEnd:end}=range;
@@ -23,7 +31,7 @@ export const combinedPlan=record=>Object.hasOwn(record,'planAction')?record.plan
 export const weeklyAnchor=row=>weeklyDate(row.date)||weeklyDate(row.day);
 export function weeklyView(record,day='') {
   const anchor=weeklyAnchor({...record,day});
-  return {...record,referenceDate:anchor,...(anchor?weeklyRange(anchor):{weekStart:'',weekEnd:'',weekBasis:''}),planAction:combinedPlan(record),pndDate:pndDate(record.pnd),unresolvedWeek:!anchor,legacyDay:anchor?'':day};
+  return {...record,referenceDate:anchor,...(anchor?meetingRange(anchor):{meetingDate:'',weekStart:'',weekEnd:'',weekBasis:''}),planAction:combinedPlan(record),pndDate:pndDate(record.pnd),unresolvedWeek:!anchor,legacyDay:anchor?'':day};
 }
 // Both data.date and day were written from the actual reference date by the old
 // server. ISO key/monday/created_at are never used to invent a missing date.

@@ -1,13 +1,13 @@
 import {ensure,date,isoWeek,addDays,validateRecord} from './domain.mjs';
 import {bodyJson} from './http.mjs';
 import {collections,adminTypes,idOk,now,readRow,admin,own} from './access.mjs';
-import {weeklyDate,weeklyRange,weeklyAnchorSql,weeklyView} from './weekly-data.mjs';
+import {weeklyDate,meetingRange,weeklyAnchorSql,weeklyView} from './weekly-data.mjs';
 const view=(row,type)=>type==='weekly'?weeklyView(readRow(row),row.day):readRow(row);
 async function listRecords(env,type,url){
   const table=collections[type];let sql=`SELECT * FROM ${table}`,args=[];
   if(type==='weekly'){
     let range=null;
-    if(url.searchParams.get('week')){range=weeklyRange(date(url.searchParams.get('week')));sql+=` WHERE (${weeklyAnchorSql}) BETWEEN ? AND ?`;args=[range.weekStart,range.weekEnd];}
+    if(url.searchParams.get('week')){range=meetingRange(date(url.searchParams.get('week')));sql+=` WHERE (${weeklyAnchorSql}) BETWEEN ? AND ?`;args=[range.weekStart,range.weekEnd];}
     else sql+=` WHERE (${weeklyAnchorSql}) IS NOT NULL`;
     const [{results},{results:legacy}]=await Promise.all([env.DB.prepare(sql+' ORDER BY updated_at DESC, id LIMIT 2001').bind(...args).all(),env.DB.prepare(`SELECT * FROM ${table} WHERE (${weeklyAnchorSql}) IS NULL ORDER BY updated_at DESC, id LIMIT 2001`).all()]);
     ensure(results.length<=2000&&legacy.length<=2000,'조회 범위가 큽니다. 관리자에게 문의하세요.',413);

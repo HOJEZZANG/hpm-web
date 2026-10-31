@@ -12,6 +12,7 @@
     "test:issue:browser": "node scripts/issue-form-browser-check.mjs",
     "test:weekly:browser": "node scripts/weekly-browser-check.mjs",
     "test:weekly:runtime": "node scripts/weekly-runtime-check.mjs",
+    "test:production:browser": "node scripts/production-dashboard-browser-check.mjs",
     "build:xlsx": "node scripts/build-xlsx-worker.mjs",
     "build:ahu-pnd": "node scripts/build-ahu-pnd.mjs",
     "test:ahu-pnd:browser": "node scripts/ahu-pnd-browser-check.mjs",

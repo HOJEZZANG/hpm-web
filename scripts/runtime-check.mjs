@@ -19,7 +19,7 @@ try{
   const account={id:'runtime-admin',name:'합성 런타임 관리자',password:'synthetic-runtime-password',bootstrapSecret:'synthetic-runtime-bootstrap-key-0000'};
   await req('/api/auth/bootstrap','POST',account);token=(await req('/api/auth/login','POST',account)).token;
   await req('/api/business/weekly/runtime','PUT',{date:'2027-01-01',part:'1 PART',product:'합성 런타임',problem:'합성 문제',manager:'합성 담당'});
-  assert.equal((await req('/api/business/weekly?week=2027-01-01')).records[0].weekStart,'2026-12-27');
+  assert.equal((await req('/api/business/weekly?week=2027-01-01')).records[0].weekStart,'2026-12-31');
   const form=new FormData();form.set('kind','production');form.set('file',new File([await template('production')],'runtime.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const uploadRequest=new Request(base+'/api/business/imports',{method:'POST',headers:{Origin:'https://hojezzang.github.io',Authorization:'Bearer '+token},body:form});
   const response=await mf.dispatchFetch(uploadRequest.url,{method:'POST',headers:Object.fromEntries(uploadRequest.headers),body:new Uint8Array(await uploadRequest.arrayBuffer())});assert.equal(response.status,200,await response.clone().text());const preview=await response.json();assert.equal(preview.applyCount,1);

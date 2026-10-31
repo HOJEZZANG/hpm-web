@@ -1,7 +1,7 @@
-#weeklyPage .weekly-range{font-size:13px;color:var(--hpm-muted,#536782);line-height:1.6;white-space:nowrap}
+#weeklyPage .weekly-range{font-size:13px;color:var(--hpm-muted,#536782);line-height:1.6;white-space:normal}
 #weeklyPage .weekly-form textarea[name=planAction]{min-height:140px}
 #weeklyPage .business-table{min-width:1400px}
-#weeklyPage .business-table th:first-child,#weeklyPage .business-table td:first-child{min-width:185px;white-space:nowrap}
+#weeklyPage .business-table th:first-child,#weeklyPage .business-table td:first-child{min-width:210px;white-space:pre-line}
 #weeklyPage .business-table th:last-child,#weeklyPage .business-table td:last-child{min-width:190px;white-space:nowrap}
 #weeklyPage .business-table th:nth-last-child(3),#weeklyPage .business-table td:nth-last-child(3){min-width:250px}
 #weeklyPage .weekly-original{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}

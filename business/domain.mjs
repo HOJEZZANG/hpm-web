@@ -1,4 +1,4 @@
-import {weeklyDate,pndDate,weeklyRange,combinedPlan,weeklyAnchor} from './weekly-data.mjs';
+import {weeklyDate,pndDate,meetingDate,meetingRange,combinedPlan,weeklyAnchor} from './weekly-data.mjs?v=20261031-meeting';
 // Shared pure business rules. Dates without times are Korean calendar dates.
 export class BusinessError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -32,7 +32,10 @@ export function validateRecord(type, b, previous = null, previousDay = '') {
     if(!previous||Object.hasOwn(b,'part')){ensure(['1 PART','2 PART','3 PART'].includes(merged.part), '파트를 선택하세요.');result.part=merged.part;}
     const day=Object.hasOwn(b,'date')?date(b.date,'등록 기준일'):weeklyAnchor({...old,day:previousDay});
     ensure(previous||day,'등록 기준일을 입력하세요.');
-    if(day){if(old.date&&!weeklyDate(old.date)&&!Object.hasOwn(old,'legacyDate'))result.legacyDate=old.date;result.date=day;Object.assign(result,weeklyRange(day));}
+    if(day&&(!previous||Object.hasOwn(b,'date')&&b.date!==old.date)){
+      if(old.date&&!weeklyDate(old.date)&&!Object.hasOwn(old,'legacyDate'))result.legacyDate=old.date;
+      result.date=meetingDate(day);Object.assign(result,meetingRange(day));
+    }
     // Unchanged legacy strings (including whitespace and empty required fields)
     // survive edits to other fields. Unknown stored properties also survive.
     for(const [key,label,required,max]of [['project','프로젝트명',false,200],['product','제품',true,200],['problem','현황',true,2000],['manager','담당자',true,100],['remark','비고',false,2000],['plan','계획',false,2000],['action','실행',false,2000]]){

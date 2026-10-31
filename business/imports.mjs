@@ -3,6 +3,7 @@ import {parseWorkbook,template,createWorkbook,MIME,excelDate} from './excel.mjs'
 import {multipart,binary} from './http.mjs';
 import {idOk,now,admin} from './access.mjs';
 import {beginProduction,productionImport} from './production-import.mjs';
+import {productionWorkbook} from './production-export.mjs';
 export async function latestProduction(env){return env.DB.prepare("SELECT id,filename,row_count,applied_at,created_at,sha256 FROM plan_imports WHERE kind='production' AND status='applied' ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1").first();}
 export async function imports(req,env,u,id,action,url){
   if(req.method==='GET'&&id==='latest'){ensure(url.searchParams.get('kind')==='production','업로드 구분을 확인하세요.');return {record:await latestProduction(env)};}
@@ -56,6 +57,6 @@ export async function rowsApi(env,kind,url){
   const eqColumn=['제조사양관리구분','분류','LINE 5000'].find(k=>rows.some(r=>Object.hasOwn(r,k))),from=url.searchParams.get('from'),to=url.searchParams.get('to');
   if(from)date(from);if(to)date(to);ensure(!from||!to||from<=to,'PND 종료일은 시작일 이후여야 합니다.');
   const q=url.searchParams.get('q')?.trim().toLowerCase();const filtered=rows.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q)))&&(!url.searchParams.get('equipment')||productionEquipment(r,eqColumn)===url.searchParams.get('equipment'))&&['제조사양관리구분','Yard','현공정','작업장'].every(k=>!url.searchParams.get(k)||r[k]===url.searchParams.get(k))&&(!from||(r.PND&&r.PND>=from))&&(!to||(r.PND&&r.PND<=to)));
-  if(url.searchParams.get('download')==='1')return binary(await createWorkbook([...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>k!=='id'),filtered),'조회결과.xlsx');
+  if(url.searchParams.get('download')==='1'){const columns=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>k!=='id');return binary(kind==='production'?productionWorkbook(columns,filtered):await createWorkbook(columns,filtered),'조회결과.xlsx');}
   return {importId:id,imported:{id,filename:imported.filename,row_count:imported.row_count,applied_at:imported.applied_at},records:filtered,...(kind==='production'?{summary:productionSummary(filtered)}:{})};
 }

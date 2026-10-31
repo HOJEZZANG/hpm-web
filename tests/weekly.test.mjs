@@ -29,9 +29,9 @@ test('PND accepts only complete unambiguous calendar dates',()=>{
   assert.equal(weeklyDate('2026-2-1'),'');
 });
 test('new CRUD, optional project/PND/remarks, canonical date and stable combined text',async()=>{
-  const env=makeEnv();let result=await req(env,'weekly/new','PUT',{...record,pnd:'2026-11-01'});assert.equal(result.status,200);assert.equal(result.record.pnd,'2026-11-01');assert.equal(result.record.weekStart,'2026-10-25');assert.equal(stored(env,'new').key,undefined);
+  const env=makeEnv();let result=await req(env,'weekly/new','PUT',{...record,pnd:'2026-11-01'});assert.equal(result.status,200);assert.equal(result.record.pnd,'2026-11-01');assert.equal(result.record.weekStart,'2026-10-29');assert.equal(stored(env,'new').key,undefined);
   for(let i=1;i<=3;i++){result=await req(env,'weekly/new','PUT',{revision:i,planAction:result.record.planAction,project:'프로젝트 수정'});assert.equal(result.status,200);assert.equal(result.record.planAction,'통합 조치');}
-  const rows=await req(env,'weekly?week=2026-10-25');assert.equal(rows.records[0].project,'프로젝트 수정');assert.equal(rows.records[0].pnd,'2026-11-01');
+  const rows=await req(env,'weekly?week=2026-11-04');assert.equal(rows.records[0].project,'프로젝트 수정');assert.equal(rows.records[0].pnd,'2026-11-01');
   assert.equal((await req(env,'weekly/optional','PUT',{...record,project:'',pnd:'',remark:''})).status,200);
   assert.equal((await req(env,'weekly/bad','PUT',{...record,pnd:'내일'})).status,400);
   assert.equal((await req(env,'weekly/bad','PUT',{...record,pnd:'2026-02-30'})).status,400);
@@ -56,10 +56,10 @@ test('incomplete historical fields do not become new mandatory input; SQL dates 
   const env=makeEnv();seed(env,'sparse',{key:'2026-W44',problem:'',pnd:'원문만 남음'},'2026-W44');
   const a=await req(env,'weekly/sparse','PUT',{revision:1,remark:'비고만 수정'});assert.equal(a.status,200);assert.equal(a.record.unresolvedWeek,true);assert.equal(stored(env,'sparse').problem,'');assert.equal(stored(env,'sparse').part,undefined);assert.equal(stored(env,'sparse').pnd,'원문만 남음');
   seed(env,'recover',{...record,date:'2026-02-30'},'2026-10-31');
-  const b=await req(env,'weekly/recover','PUT',{revision:1,project:'프로젝트만 수정'});assert.equal(b.status,200);assert.equal(b.record.referenceDate,'2026-10-31');assert.equal(b.record.legacyDate,'2026-02-30');assert.equal(b.record.weekStart,'2026-10-25');
+  const b=await req(env,'weekly/recover','PUT',{revision:1,project:'프로젝트만 수정'});assert.equal(b.status,200);assert.equal(b.record.referenceDate,'2026-10-31');assert.equal(b.record.date,'2026-02-30');assert.equal(b.record.weekStart,'2026-10-29');
   seed(env,'different-raw',{...record,date:'기존 날짜 원문',key:'2026-W44'},'기존 SQL 주간 원문');
   const c=await req(env,'weekly/different-raw','PUT',{revision:1,remark:'비고만 변경'});assert.equal(c.status,200);assert.equal(c.record.unresolvedWeek,true);assert.equal(c.record.date,'기존 날짜 원문');assert.equal(c.record.legacyDay,'기존 SQL 주간 원문');assert.equal(env.sqlite.prepare('SELECT day FROM weekly_issues WHERE id=?').get('different-raw').day,'기존 SQL 주간 원문');
-  const d=await req(env,'weekly/different-raw','PUT',{revision:2,date:'2026-10-31'});assert.equal(d.status,200);assert.equal(d.record.legacyDate,'기존 날짜 원문');assert.equal(d.record.legacySqlDay,'기존 SQL 주간 원문');assert.equal(d.record.weekStart,'2026-10-25');
+  const d=await req(env,'weekly/different-raw','PUT',{revision:2,date:'2026-10-31'});assert.equal(d.status,200);assert.equal(d.record.legacyDate,'기존 날짜 원문');assert.equal(d.record.legacySqlDay,'기존 SQL 주간 원문');assert.equal(d.record.weekStart,'2026-10-29');
   seed(env,'conflicting-day',{...record,date:'2026-10-31'},'2026-11-01');
   assert.equal((await req(env,'weekly/conflicting-day','PUT',{revision:1,remark:'다른 항목 수정'})).status,200);assert.equal(env.sqlite.prepare('SELECT day FROM weekly_issues WHERE id=?').get('conflicting-day').day,'2026-11-01');
 });
@@ -71,14 +71,14 @@ test('old ISO records split by actual reference date; missing dates stay separat
   seed(env,'conflict',{...record,date:'2026-10-24'},'2026-10-25');
   const unknown={...record,date:undefined,key:'2026-W44',monday:'2026-10-26'};seed(env,'unknown',unknown,'2026-W44');
   seed(env,'invalid',{...unknown,date:'2026-02-30'},'2026-02-30');
-  for(const [day,ids]of [['2026-10-25',['2026-10-25','2026-10-26','2026-10-31','json-only']],['2026-10-31',['2026-10-25','2026-10-26','2026-10-31','json-only']],['2026-11-01',['2026-11-01','2026-11-02','sql-only']],['2027-01-01',['2026-12-27','2027-01-01','2027-01-02']],['2027-01-03',['2027-01-03','2027-01-04']]]){
+  for(const [day,ids]of [['2026-10-25',['2026-10-24','2026-10-25','2026-10-26','conflict']],['2026-10-31',['2026-10-31','2026-11-01','2026-11-02','sql-only','json-only']],['2026-11-01',['2026-10-31','2026-11-01','2026-11-02','sql-only','json-only']],['2027-01-01',['2027-01-01','2027-01-02','2027-01-03','2027-01-04']],['2027-01-03',['2027-01-01','2027-01-02','2027-01-03','2027-01-04']]]){
     const r=await req(env,'weekly?week='+day);assert.equal(r.status,200);assert.deepEqual(r.records.map(x=>x.id).sort(),ids.sort());assert.deepEqual(r.legacyRecords.map(x=>x.id).sort(),['invalid','unknown']);
   }
   const edited=await req(env,'weekly/unknown','PUT',{revision:1,remark:'기준일 지정 없이 비고 수정'});assert.equal(edited.status,200);assert.equal(edited.record.unresolvedWeek,true);assert.equal(stored(env,'unknown').date,undefined);assert.equal(stored(env,'unknown').key,'2026-W44');assert.equal(stored(env,'unknown').monday,'2026-10-26');
   for(const row of env.sqlite.prepare(`SELECT *,(${weeklyAnchorSql}) AS anchor FROM weekly_issues`).all())assert.equal(row.anchor||'',weeklyAnchor({...JSON.parse(row.data),day:row.day}));
 });
 test('project search returns actual date and original product, with authentication/ownership/revision intact',async()=>{
-  const env=makeEnv();env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));assert.equal((await req(env,'weekly/one','PUT',record)).status,200);const r=await req(env,'search?q='+encodeURIComponent('합성 프로젝트'));assert.equal(r.status,200);assert.equal(r.records[0].label,'합성 프로젝트 / 합성 제품');assert.equal(r.records[0].date,'2026-10-31');
+  const env=makeEnv();env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));assert.equal((await req(env,'weekly/one','PUT',record)).status,200);const r=await req(env,'search?q='+encodeURIComponent('합성 프로젝트'));assert.equal(r.status,200);assert.equal(r.records[0].label,'합성 프로젝트 / 합성 제품');assert.equal(r.records[0].date,'2026-11-04');
   assert.equal((await req(env,'weekly','GET',undefined,null)).status,401);assert.equal((await req(env,'weekly/one','PUT',{revision:0,project:'충돌'})).status,409);
   const token='b'.repeat(64);env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)').run('other','합성 사용자','unused','unused','user','active','2026-10-31');env.sqlite.prepare('INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(createHash('sha256').update(token).digest('hex'),'other','2099-01-01');
   assert.equal((await req(env,'weekly/one','PUT',{revision:1,project:'타인'},token)).status,403);assert.equal((await req(env,'weekly/one','DELETE',{revision:1},token)).status,403);
