@@ -21,6 +21,9 @@ try{
   r=await req('business/weekly/sat','PUT',{revision:2,remark:'비고 수정',planAction:r.record.planAction});assert.equal(r.record.pnd,base.pnd);assert.equal(r.record.planAction,'계획: 기존 계획\n실행: 기존 실행');
   r=await req('business/weekly/sat','PUT',{revision:3,pnd:'2026-11-03'});assert.equal(r.record.legacyPnd,base.pnd);assert.equal(r.record.pnd,'2026-11-03');
   r=await req('business/weekly/unknown','PUT',{revision:1,remark:'기준일 없이 수정'});assert.equal(r.record.unresolvedWeek,true);assert.equal(r.record.date,undefined);assert.equal(r.record.legacyDay,'2026-W44');assert.equal(r.record.key,base.key);
+  await db.prepare('INSERT INTO weekly_issues(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?)').bind('different-raw',account.id,JSON.stringify({...base,date:'기존 날짜 원문'}),'기존 SQL 주간 원문','2026-10-01','2026-10-01').run();
+  r=await req('business/weekly/different-raw','PUT',{revision:1,remark:'다른 항목 수정'});assert.equal(r.record.date,'기존 날짜 원문');assert.equal(r.record.legacyDay,'기존 SQL 주간 원문');assert.equal((await db.prepare('SELECT day FROM weekly_issues WHERE id=?').bind('different-raw').first()).day,'기존 SQL 주간 원문');
+  r=await req('business/weekly/different-raw','PUT',{revision:2,date:'2026-10-31'});assert.equal(r.record.legacyDate,'기존 날짜 원문');assert.equal(r.record.legacySqlDay,'기존 SQL 주간 원문');
   r=await req('business/weekly/new','PUT',{date:'2027-01-01',part:'1 PART',product:'합성 신규',manager:'담당',problem:'현황',planAction:'자유 입력',project:'',pnd:'2027-01-02'});assert.equal(r.record.weekStart,'2026-12-27');assert.equal(r.record.weekEnd,'2027-01-02');assert.equal(r.record.pnd,'2027-01-02');assert.equal(r.record.key,undefined);
   assert.equal((await req('business/weekly?week=2027-01-02')).records.length,1);assert.equal((await req('business/weekly?week=2027-01-03')).records.length,0);
   assert.equal((await req('business/search?q='+encodeURIComponent('검색 표본 프로젝트'))).records[0].date,'2026-10-31');

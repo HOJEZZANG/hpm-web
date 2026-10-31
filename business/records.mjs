@@ -1,7 +1,7 @@
 import {ensure,date,isoWeek,addDays,validateRecord} from './domain.mjs';
 import {bodyJson} from './http.mjs';
 import {collections,adminTypes,idOk,now,readRow,admin,own} from './access.mjs';
-import {weeklyRange,weeklyAnchorSql,weeklyView} from './weekly-data.mjs';
+import {weeklyDate,weeklyRange,weeklyAnchorSql,weeklyView} from './weekly-data.mjs';
 const view=(row,type)=>type==='weekly'?weeklyView(readRow(row),row.day):readRow(row);
 async function listRecords(env,type,url){
   const table=collections[type];let sql=`SELECT * FROM ${table}`,args=[];
@@ -34,7 +34,11 @@ export async function recordApi(req,env,u,type,id,url){
     const result=await env.DB.prepare(`DELETE FROM ${table} WHERE id=? AND revision=?`).bind(id,body.revision).run();ensure(result.meta.changes===1,'다른 PC에서 변경했습니다.',409);return {deleted:true};
   }
   const old=previous&&type==='weekly'?{...JSON.parse(previous.data)}:null;
-  const data=validateRecord(type,body,old,previous?.day),stamp=now(),day=type==='weekly'?(data.date||previous?.day||''):data.date||'';
+  const data=validateRecord(type,body,old,previous?.day),stamp=now();
+  // Preserve even an unparseable/mismatched SQL day on unrelated edits. Only a
+  // new record or an explicitly changed reference date replaces that column.
+  const day=type==='weekly'?(previous&&(!Object.hasOwn(body,'date')||body.date===old.date)?previous.day:data.date||''):data.date||'';
+  if(type==='weekly'&&previous&&day!==previous.day&&previous.day&&!weeklyDate(previous.day)&&!Object.hasOwn(old,'legacySqlDay'))data.legacySqlDay=previous.day;
   if(!previous){
     ensure(!body.revision,'대상 기록이 삭제되었습니다. 새 기록으로 등록하세요.',409);
     const result=await env.DB.prepare(`INSERT INTO ${table}(id,owner,data,day,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`).bind(id,u.id,JSON.stringify(data),day,stamp,stamp).run();

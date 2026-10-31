@@ -57,6 +57,11 @@ test('incomplete historical fields do not become new mandatory input; SQL dates 
   const a=await req(env,'weekly/sparse','PUT',{revision:1,remark:'비고만 수정'});assert.equal(a.status,200);assert.equal(a.record.unresolvedWeek,true);assert.equal(stored(env,'sparse').problem,'');assert.equal(stored(env,'sparse').part,undefined);assert.equal(stored(env,'sparse').pnd,'원문만 남음');
   seed(env,'recover',{...record,date:'2026-02-30'},'2026-10-31');
   const b=await req(env,'weekly/recover','PUT',{revision:1,project:'프로젝트만 수정'});assert.equal(b.status,200);assert.equal(b.record.referenceDate,'2026-10-31');assert.equal(b.record.legacyDate,'2026-02-30');assert.equal(b.record.weekStart,'2026-10-25');
+  seed(env,'different-raw',{...record,date:'기존 날짜 원문',key:'2026-W44'},'기존 SQL 주간 원문');
+  const c=await req(env,'weekly/different-raw','PUT',{revision:1,remark:'비고만 변경'});assert.equal(c.status,200);assert.equal(c.record.unresolvedWeek,true);assert.equal(c.record.date,'기존 날짜 원문');assert.equal(c.record.legacyDay,'기존 SQL 주간 원문');assert.equal(env.sqlite.prepare('SELECT day FROM weekly_issues WHERE id=?').get('different-raw').day,'기존 SQL 주간 원문');
+  const d=await req(env,'weekly/different-raw','PUT',{revision:2,date:'2026-10-31'});assert.equal(d.status,200);assert.equal(d.record.legacyDate,'기존 날짜 원문');assert.equal(d.record.legacySqlDay,'기존 SQL 주간 원문');assert.equal(d.record.weekStart,'2026-10-25');
+  seed(env,'conflicting-day',{...record,date:'2026-10-31'},'2026-11-01');
+  assert.equal((await req(env,'weekly/conflicting-day','PUT',{revision:1,remark:'다른 항목 수정'})).status,200);assert.equal(env.sqlite.prepare('SELECT day FROM weekly_issues WHERE id=?').get('conflicting-day').day,'2026-11-01');
 });
 test('old ISO records split by actual reference date; missing dates stay separate without invented dates',async()=>{
   const env=makeEnv(),days=['2026-10-24','2026-10-25','2026-10-26','2026-10-31','2026-11-01','2026-11-02','2026-12-26','2026-12-27','2027-01-01','2027-01-02','2027-01-03','2027-01-04'];

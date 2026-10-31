@@ -46,7 +46,7 @@ export async function init(root){
   }
   function reset(){selected=null;newId=uid();form.reset();for(const [key,,,opts]of fields)form.elements[key].required=Boolean(opts?.required);form.elements.date.value=today();showOriginal({});hint();dirty.clean();}
   function detail(record){
-    const rows=[['주간',weekLabel(record)],...(record.unresolvedWeek?[['기존 주간 정보',legacyWeek(record)]]:[]),...(record.legacyDate?[['기존 기준일 원문',record.legacyDate]]:[]),...columns.slice(1).map(c=>[c.label,c.value?c.value(record):record[c.key]]),...(pndOriginal(record)?[['기존 PND 원문',pndOriginal(record)]]:[])];
+    const rows=[['주간',weekLabel(record)],...(record.unresolvedWeek?[['기존 주간 정보',legacyWeek(record)]]:[]),...(record.legacyDate?[['기존 기준일 원문',record.legacyDate]]:[]),...(record.legacySqlDay?[['기존 주간 원문',record.legacySqlDay]]:[]),...columns.slice(1).map(c=>[c.label,c.value?c.value(record):record[c.key]]),...(pndOriginal(record)?[['기존 PND 원문',pndOriginal(record)]]:[])];
     $('[data-detail-content]',root).innerHTML='<h2 id="weeklyDetailTitle">주간 이슈 상세</h2><dl>'+rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v||'—')}</dd></div>`).join('')+'</dl>'+(editable(record)?button('수정',`data-detail-edit="${esc(record.id)}"`):'');
     if(!dialog.open)dialog.showModal();
   }
