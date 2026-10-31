@@ -549,3 +549,11 @@ Get-Content WORK_PROGRESS.md -Encoding UTF8
 - 검증: 자동 **162/162**, 문법·보안, 1·2파트 Chrome 반영/중지/실패/중복/재시도/다른 PC/전체·조건별 XLSX, 기존 로그인/권한/문제점/사진/일정/주간/홈 검색/AHU PND 회귀를 통과했다. 방문 이력·620행/2MiB 이상 파일·필수 중복 열 선택·재전송도 확인했다. 실제 AHU 255건·수량 343 및 1파트 235건 합성 검증에서 장비/상태/PND 선택의 요약·그래프·표 합계가 일치하며 표 헤더 겹침/내부 세로 스크롤이 없다. 주요 7개 화면 × 라이트/다크 × 1366/1920/390/320px 및 실제 Enter 키 조작을 확인했고 JavaScript 예외는 0건이다.
 - 운영은 읽기 전용으로 D1 23개 테이블 SQL 백업/로컬 복원과 R2 참조 파일 4개 지문을 확보했다. 현재 Worker `1349212d-9456-480b-b225-57d3974f13d2`의 소스·기존 설정이 검증 서버와 같음을 확인했다. 서버 코드·migration·운영 데이터 쓰기·수동 Worker 배포는 없다. 증거는 Git 제외 `.wrangler/visual-consistency/`·`backups/`에 보존한다.
 - 이 시점에는 commit/push·Pages 운영 반영 확인이 남았다. 기존 연결은 main push 후 Worker도 자동 배포하므로, 불필요한 재배포를 막기 위해 빌드 감시 경로를 읽으려 했으나 현재 OAuth의 Builds API 권한이 403이었다. 런타임·빌드 설정은 변경하지 않았으며 Pages 반영 전 이 제약을 확인한다.
+
+### 공통 화면 일관성 — Pages 반영·Worker 버전 유지 확인 완료
+
+- 구현 커밋 **`8b614b163baf5661d338cb9ee1635df0a3075427`**의 전체 변경 **18개 파일**을 원격 main과 대조했다. 서버 코드·공정 판정·migration 변경은 없다. 사용자가 Worker Include paths 7개에 `business/*`를 등록했음을 알려, 이 경로와 일치하는 프런트엔드 `business/ui/` 9개를 확인했다. 사용자가 **Exclude paths에 `business/ui/*`를 추가·저장했다고 명시적으로 확인한 후** 일반 push했다. 경로 대조 결과 제외 적용 후 이번 변경의 Worker 빌드 대상은 0개다. 권한이 없는 빌드 설정 API를 우회하거나 런타임 설정을 변경하지 않았다.
+- [Pages 배포](https://github.com/HOJEZZANG/hpm-web/actions/runs/41207224995)가 구현 커밋으로 **success / built**다. 운영 주소는 **https://hojezzang.github.io/hpm-web/#/production**이며 공통 workspace CSS·새 표시 집계·브라우저용 XLSX Worker를 포함한 정적 자산 **47개**가 검증본과 일치한다. 새 익명 Chrome에서 로그인 보호·실제 자산 로딩·기존 문제점 폼·라이트/다크 1366/1920/390/320px·JavaScript 예외 0건을 확인했다.
+- Pages 배포 후에도 운영 Worker는 **`1349212d-9456-480b-b225-57d3974f13d2` / 100%**로 동일하다. 소스·DB/R2 바인딩·호환 설정도 같으며 수동/자동 Worker 재배포와 DB migration은 없다. 보호 API 14개는 익명/위조 권한 요청을 401로 차단하고 health·소화기 조회는 200, 비공개 백업/증거 경로는 404다.
+- push 후 SQL 백업을 메모리 DB로 복원해 대조했다. **23개 테이블의 모든 값·스키마와 참조 R2 파일 4개의 크기/해시가 동일**하며 바뀐 업무 테이블은 0개다. 운영 로그인·시험 업로드·원본/자료 수정·삭제는 수행하지 않았다. 근거는 Git 제외 `.wrangler/visual-consistency/`와 `backups/`에 보존한다.
+- **요청된 화면 개선·검증·commit/push·Pages 반영·운영 자료 보존·Worker 버전 유지 확인 완료.** 이 완료 기록도 일반 후속 커밋으로 push하며, 최종 문서 커밋의 Pages/자산/Worker 버전 확인은 같은 비공개 폴더에 남긴다. 추가 구현 또는 배포 대기 항목은 없다.
