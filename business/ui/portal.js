@@ -1,18 +1,19 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261031-meeting';
 import {init as production} from './production.js?v=20261101-panels';
-import {init as ahuPnd} from './ahu-pnd.js?v=20261027-model2';
+import {init as ahuPnd} from './ahu-pnd.js?v=20261101-workflows';
 import {createPresentation} from './presentation.js';
-import {initNavigation} from './navigation.js?v=20261027-supplies';
+import {initNavigation} from './navigation.js?v=20261101-workflows';
 import {initIssueView} from './issue-view.js?v=20261029-issues';
-import {initIssueLoadState} from './issue-load-state.js?v=20261023';
+import {initIssueLoadState} from './issue-load-state.js?v=20261101-workflows';
 import {initHistory} from './history.js?v=20261029-home';
 import {initEntry,noticePreview} from './home.js?v=20261029-home';
-import {initHomeSearch,renderSearchResults} from './home-search.js?v=20261031-workspace';
+import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261101-workflows';
+import {initIssueDashboard} from './issue-dashboard.js?v=20261101-workflows';
 import {accounts} from './accounts.js?v=20261027-access';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
 window.HpmPasswordPolicy=passwordPolicy;
-initEntry();initNavigation();initIssueView();initIssueLoadState();initHistory();
+initEntry();initNavigation();initIssueView();initIssueLoadState();initHistory();initIssueDashboard();
 window.createHpmPresentation=createPresentation;
 const modules={weekly,production,ahuPnd,notices,search,accounts};
 const initialized=new Set();
@@ -25,10 +26,18 @@ async function open(page){
   delete root.dataset.ready;
   const task=(async()=>{try{await modules[page](root);if(root.isConnected){initialized.add(page);root.dataset.ready='true';}}catch(e){if(root.isConnected){root.innerHTML=`<p role="alert">${esc(e.message)}</p>${button('다시 열기','data-retry')}`;$('[data-retry]',root).onclick=()=>open(page);}}finally{if(pending.get(page)===task)pending.delete(page);}})();pending.set(page,task);return task;
 }
-async function notices(root){return collection(root,{type:'notices',title:'공지사항',description:'관리자가 게시한 생산관리 공지사항',admin:true,fields:[['title','제목','text',{required:true,max:200}],['content','공지내용','textarea',{required:true,max:5000,wide:true}]],columns:[{label:'제목',key:'title'},{label:'내용',key:'content'},{label:'수정일',key:'updatedAt'}]});}
+async function notices(root){await collection(root,{type:'notices',title:'공지사항',description:'관리자가 게시한 생산관리 공지사항',admin:true,fields:[['title','제목','text',{required:true,max:200}],['content','공지내용','textarea',{required:true,max:5000,wide:true}]],columns:[{label:'제목',key:'title'},{label:'내용',key:'content'},{label:'수정일',key:'updatedAt'}]});root.hpmOpenRecord=record=>openNoticeDetail(root,record);}
 async function search(root){
-  shell(root,'통합검색','공정 문제점·일정·주간 이슈·생산계획·공지사항을 검색합니다.',`<form class="business-form">${field('q','검색어 (2자 이상)','search',{required:true,max:100})}<button type="submit" class="btn primary">검색</button></form><div data-results></div>`);
-  const form=$('form',root);form.onsubmit=e=>{e.preventDefault();const q=form.elements.q.value;void run(root,$('[type=submit]',form),async()=>{const r=await api('search?q='+encodeURIComponent(q));renderSearchResults($('[data-results]',root),r.records);});};
+  shell(root,'통합검색','공정 문제점·일정·주간 이슈·생산계획·공지사항을 검색합니다.',`<form class="card search-page-form" role="search">${field('q','검색어 (2자 이상)','search',{required:true,max:100})}<button type="submit" class="btn primary">검색</button></form><p class="search-page-status" data-search-status role="status" aria-live="polite"></p><div data-results></div>`);
+  const form=$('form',root);form.elements.q.minLength=2;let sequence=0;
+  form.onsubmit=async e=>{e.preventDefault();const q=form.elements.q.value.trim();if(q.length<2)return;const owner=JSON.stringify(user()),request=++sequence,status=$('[data-search-status]',root),list=$('[data-results]',root);status.setAttribute('role','status');status.textContent='검색 중…';list.replaceChildren();root.setAttribute('aria-busy','true');
+    try{const result=await api('search?q='+encodeURIComponent(q));if(request!==sequence||owner!==JSON.stringify(user())||!root.isConnected||!root.classList.contains('active'))return;renderSearchResults(list,result.records);status.textContent='‘'+q+'’ 검색 결과 '+result.records.length+'건';}
+    catch(error){if(request===sequence&&owner===JSON.stringify(user())&&root.isConnected){status.textContent=error.message;status.setAttribute('role','alert');}}
+    finally{if(request===sequence)root.setAttribute('aria-busy','false');}
+  };
+  const onNavigate=()=>{if(!root.classList.contains('active')){sequence++;root.setAttribute('aria-busy','false');}};
+  const onAuth=()=>{if(!root.isConnected||!user()){sequence++;form.reset();$('[data-results]',root).replaceChildren();$('[data-search-status]',root).textContent='';document.removeEventListener('hpm:navigate',onNavigate);document.removeEventListener('hpm:auth',onAuth);}};
+  document.addEventListener('hpm:navigate',onNavigate);document.addEventListener('hpm:auth',onAuth);
 }
 document.addEventListener('hpm:navigate',e=>void open(e.detail));
 document.addEventListener('hpm:auth',()=>{const accountId=user()?JSON.stringify([user().id,user().role,user().status,user().authRevision]):null;if(accountId&&accountId===lastAccountId)return;lastAccountId=accountId;initialized.clear();pending.clear();for(const page of Object.keys(modules)){const root=document.getElementById(page+'Page'),fresh=root.cloneNode(false);fresh.classList.remove('meeting-view');fresh.removeAttribute('data-ready');fresh.removeAttribute('data-dirty');fresh.removeAttribute('aria-busy');root.replaceWith(fresh);}const active=$('.portal-page.active');if(active)void open(active.id.replace(/Page$/,''));});
@@ -46,5 +55,5 @@ async function refreshHomeNotices(){
 }
 document.addEventListener('hpm:auth',()=>void refreshHomeNotices());
 document.addEventListener('hpm:navigate',e=>{if(e.detail==='home')void refreshHomeNotices();});
-initHomeSearch();
+installSearchExecution(open);initGlobalSearch();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.meeting-view').forEach(r=>{r.classList.remove('meeting-view');const b=r.querySelector('[data-meeting]');if(b)b.textContent='회의용 확대';});});

@@ -15,5 +15,10 @@ export async function browser(executable,base){
       const wait=async(expression,label=expression)=>{const end=Date.now()+16000;while(Date.now()<end){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,70));}throw new Error('Timed out: '+label);};
       await call('Page.navigate',{url:base});await wait('document.querySelector("#homePage.active") && window.HpmBusiness');
       return {call,evaluate,wait,browserContextId,browserCall:send,async shot(path){const r=await call('Page.captureScreenshot',{format:'png'});writeFileSync(path,Buffer.from(r.data,'base64'));}};
-    },async close(){socket.close();chrome.kill();const target=resolve(profile);assert(target.startsWith(resolve(tmpdir())+sep)&&target.split(sep).at(-1).startsWith('hpm-ui-qa-'));await new Promise(r=>setTimeout(r,400));rmSync(target,{recursive:true,force:true,maxRetries:6,retryDelay:250});}};
+    },async close(){
+      // Let this isolated Chrome close its child processes and profile handles first.
+      const exited=new Promise(resolve=>{if(chrome.exitCode!==null)return resolve();const timer=setTimeout(resolve,5000);chrome.once('exit',()=>{clearTimeout(timer);resolve();});});
+      void send('Browser.close').catch(()=>{});await exited;if(chrome.exitCode===null)chrome.kill();socket.close();
+      const target=resolve(profile);assert(target.startsWith(resolve(tmpdir())+sep)&&target.split(sep).at(-1).startsWith('hpm-ui-qa-'));await new Promise(r=>setTimeout(r,400));rmSync(target,{recursive:true,force:true,maxRetries:20,retryDelay:250});
+    }};
 }

@@ -1,0 +1,11 @@
+// Pure browser calculations over authorized issue records; no inferred completion dates.
+const closed=new Set(['조치완료','종결']);
+export function day(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return null;const ms=Date.UTC(+value.slice(0,4),+value.slice(5,7)-1,+value.slice(8,10));return new Date(ms).toISOString().slice(0,10)===value?ms/86400000:null;}
+export function analyzeIssues(records,filters={},today=new Date(Date.now()+9*3600000).toISOString().slice(0,10)){
+  if(filters.start&&filters.end&&filters.start>filters.end)throw Error('종료일은 시작일 이후여야 합니다.');
+  const items=records.filter(r=>(!filters.start&&!filters.end||day(r.occurDate)!==null&&(!filters.start||r.occurDate>=filters.start)&&(!filters.end||r.occurDate<=filters.end))&&['product','process','responsibleDept'].every(key=>!filters[key]||filters[key]==='전체'||(r[key]||'미분류')===filters[key]));
+  const completed=items.filter(r=>closed.has(r.status)),open=items.filter(r=>!closed.has(r.status)),now=day(today),warnings=open.filter(r=>day(r.processPnd)!==null&&day(r.processPnd)-now<=7),overdue=warnings.filter(r=>day(r.processPnd)<now);
+  const leads=completed.filter(r=>day(r.occurDate)!==null&&day(r.completedDate)!==null&&day(r.completedDate)>=day(r.occurDate)&&day(r.completedDate)<=now).map(r=>day(r.completedDate)-day(r.occurDate));
+  const grouped=key=>items.reduce((out,r)=>{const name=String(r[key]||'미분류');out[name]=(out[name]||0)+1;return out;},{}),trend=items.filter(r=>day(r.occurDate)!==null).reduce((out,r)=>{const name=r.occurDate.slice(0,7);out[name]=(out[name]||0)+1;return out;},{});
+  return {items,total:items.length,completed:completed.length,open:open.length,warnings,overdue:overdue.length,closeRate:items.length?Math.round(completed.length/items.length*100):null,lead:leads.length?Math.round(leads.reduce((a,b)=>a+b,0)/leads.length*10)/10:null,leadCount:leads.length,leadExcluded:completed.length-leads.length,followups:items.filter(r=>r.followupFlag===true).length,reviews:items.filter(r=>r.followupFlag===true||String(r.prevention||'').trim()),groups:Object.fromEntries(['product','process','responsibleDept','issueType','status'].map(key=>[key,grouped(key)])),trend,missingOccur:items.filter(r=>day(r.occurDate)===null).length};
+}
