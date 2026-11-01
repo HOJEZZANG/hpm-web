@@ -7,7 +7,7 @@ import {parseProductionSheet} from '../business/production-sheet.mjs';
 import {ahuBytes} from '../tests/support/production-parts-fixtures.mjs';
 import {startTestServer} from './local-test-server.mjs';
 import {browser} from './browser-harness.mjs';
-const bytes=process.argv[3]?await readFile(process.argv[3]):ahuBytes(235),plan=parseProductionSheet(bytes,()=>{},'part2'),expected=plan.rows.length,quantity=plan.rows.reduce((s,r)=>s+Number(r.values[plan.meta.columns.findIndex(c=>c.id===plan.meta.mapping['수량'])]),0),dir='.wrangler/visual-consistency';await mkdir(dir,{recursive:true});
+const bytes=process.argv[3]?await readFile(process.argv[3]):ahuBytes(235),plan=parseProductionSheet(bytes,()=>{},'part2'),expected=plan.rows.length,quantity=plan.rows.reduce((s,r)=>s+Number(r.values[plan.meta.columns.findIndex(c=>c.id===plan.meta.mapping['수량'])]),0),dir=process.env.HPM_QA_DIR||'.wrangler/visual-consistency';await mkdir(dir,{recursive:true});
 const state=await startTestServer(),qa=await browser(process.argv[2],state.url);
 try{
  const a=await qa.tab(),b=await qa.tab();
