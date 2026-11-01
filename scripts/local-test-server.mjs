@@ -17,6 +17,7 @@ export async function startTestServer(){
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')){
         state.requests.push({path:url.pathname,query:url.search,method:req.method});
+        if(url.pathname==='/api/issues'&&req.method==='GET'&&state.issueReadDelayMs)await new Promise(resolve=>setTimeout(resolve,state.issueReadDelayMs));
         if(url.pathname==='/api/business/weekly'&&req.method==='GET'&&state.weeklyDelays?.[url.searchParams.get('week')])await new Promise(resolve=>setTimeout(resolve,state.weeklyDelays[url.searchParams.get('week')]));
         if(url.pathname.startsWith('/api/business/weekly/')&&req.method==='PUT'&&state.pauseWeeklyWritesMs)await new Promise(resolve=>setTimeout(resolve,state.pauseWeeklyWritesMs));
         if(state.authDelayMs&&url.pathname==='/api/auth/me')await new Promise(resolve=>setTimeout(resolve,state.authDelayMs));

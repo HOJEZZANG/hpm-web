@@ -1,15 +1,15 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261031-meeting';
-import {init as production} from './production.js?v=20261101-panels';
+import {init as production} from './production.js?v=20261101-evidence';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261101-workflows';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261101-workflows';
 import {initIssueView} from './issue-view.js?v=20261029-issues';
-import {initIssueLoadState} from './issue-load-state.js?v=20261101-workflows';
+import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
 import {initHistory} from './history.js?v=20261029-home';
 import {initEntry,noticePreview} from './home.js?v=20261029-home';
 import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261101-workflows';
-import {initIssueDashboard} from './issue-dashboard.js?v=20261101-workflows';
+import {initIssueDashboard} from './issue-dashboard.js?v=20261101-evidence';
 import {accounts} from './accounts.js?v=20261027-access';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
 window.HpmPasswordPolicy=passwordPolicy;

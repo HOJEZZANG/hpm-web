@@ -16,6 +16,7 @@ export function initIssueLoadState(){
       for(const id of ['homeRecentIssues','homePndAlerts','deliveryAlertList','recentList','dashboardStatusChart','dashboardProductChart','dashboardProcessChart','dashboardDeptChart','statProductChart','statProcessChart','statTypeChart','statDeptChart','statStatusChart']){const el=document.getElementById(id);if(el)el.replaceChildren(Object.assign(document.createElement('p'),{className:'empty',textContent:state.error?'서버 조회 실패 · 위 안내에서 다시 조회해 주세요.':state.authenticated?'서버 조회 대기 중':'로그인 후 조회할 수 있습니다.'}));}
       const alert=document.getElementById('homePndAlertCount');if(alert)alert.textContent='미확인';
     }
+    window.HpmIssueDashboard?.syncReadState(state);
   };
   window.renderIssueLoadState();
 }
