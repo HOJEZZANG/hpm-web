@@ -28,18 +28,20 @@ export function initIssueView(){
   });
   document.getElementById('clearCompletedDate').onclick=()=>{completedDate.value='';completedDate.dispatchEvent(new Event('input',{bubbles:true}));completedDate.focus();};
   window.formatIssueHistoryTime=koreanHistoryTime;
-  window.switchManageView=view=>{
+  const renderManageView=view=>{
     const listing=view==='list';document.getElementById('issueEditorPane').hidden=listing;document.getElementById('issueRecordsPane').hidden=!listing;
     for(const b of document.querySelectorAll('[data-issue-view]')){const selected=b.dataset.issueView===(listing?'list':'create');b.setAttribute('aria-selected',String(selected));b.classList.toggle('active',selected);}
     if(listing)window.applyFilters();
+    return true;
   };
+  window.switchManageView=(view,options={})=>view==='list'&&!options.restore?window.HpmIssueDraft.run(()=>renderManageView(view)):renderManageView(view);
   document.querySelector('[data-issue-view=create]').onclick=()=>window.switchManageView('create');
   document.querySelector('[data-issue-view=list]').onclick=()=>window.switchManageView('list');
   document.querySelector('[data-issue-tabs]').onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const buttons=[...document.querySelectorAll('[data-issue-view]')],index=buttons.indexOf(document.activeElement),next=e.key==='Home'?0:e.key==='End'?1:(index+1)%2;buttons[next].focus();buttons[next].click();};
   const dialog=document.getElementById('issueDetailDialog');let previouslyFocused;
   document.getElementById('closeIssueDetail').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{if(!document.getElementById('photoLightbox').open)document.body.style.overflow='';if(previouslyFocused?.isConnected)previouslyFocused.focus();});
-  window.openIssueDetails=id=>{
+  const showIssueDetails=id=>{
     const i=window.getIssueForView(id);if(!i||!window.hpmServerUser)return;
     if(!dialog.open)previouslyFocused=document.activeElement;
     document.getElementById('issueDetailTitle').textContent=i.title||i.description?.split('\n')[0]||'문제점 상세';
@@ -53,8 +55,10 @@ export function initIssueView(){
       ${additional.length||narratives.length?`<details class="detail-additional" data-legacy-issue><summary>기존 정보</summary><div>${additional.length?fields(additional):''}${narratives.map(([label,value])=>`<section class="detail-text"><h4>${esc(label)}</h4><p>${esc(value)}</p></section>`).join('')}</div></details>`:''}
       <details class="detail-additional" data-issue-history><summary>처리 이력 (${i.history?.length||0})</summary><div>${history(i.history)}</div></details>`;
     document.getElementById('issueDetailBody').onclick=e=>{const photo=e.target.closest('[data-photo]');if(photo){photo.focus();window.openPhotoLightbox(photo.dataset.photo);}};
-    document.getElementById('editIssueDetail').onclick=()=>{if(window.editIssue(id)===false)return;dialog.close();document.getElementById('description').focus();};
+    document.getElementById('editIssueDetail').onclick=async()=>{if(await window.editIssue(id)===false)return;dialog.close();document.getElementById('description').focus();};
     if(!dialog.open)dialog.showModal();dialog.scrollTop=0;document.body.style.overflow='hidden';document.getElementById('closeIssueDetail').focus();
+    return true;
   };
+  window.openIssueDetails=id=>id===window.issueDraftSnapshot().id?showIssueDetails(id):window.HpmIssueDraft.run(()=>showIssueDetails(id));
   window.switchManageView('create');
 }
