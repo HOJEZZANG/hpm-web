@@ -31,6 +31,6 @@ test('after photos use their retained category and never infer a closed status; 
 });
 test('issue form has only the requested fields and product specs keep their existing storage key',()=>{
   const html=readFileSync('index.html','utf8'),form=html.match(/<form class="issue-entry-form"[\s\S]*?<\/form>/)[0];
-  for(const id of ['title','registerDate','projectNo','process','issueType','priority','finder','feedbackOwner','verifier','issueExtra_part','issueExtra_factory','causeFeedback','prevention','followupFlag','dueDate','deliveryDate','completedDate','issueAdditional','historyTimeline'])assert(!new RegExp('id="'+id+'"').test(form),id);
+  for(const id of ['title','registerDate','projectNo','process','issueType','priority','finder','feedbackOwner','verifier','issueExtra_part','issueExtra_factory','causeFeedback','prevention','followupFlag','dueDate','deliveryDate','issueAdditional','historyTimeline'])assert(!new RegExp('id="'+id+'"').test(form),id);
   assert(form.includes('제품 규격'));assert(form.includes('예: HKA-08SN'));assert(form.includes('id="issueExtra_productNo"'));assert.deepEqual([...parseHTML(form).document.querySelectorAll('[required]')].map(n=>n.id),['description']);
 });

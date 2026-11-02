@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261101-evidence"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261031-workspace"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261101-workflows"><link rel="stylesheet" href="business/ui/home.css?v=20261029-search"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261029-issues"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261101-evidence"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css"><link rel="stylesheet" href="business/ui/theme.css?v=20261031-workspace"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261101-workflows"><link rel="stylesheet" href="business/ui/home.css?v=20261029-search"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261102-attachments"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1264,13 +1264,13 @@
 <option>조치중</option>
 <option>조치완료</option>
 <option>종결</option>
-</select></div><div class="form-field"><label for="processPnd">공정 PND(선택)</label><input id="processPnd" type="date"></div></div>
+</select></div><div class="form-field"><label for="processPnd">공정 PND(선택)</label><input id="processPnd" type="date"></div><div class="form-field" id="completedDateField" hidden><label for="completedDate">실제 완료일(선택)</label><div class="issue-date-input"><input id="completedDate" type="date" aria-describedby="completedDateHint"><button type="button" id="clearCompletedDate" class="btn light">지우기</button></div></div><p id="completedDateHint" class="hint issue-completion-hint" role="status" hidden></p></div>
 <div class="form-field wide"><label for="description" class="required">문제점 상세내용</label><textarea required id="description" placeholder="발생 위치, 현상, 수량, 작업 영향 등을 구체적으로 입력하세요."></textarea></div>
 <div class="form-field wide"><label for="actionDetail">조치내용</label><textarea id="actionDetail" placeholder="조치한 내용이 있으면 입력하세요. 나중에 추가할 수 있습니다."></textarea></div>
 </div>
 <div class="issue-photo-pair">
-<section class="issue-photos" aria-labelledby="beforePhotoTitle"><h3 id="beforePhotoTitle">현장 사진(조치 전)</h3><label for="photoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 사진 없이도 저장할 수 있습니다.</label><input accept="image/jpeg,image/png,image/webp" id="photoInput" multiple type="file"><div id="previewGrid" class="preview-grid"></div></section>
-<section class="issue-photos" aria-labelledby="afterPhotoTitle"><h3 id="afterPhotoTitle">조치 후 사진</h3><label for="afterPhotoInput" class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 업로드해도 처리 상태는 바뀌지 않습니다.</label><input accept="image/jpeg,image/png,image/webp" id="afterPhotoInput" multiple type="file"><div id="afterPreviewGrid" class="preview-grid"></div></section>
+<section class="issue-photos" aria-labelledby="beforePhotoTitle"><h3 id="beforePhotoTitle">현장 사진(조치 전)</h3><p class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 사진 없이도 저장할 수 있습니다.</p><div id="beforePhotoZone" class="issue-photo-zone" data-photo-category="before" tabindex="0" role="group" aria-labelledby="beforePhotoTitle" aria-describedby="beforePhotoInstructions beforePhotoPaste"><label id="beforePhotoInstructions" for="photoInput">사진을 끌어놓거나 클릭해서 선택하세요</label><p id="beforePhotoPaste" class="hint">이 영역을 선택한 뒤 Ctrl+V로 붙여넣을 수 있습니다</p><input aria-label="조치 전 사진 파일 선택" accept="image/jpeg,image/png,image/webp" id="photoInput" multiple type="file"><p class="hint issue-photo-feedback" role="status" aria-live="polite" hidden></p></div><div id="previewGrid" class="preview-grid"></div></section>
+<section class="issue-photos" aria-labelledby="afterPhotoTitle"><h3 id="afterPhotoTitle">조치 후 사진</h3><p class="hint">JPEG · PNG · WebP, 파일당 5MB 이하 · 최대 3장. 업로드해도 처리 상태는 바뀌지 않습니다.</p><div id="afterPhotoZone" class="issue-photo-zone" data-photo-category="after" tabindex="0" role="group" aria-labelledby="afterPhotoTitle" aria-describedby="afterPhotoInstructions afterPhotoPaste"><label id="afterPhotoInstructions" for="afterPhotoInput">사진을 끌어놓거나 클릭해서 선택하세요</label><p id="afterPhotoPaste" class="hint">이 영역을 선택한 뒤 Ctrl+V로 붙여넣을 수 있습니다</p><input aria-label="조치 후 사진 파일 선택" accept="image/jpeg,image/png,image/webp" id="afterPhotoInput" multiple type="file"><p class="hint issue-photo-feedback" role="status" aria-live="polite" hidden></p></div><div id="afterPreviewGrid" class="preview-grid"></div></section>
 </div>
 <div class="issue-form-actions"><button class="btn primary" type="submit" id="saveIssueButton">저장</button><button class="btn light" type="button" onclick="if(!issueForm.dataset.dirty||confirm('작성 중인 내용을 지우고 새로 작성하시겠습니까?'))resetForm()">새로 작성</button><span class="hint">저장 실패 시 입력과 사진을 유지합니다.</span><button class="btn danger" id="deleteBtn" type="button" style="display:none" onclick="deleteIssue()">삭제</button></div></form>
 <p id="issueFeedback" class="issue-feedback" role="status" aria-live="polite" hidden></p></div>
@@ -1668,7 +1668,7 @@
     let issueBusy = '';
     let draftIssueId = '';let issueDraftVersion=0,draftPromise=null;const issueTouched=new Set(),issueInitialValues=new Map();
     function rememberIssueValues(){issueInitialValues.clear();for(const n of document.querySelectorAll("#issueForm input,#issueForm select,#issueForm textarea"))issueInitialValues.set(n.id,n.type==="checkbox"?n.checked:n.value);}
-    const issueEditableFields={occurDate:'occurDate',product:'product',processPnd:'processPnd',description:'description',responsibleDept:'responsibleDept',status:'status',actionDetail:'actionDetail',yard:'issueExtra_yard',hullNo:'issueExtra_hullNo',productNo:'issueExtra_productNo',remark:'issueExtra_remark'};
+    const issueEditableFields={occurDate:'occurDate',product:'product',processPnd:'processPnd',completedDate:'completedDate',description:'description',responsibleDept:'responsibleDept',status:'status',actionDetail:'actionDetail',yard:'issueExtra_yard',hullNo:'issueExtra_hullNo',productNo:'issueExtra_productNo',remark:'issueExtra_remark'};
     function omitUnchangedIssueFields(data){for(const [field,id]of Object.entries(issueEditableFields)){const n=document.getElementById(id);if(!issueTouched.has(id)&&issueInitialValues.has(id)&&n.value===issueInitialValues.get(id))delete data[field];}}
     function issueMessage(message,error=false){const n=document.getElementById('issueFeedback');n.textContent=message;n.hidden=!message;n.classList.toggle('error',error);}
     async function prepareIssueDraft(){if(issueId.value||draftIssueId)return;if(draftPromise)return draftPromise;if(!window.hpmServerUser)return;const generation=issueDraftVersion;draftPromise=apiRequest('/api/issues/draft').then(r=>{if(generation===issueDraftVersion&&!issueId.value){draftIssueId=r.id;}}).finally(()=>{if(generation===issueDraftVersion)draftPromise=null;});return draftPromise;}
@@ -1697,6 +1697,7 @@
       }
       const indicator = document.getElementById('issueApiStatus');
       if (indicator) { indicator.textContent = message; indicator.hidden = !message; }
+      for(const zone of document.querySelectorAll('[data-photo-category]'))zone.setAttribute('aria-busy',String(Boolean(message)));
     }
     async function apiRequest(path, options = {}) {
       if (isPresentationMode()) throw new Error('발표용 파일에서는 API를 변경하거나 호출할 수 없습니다. 웹사이트를 이용하세요.');
@@ -1958,13 +1959,64 @@
       const labels={dashboard:['현황 대시보드','공정 문제점 현황과 PND 알림을 확인합니다.'],manage:['공정 문제점 관리','문제점과 조치내용을 기록하고 등록 현황을 확인합니다.'],statistics:['현황 대시보드','문제점의 발생 추이와 개선 검토 자료를 확인합니다.']};document.getElementById('issuePageTitle').textContent=labels[tab][0];document.getElementById('issuePageDescription').textContent=labels[tab][1];window.HpmIssueDashboard?.switch(tab);if(tab==='dashboard')renderDashboard();if(tab==='manage')applyFilters();if(tab==='statistics')renderStatistics();window.scrollTo({top:0,behavior:'smooth'});
     }
 
-    async function handlePhotoSelection(input,category){
-      if(issueBusy){input.value='';return;}if(!window.hpmServerUser){openLoginModal('login');return;}const target=category==='before'?currentImages:currentAfterImages,files=[...input.files];if(files.length>3-target.length){issueMessage('사진은 조치 전·후 각각 최대 3장입니다.',true);input.value='';return;}
-      setIssueBusy('사진 미리보기 준비 중…');try{for(const file of files){if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('JPEG, PNG, WebP 사진을 선택하세요.');if(file.size>5*1024*1024)throw new Error('사진은 파일당 5MB 이하로 선택하세요.');target.push(await compressImage(file,1280,0.76));}issueMessage('사진을 선택했습니다. 저장할 때 업로드합니다.');document.getElementById('issueForm').dataset.dirty='true';}catch(e){issueMessage(e.message,true);}finally{input.value='';setIssueBusy('');renderPreviews();renderAfterPreviews();}
+    function photoFeedback(category,message,error=false){
+      const zone=document.querySelector('[data-photo-category="'+category+'"]'),feedback=zone.querySelector('.issue-photo-feedback');
+      feedback.textContent=message;feedback.hidden=!message;feedback.classList.toggle('error',error);
     }
-
-    document.getElementById('photoInput').addEventListener('change', function() { void handlePhotoSelection(this, 'before'); });
-    document.getElementById('afterPhotoInput').addEventListener('change', function() { void handlePhotoSelection(this, 'after'); });
+    async function addIssuePhotos(files,category){
+      if(!['before','after'].includes(category)||issueBusy)return;
+      if(!window.hpmServerUser){openLoginModal('login');return;}
+      const target=category==='before'?currentImages:currentAfterImages,errors=new Set();let added=0;
+      setIssueBusy('사진 미리보기 준비 중…');
+      try{
+        for(const file of files){
+          if(!['image/jpeg','image/png','image/webp'].includes(file.type)){errors.add('JPEG, PNG, WebP 사진만 첨부할 수 있습니다.');continue;}
+          if(file.size>5*1024*1024){errors.add('사진은 파일당 5MB 이하입니다.');continue;}
+          if(target.length>=3){errors.add('사진은 조치 전·후 각각 최대 3장입니다.');continue;}
+          try{target.push(await compressImage(file,1280,0.76));added++;}catch{errors.add('읽을 수 없는 사진입니다. 파일 선택으로 다시 첨부하세요.');}
+        }
+        if(added)document.getElementById('issueForm').dataset.dirty='true';
+        const message=[added?added+'장 첨부 대기 · 저장할 때 업로드합니다.':'',...errors].filter(Boolean).join(' ');
+        photoFeedback(category,message,errors.size>0);issueMessage(message,errors.size>0);
+      }finally{setIssueBusy('');renderPreviews();renderAfterPreviews();}
+    }
+    const handledPhotoEvents=new WeakSet();
+    for(const zone of document.querySelectorAll('[data-photo-category]')){
+      const category=zone.dataset.photoCategory,input=zone.querySelector('input[type=file]');
+      input.addEventListener('change',event=>{
+        if(handledPhotoEvents.has(event))return;handledPhotoEvents.add(event);
+        const files=[...input.files];input.value='';zone.focus();void addIssuePhotos(files,category);
+      });
+      zone.addEventListener('click',event=>{
+        if(event.target.closest('input,label,button'))return;
+        zone.focus();if(!issueBusy)input.click();
+      });
+      zone.addEventListener('keydown',event=>{
+        if(event.target===zone&&['Enter',' '].includes(event.key)){event.preventDefault();if(!issueBusy)input.click();}
+      });
+      zone.addEventListener('paste',event=>{
+        // Only the focused zone (or its file picker) can receive clipboard photos.
+        if(!zone.contains(document.activeElement)||handledPhotoEvents.has(event))return;
+        handledPhotoEvents.add(event);event.preventDefault();zone.focus();
+        const files=[...(event.clipboardData?.items||[])].filter(item=>item.kind==='file').map(item=>item.getAsFile()).filter(Boolean);
+        if(files.length)void addIssuePhotos(files,category);
+        else photoFeedback(category,'클립보드에 이미지가 없습니다. 파일 선택으로 첨부하세요.');
+      });
+      zone.addEventListener('dragover',event=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect=issueBusy?'none':'copy';zone.classList.add('dragging');});
+      zone.addEventListener('dragleave',event=>{if(!zone.contains(event.relatedTarget))zone.classList.remove('dragging');});
+      zone.addEventListener('drop',event=>{
+        event.preventDefault();zone.classList.remove('dragging');
+        if(handledPhotoEvents.has(event))return;handledPhotoEvents.add(event);zone.focus();
+        const files=[...(event.dataTransfer?.files||[])];
+        if(files.length)void addIssuePhotos(files,category);
+        else photoFeedback(category,'사진 파일을 끌어놓으세요. 이미지 주소는 첨부하지 않습니다.');
+      });
+    }
+    // Block file navigation everywhere without capturing clipboard events globally.
+    for(const type of ['dragover','drop'])window.addEventListener(type,event=>{
+      if([...event.dataTransfer?.types||[]].includes('Files'))event.preventDefault();
+      if(type==='drop')document.querySelectorAll('.issue-photo-zone.dragging').forEach(zone=>zone.classList.remove('dragging'));
+    });
 
     function compressImage(file, maxSize, quality) {
       return new Promise((resolve, reject) => {
@@ -2074,6 +2126,8 @@
         const data={id,...Object.fromEntries(Object.entries(issueEditableFields).map(([field,inputId])=>[field,document.getElementById(inputId).value])),images:[...currentImages],afterImages:[...currentAfterImages]};
         if(!data.description.trim())throw new Error('문제점 상세내용을 입력하세요.');
         if(existing){omitUnchangedIssueFields(data);for(const field of ['images','afterImages'])if(JSON.stringify(data[field])===JSON.stringify(existing[field]))delete data[field];}
+        else delete data.completedDate;
+        if(Object.hasOwn(data,'completedDate'))window.validateIssueCompletionDate(data.completedDate,data.occurDate??existing?.occurDate,existing?.completedDate);
         await saveIssue(data);setIssueBusy('');resetForm();refreshIssueViews();window.switchManageView('list');const n=document.getElementById('issueRecordsStatus');n.textContent=existing?'수정 내용을 저장했습니다.':'문제점을 등록했습니다.';n.hidden=false;showToast(n.textContent);
       }catch(error){issueMessage('저장하지 못했습니다. '+error.message+' 입력과 사진을 유지했습니다.',true);renderPreviews();renderAfterPreviews();}finally{setIssueBusy('');}
     });
@@ -2082,6 +2136,7 @@
       if(issueBusy){showToast(issueBusy);return;}
       issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;document.getElementById('issueEditorTitle').textContent='문제점 수정';window.switchManageView('create');issueMessage('');void discardPendingPhotos();draftIssueId=issue.id;issueId.value=issue.id;
       for(const [field,inputId]of Object.entries(issueEditableFields)){const n=document.getElementById(inputId);if(n.tagName==='SELECT')ensureSelectValue(n,issue[field]||'');else n.value=issue[field]||'';}
+      document.getElementById('completedDateField').hidden=false;document.getElementById('completedDate').dataset.storedValue=issue.completedDate||'';window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');
       reporter.value=issue.reporter||'';currentImages=[...(issue.images||[])];currentAfterImages=[...(issue.afterImages||[])];renderPreviews();renderAfterPreviews();updateFormDeleteButton(issue);formModeBadge.textContent='수정';formModeBadge.className='badge blue';switchIssueTab('manage');window.scrollTo({top:0,behavior:'smooth'});
     }
 
@@ -2124,7 +2179,7 @@
 }
 
     function resetForm(){
-      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
+      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('completedDateField').hidden=true;delete document.getElementById('completedDate').dataset.storedValue;window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
     }
 
     function getFilteredIssues() {
@@ -3000,4 +3055,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261101-evidence"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261102-attachments"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

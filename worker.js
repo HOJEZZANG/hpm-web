@@ -3,6 +3,7 @@ import { businessApi } from './business/api.mjs';
 import { authenticate, authApi } from './business/auth.mjs';
 import { auditRequest } from './business/audit.mjs';
 import { issueChanges } from './business/issue-history.mjs';
+import { validateIssueCompletionDate } from './business/issue-completion.mjs';
 import { BusinessError, koreanToday, date as businessDate } from './business/domain.mjs';
 const ALLOWED_ORIGIN = 'https://hojezzang.github.io';
 const API_ORIGIN = 'https://hpmanagement-web.lotusland1995.workers.dev';
@@ -109,9 +110,10 @@ function validateIssue(body, id, old) {
   }
   if (!issue.title.trim() && !issue.description.trim()) throw new ApiError(400, '문제점 상세내용을 입력하세요.');
   if (!old && !issue.title.trim()) issue.title=issue.description.trim().replace(/\s+/g,' ').slice(0,100);
-  for (const key of ['occurDate','registerDate','processPnd','deliveryDate','dueDate','completedDate']) {
+  for (const key of ['occurDate','registerDate','processPnd','deliveryDate','dueDate']) {
     if (issue[key] && issue[key]!==old?.[fields[key]]) businessDate(issue[key],key);
   }
+  validateIssueCompletionDate(issue.completedDate, issue.occurDate, old?.completed_date);
   issue.id = id;
   issue.followupFlag = bool(body.followupFlag); issue.sample = bool(body.sample);
   for (const name of ['images', 'afterImages']) {
@@ -190,6 +192,7 @@ async function cleanupPhotos(env, candidates) {
 async function saveIssue(request, env, id, user) {
   const body = await readJson(request);
   if (!body || typeof body!=='object' || Array.isArray(body)) throw new ApiError(400,'문제점 데이터를 확인하세요.');
+  if (Object.hasOwn(body,'completedDate') && typeof body.completedDate !== 'string') throw new ApiError(400,'실제 완료일은 날짜 또는 빈 값으로 입력하세요.');
   const old = await env.DB.prepare('SELECT * FROM issues WHERE id = ?').bind(id).first();
   const previous=old ? {...Object.fromEntries(Object.entries(fields).map(([key,column])=>[key,old[column]??''])),followupFlag:bool(old.followup_flag),sample:bool(old.sample),images:array(old.images),afterImages:array(old.after_images),history:array(old.history)} : {occurDate:koreanToday()};
   const issue = validateIssue({...previous,...body,history:body.history??[]}, id, old);

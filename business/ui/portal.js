@@ -4,7 +4,7 @@ import {init as production} from './production.js?v=20261101-evidence';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261101-workflows';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261101-workflows';
-import {initIssueView} from './issue-view.js?v=20261029-issues';
+import {initIssueView} from './issue-view.js?v=20261102-attachments';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
 import {initHistory} from './history.js?v=20261029-home';
 import {initEntry,noticePreview} from './home.js?v=20261029-home';

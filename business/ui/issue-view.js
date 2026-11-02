@@ -1,4 +1,5 @@
 import {esc} from './common.js';
+import {validateIssueCompletionDate} from '../issue-completion.mjs';
 export function koreanHistoryTime(value){
   if(!value)return '—';
   // Legacy values without a timezone have no verified instant; preserve their original display.
@@ -9,6 +10,23 @@ const fields=items=>`<dl class="issue-detail-fields">${items.map(([label,value])
 const history=items=>items?.length?`<ol class="detail-timeline">${[...items].toReversed().map(h=>`<li><div class="timeline-meta"><time>${esc(koreanHistoryTime(h.at))}</time><strong>${esc(h.actor||'—')}</strong><span class="badge gray">${esc(h.status||'—')}</span></div><p>${esc(h.note||'변경 내용 없음')}</p></li>`).join('')}</ol>`:'<p class="hint">저장된 이력이 없습니다.</p>';
 export const hasIssueValue=value=>value!==null&&value!==undefined&&value!==false&&String(value).trim()!=='';
 export function initIssueView(){
+  window.validateIssueCompletionDate=validateIssueCompletionDate;
+  const completedDate=document.getElementById('completedDate'),completionHint=document.getElementById('completedDateHint');
+  window.updateIssueCompletionHint=()=>{
+    const editing=Boolean(document.getElementById('issueId').value),value=completedDate.value,stored=completedDate.dataset.storedValue||'',closed=['조치완료','종결'].includes(document.getElementById('status').value),messages=[];
+    if(editing){
+      if(stored&&!value)messages.push('기존 실제 완료일: '+stored+'. 변경하지 않으면 보존됩니다. 삭제하려면 지우기를 누르세요.');
+      try{validateIssueCompletionDate(value||stored,document.getElementById('occurDate').value);}catch(error){messages.push(error.message+' 기존 값은 다른 내용 수정 시 보존됩니다.');}
+      if(value&&!closed)messages.push('미완료 상태에 실제 완료일이 있습니다. 처리 상태와 날짜를 확인하세요.');
+      if(!value&&!stored&&closed)messages.push('완료 상태에 실제 완료일이 없습니다. 날짜를 확인하세요. 날짜 없이도 저장할 수 있습니다.');
+    }
+    completionHint.textContent=messages.join(' ');completionHint.hidden=!messages.length;
+  };
+  for(const id of ['completedDate','status','occurDate'])for(const type of ['input','change'])document.getElementById(id).addEventListener(type,()=>{
+    if(id==='completedDate')delete completedDate.dataset.storedValue;
+    window.updateIssueCompletionHint();
+  });
+  document.getElementById('clearCompletedDate').onclick=()=>{completedDate.value='';completedDate.dispatchEvent(new Event('input',{bubbles:true}));completedDate.focus();};
   window.formatIssueHistoryTime=koreanHistoryTime;
   window.switchManageView=view=>{
     const listing=view==='list';document.getElementById('issueEditorPane').hidden=listing;document.getElementById('issueRecordsPane').hidden=!listing;
@@ -26,10 +44,10 @@ export function initIssueView(){
     if(!dialog.open)previouslyFocused=document.activeElement;
     document.getElementById('issueDetailTitle').textContent=i.title||i.description?.split('\n')[0]||'문제점 상세';
     document.getElementById('issueDetailSummary').innerHTML=`<span class="detail-location">${esc(window.HpmHome.issueLocation(i))}</span><span class="badge ${esc(window.getStatusClass?.(i.status)||'gray')}">${esc(i.status||'—')}</span><span>발생일 ${esc(i.occurDate||'—')}</span><span>작성자 ${esc(i.reporter||'—')}</span>`;
-    const additional=[['공정',i.process],['문제 유형',i.issueType],['담당자',i.feedbackOwner],['납품일',i.deliveryDate],['조치 예정일',i.dueDate],['실제 완료일',i.completedDate],['파트',i.part],['공장',i.factory],['기존 Yard/Hull 정보',i.projectNo],['기존 등록일',i.registerDate],['우선순위',i.priority],['발견자',i.finder],['효과 확인자',i.verifier],['후속 반영',i.followupFlag?'관리 대상':'']].filter(([,v])=>hasIssueValue(v));
+    const additional=[['공정',i.process],['문제 유형',i.issueType],['담당자',i.feedbackOwner],['납품일',i.deliveryDate],['조치 예정일',i.dueDate],['파트',i.part],['공장',i.factory],['기존 Yard/Hull 정보',i.projectNo],['기존 등록일',i.registerDate],['우선순위',i.priority],['발견자',i.finder],['효과 확인자',i.verifier],['후속 반영',i.followupFlag?'관리 대상':'']].filter(([,v])=>hasIssueValue(v));
     const narratives=[['원인 분석',i.causeFeedback],['재발방지',i.prevention]].filter(([,v])=>hasIssueValue(v));
     document.getElementById('issueDetailBody').innerHTML=`
-      <section class="detail-section"><h3>기본정보</h3>${fields([['제품명',i.product],['제품 규격',i.productNo],['Yard',i.yard||'미입력'],['Hull No.',i.hullNo||'미입력'],['귀책부서',i.responsibleDept],['공정 PND',i.processPnd],['비고',i.remark],['등록시각',koreanHistoryTime(i.createdAt)],['수정시각',koreanHistoryTime(i.updatedAt)]])}</section>
+      <section class="detail-section"><h3>기본정보</h3>${fields([['제품명',i.product],['제품 규격',i.productNo],['Yard',i.yard||'미입력'],['Hull No.',i.hullNo||'미입력'],['귀책부서',i.responsibleDept],['공정 PND',i.processPnd],['실제 완료일',i.completedDate||'미입력'],['비고',i.remark],['등록시각',koreanHistoryTime(i.createdAt)],['수정시각',koreanHistoryTime(i.updatedAt)]])}</section>
       <section class="detail-section detail-content"><h3>핵심 내용</h3><div class="detail-narratives"><section><h4>문제점 상세내용</h4><p>${esc(i.description||'—')}</p></section><section><h4>조치내용</h4><p>${esc(i.actionDetail||'—')}</p></section></div></section>
       <section class="detail-section"><h3>현장 · 조치 후 사진 비교</h3><div class="issue-detail-photos">${[['현장 사진',i.images],['조치 후 사진',i.afterImages]].map(([label,photos])=>`<section><h4>${label} <span class="hint">${photos?.length||0}장</span></h4><div class="detail-photo-grid">${(photos||[]).map((src,index)=>`<button type="button" class="detail-photo" data-photo="${esc(window.issuePhotoUrl(src))}" aria-label="${label} ${index+1} 확대"><img src="${esc(window.issuePhotoUrl(src))}" alt="${label} ${index+1}" loading="lazy"></button>`).join('')||'<p class="hint">첨부 사진 없음</p>'}</div></section>`).join('')}</div><p class="hint">사진을 선택하면 확대합니다. 사진 추가는 수정하기에서 할 수 있습니다.</p></section>
       ${additional.length||narratives.length?`<details class="detail-additional" data-legacy-issue><summary>기존 정보</summary><div>${additional.length?fields(additional):''}${narratives.map(([label,value])=>`<section class="detail-text"><h4>${esc(label)}</h4><p>${esc(value)}</p></section>`).join('')}</div></details>`:''}
