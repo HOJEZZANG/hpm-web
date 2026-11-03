@@ -3,7 +3,7 @@ import {init as weekly} from './weekly.js?v=20261031-meeting';
 import {init as production} from './production.js?v=20261101-evidence';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261101-workflows';
 import {createPresentation} from './presentation.js';
-import {initNavigation} from './navigation.js?v=20261102-leave';
+import {initNavigation} from './navigation.js?v=20261103-pressure';
 import {initIssueView} from './issue-view.js?v=20261102-leave';
 import {initIssueDraft} from './issue-draft.js?v=20261102-leave';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';

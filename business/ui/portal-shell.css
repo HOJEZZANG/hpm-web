@@ -5,7 +5,8 @@
 body{background:var(--hpm-bg);color:var(--hpm-ink);font:14px/1.6 "Malgun Gothic",system-ui,sans-serif}
 [hidden]{display:none!important}
 
-.portal-topbar{height:64px;padding:0 22px;background:#fff;border-bottom:1px solid var(--hpm-line);box-shadow:none;z-index:200}
+#portalWorkspace{--portal-header-height:88px}
+.portal-topbar{height:var(--portal-header-height);padding:0 22px;background:#fff;border-bottom:1px solid var(--hpm-line);box-shadow:none;z-index:200}
 .portal-brand{gap:10px}
 .brand-mark{width:48px;height:38px;line-height:38px;background:var(--hpm-green-dark);color:#fff;border-radius:6px;font-size:15px;box-shadow:none}
 .brand-copy small{font-size:9px;letter-spacing:1px;color:var(--hpm-muted)}
@@ -19,7 +20,7 @@ body{background:var(--hpm-bg);color:var(--hpm-ink);font:14px/1.6 "Malgun Gothic"
 .top-login-btn{background:var(--hpm-green);color:white}
 .top-logout-btn{background:white;border:1px solid var(--hpm-line);color:var(--hpm-ink)}
 
-.portal-sidebar{position:fixed;top:64px;bottom:0;left:0;width:248px;height:calc(100dvh - 64px);padding:16px 12px 24px;background:#243632;border:0;overflow-y:auto;overflow-x:hidden;display:block;z-index:190;scrollbar-width:thin;scrollbar-color:#577065 #243632}
+.portal-sidebar{position:fixed;margin:0;top:var(--portal-header-height);bottom:0;left:0;width:248px;height:calc(100dvh - var(--portal-header-height));padding:16px 12px 24px;background:#243632;border:0;overflow-y:auto;overflow-x:hidden;display:block;z-index:190;scrollbar-width:thin;scrollbar-color:#577065 #243632}
 .portal-sidebar .menu-caption{font-size:10px;color:#a2b7ae;letter-spacing:1.4px;padding:4px 10px 10px}
 .portal-sidebar .menu-group{margin:12px 0 0}
 .portal-sidebar .menu-parent,.portal-sidebar .menu-item{font-family:inherit;font-size:13px;line-height:1.5;min-height:40px;height:auto;width:100%;padding:9px 10px;display:flex;align-items:center;gap:10px;border:0;border-radius:6px;background:none;box-shadow:none;text-align:left;text-decoration:none;color:#e0e9e4;white-space:normal;overflow:visible;word-break:keep-all;overflow-wrap:anywhere}
@@ -32,7 +33,7 @@ body{background:var(--hpm-bg);color:var(--hpm-ink);font:14px/1.6 "Malgun Gothic"
 .portal-sidebar .submenu{display:flex;flex-direction:column;gap:3px;margin:3px 0 0 9px;padding-left:10px;border-left:1px solid #4b6156}
 .menu-chevron{transition:none}
 .menu-parent[aria-expanded=false] .menu-chevron{transform:rotate(-90deg)}
-.portal-main{width:auto;min-width:0;margin:64px 0 0 248px;padding:24px;max-width:none;background:var(--hpm-bg)}
+.portal-main{width:auto;min-width:0;margin:var(--portal-header-height) 0 0 248px;padding:24px;max-width:none;background:var(--hpm-bg)}
 .portal-page{max-width:1600px;margin:0 auto}
 .page-crumb{display:none}
 .module-banner,.home-hero{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;min-height:0;margin:0 0 20px;border-radius:0;color:var(--hpm-ink)}
@@ -153,7 +154,7 @@ td,th{overflow-wrap:anywhere}
 .portal-brand{margin-right:auto}
 .portal-sidebar{transform:translateX(-100%);visibility:hidden;width:248px}
 .sidebar-open .portal-sidebar{transform:none}
-.menu-backdrop:not([hidden]){display:block;position:fixed;inset:64px 0 0;background:#122a2355;border:0;border-radius:0;z-index:180}
+.menu-backdrop:not([hidden]){display:block;position:fixed;inset:var(--portal-header-height) 0 0;background:#122a2355;border:0;border-radius:0;z-index:180}
 .portal-main{margin-left:0;padding:20px}
 .clock-box{display:none}
 .portal-top-actions{gap:8px}
@@ -165,6 +166,7 @@ td,th{overflow-wrap:anywhere}
 .fire-table-wrap,.business-table-wrap{max-width:100%;overflow-x:auto}
 }
 
+@media(max-width:600px){#portalWorkspace{--portal-header-height:72px}}
 @media(max-width:560px){.portal-main{padding:16px 12px}
 .brand-copy small{display:none}
 .brand-copy strong{font-size:12px}
