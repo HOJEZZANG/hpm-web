@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs/dist/exceljs.min.js';
-import {productionView,productionCounts,productionProcessState} from '../business/production-view.mjs';
+import {productionView,productionCounts,productionProcessState} from '../business/ui/production-view.js';
 import {productionWorkbook} from '../business/production-export.mjs';
 import {parseProductionSheet} from '../business/production-sheet.mjs';
 import {readTable} from '../business/ooxml.mjs';
@@ -9,9 +9,9 @@ const today='2026-10-31';
 const make=(id,eq,process,pnd,quantity=1)=>({id,분류:eq,현공정:process,PND:pnd,수량:quantity,Yard:eq==='AC'?'합성 A':'합성 B',HullNo:'000'+id,'Work Order':'00017'});
 const rows=[make('A1','AC','COND. 취부/용접AC[AC1]','2026-10-30',20),make('A2','AC','납품준비 [APR]','2026-10-01'),make('A3','AC','조립AC[AA1]',today,3),make('P1','PROV','COND.취부/용접[PC1]','2026-11-07',5),make('P2','PROV','PROV 결선[PEL]','2026-11-08',7),make('P3','PROV','알 수 없는 공정','2026-02-30',0),make('D1','DECK','','',10)];
 test('explicit process mapping never treats unknown or ambiguous names as complete; exact partitions and date subsets',()=>{
-  for(const p of ['납품준비','납품준비 [APR]','납품준비 완료','APR'])assert.equal(productionProcessState(p),'ready');
+  for(const p of ['납품준비','납품준비 [APR]','납품준비 완료','APR','완료'])assert.equal(productionProcessState(p),'ready');
   for(const p of ['조립','대기','PROV PAINT 작업[PPT]','DECK UNIT BED FRAME 제작[DBP]'])assert.equal(productionProcessState(p),'active');
-  for(const p of ['완료','알 수 없음','납품준비 대기','UNKNOWN[APR]','납품준비 [AA1]',''])assert.equal(productionProcessState(p),'unknown');
+  for(const p of ['알 수 없음','납품준비 대기','UNKNOWN[APR]','납품준비 [AA1]',''])assert.equal(productionProcessState(p),'unknown');
   assert.deepEqual(productionCounts(rows,today),{total:7,active:4,ready:1,unknown:2,overdue:1,upcoming:2,missingPnd:1,invalidPnd:1});
   const v=productionView(rows,{},'분류',{},today);assert.deepEqual(v.groups.map(g=>[g.name,g.total,g.active,g.ready,g.unknown,g.overdue]),[['AC',3,2,1,0,1],['PROV',3,2,0,1,0],['DECK',1,0,0,1,0]]);
   assert.equal(v.summary.total,v.summary.active+v.summary.ready+v.summary.unknown);assert.equal(rows.reduce((n,r)=>n+r.수량,0),46);

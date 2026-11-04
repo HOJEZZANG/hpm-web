@@ -1,5 +1,5 @@
-// Browser presentation only: keep each part's verified process rules unchanged.
-import {productionView,ahuView} from '../production-view.mjs';
+// Summary and graph use the portal's shared completion and part-specific active rules.
+import {productionView,ahuView} from './production-view.js?v=20261104-status';
 import {productionEquipment} from '../domain.mjs';
 export function productionDisplay(view,part,equipment){
   const rows=view.records,shown=part==='part2'?ahuView(rows,{}, {},view.today):productionView(rows,{},equipment,{},view.today);

@@ -2,7 +2,7 @@ import {parseProductionSheet,validateMetadata,normalizeProductionRow} from '../p
 import {productionLimits as L,byteLength} from '../production-limits.mjs';
 import {ensure} from '../domain.mjs';
 import {productionWorkbook} from '../production-export.mjs';
-import {productionView,ahuView} from '../production-view.mjs';
+import {productionView,ahuView} from './production-view.js?v=20261104-status';
 import {productionDisplay} from './production-display.js';
 let plan;
 self.onmessage=async({data:m})=>{try{
