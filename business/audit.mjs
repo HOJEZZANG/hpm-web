@@ -7,5 +7,7 @@ export function auditStatement(env,user,action,targetId,details={},conditional=f
 export async function auditRequest(env,user,req){
   if(user?.role!=='admin'||!['POST','PUT','DELETE'].includes(req.method))return;
   const path=new URL(req.url).pathname;
+  // Notice saves already commit their server audit entry in the same transaction.
+  if(req.method==='PUT'&&/^\/api\/business\/notices\/[A-Za-z0-9_-]{1,128}$/.test(path))return;
   await auditStatement(env,user,req.method+' '+path,path).run();
 }
