@@ -1,7 +1,7 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261031-meeting';
 import {init as production} from './production.js?v=20261104-status';
-import {init as ahuPnd} from './ahu-pnd.js?v=20261101-workflows';
+import {init as ahuPnd} from './ahu-pnd.js?v=20261106-last';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261103-pressure';
 import {initIssueView} from './issue-view.js?v=20261102-leave';
@@ -9,9 +9,10 @@ import {initIssueDraft} from './issue-draft.js?v=20261102-leave';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
 import {initHistory} from './history.js?v=20261102-leave';
 import {initEntry,noticePreview} from './home.js?v=20261029-home';
-import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261101-workflows';
+import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261106-notices';
 import {initIssueDashboard} from './issue-dashboard.js?v=20261101-evidence';
 import {accounts} from './accounts.js?v=20261027-access';
+import {init as notices} from './notices.js?v=20261106-history';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
 window.HpmPasswordPolicy=passwordPolicy;
 initEntry();initNavigation();initIssueView();initIssueDraft();initIssueLoadState();initHistory();initIssueDashboard();
@@ -27,7 +28,6 @@ async function open(page){
   delete root.dataset.ready;
   const task=(async()=>{try{await modules[page](root);if(root.isConnected){initialized.add(page);root.dataset.ready='true';}}catch(e){if(root.isConnected){root.innerHTML=`<p role="alert">${esc(e.message)}</p>${button('다시 열기','data-retry')}`;$('[data-retry]',root).onclick=()=>open(page);}}finally{if(pending.get(page)===task)pending.delete(page);}})();pending.set(page,task);return task;
 }
-async function notices(root){await collection(root,{type:'notices',title:'공지사항',description:'관리자가 게시한 생산관리 공지사항',admin:true,fields:[['title','제목','text',{required:true,max:200}],['content','공지내용','textarea',{required:true,max:5000,wide:true}]],columns:[{label:'제목',key:'title'},{label:'내용',key:'content'},{label:'수정일',key:'updatedAt'}]});root.hpmOpenRecord=record=>openNoticeDetail(root,record);}
 async function search(root){
   shell(root,'통합검색','공정 문제점·일정·주간 이슈·생산계획·공지사항을 검색합니다.',`<form class="card search-page-form" role="search">${field('q','검색어 (2자 이상)','search',{required:true,max:100})}<button type="submit" class="btn primary">검색</button></form><p class="search-page-status" data-search-status role="status" aria-live="polite"></p><div data-results></div>`);
   const form=$('form',root);form.elements.q.minLength=2;let sequence=0;

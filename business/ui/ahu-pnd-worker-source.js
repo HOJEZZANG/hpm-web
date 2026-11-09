@@ -14,6 +14,6 @@ self.onmessage=({data:m})=>{try{
   }
   else if(m.type==='sheet'){const source=sources[m.side];source.sheet=source.workbook.readSheet(m.index);results=[];result=source.sheet.preview;}
   else if(m.type==='compare'){results=compareProductionPnd({part:m.part,erp:extractAhuRows(sources.erp.sheet,m.erp,sources.erp.file),plan:extractAhuRows(sources.plan.sheet,m.plan,sources.plan.file),aliases:m.aliases});result=results;}
-  else if(m.type==='export'){const ids=m.ids?new Set(m.ids):null,rows=ids?results.filter(r=>ids.has(r.id)):results;const bytes=writeTable(exportColumns,exportRows(rows),'PND 대조');self.postMessage({id:m.id,result:{bytes:bytes.buffer,count:rows.length}},[bytes.buffer]);return;}
+  else if(m.type==='export'||m.type==='exportSnapshot'){const ids=m.ids?new Set(m.ids):null,rows=m.type==='exportSnapshot'?m.rows:ids?results.filter(r=>ids.has(r.id)):results;const bytes=writeTable(exportColumns,exportRows(rows),'PND 대조');self.postMessage({id:m.id,result:{bytes:bytes.buffer,count:rows.length}},[bytes.buffer]);return;}
   else throw Error('지원하지 않는 작업입니다.');self.postMessage({id:m.id,result});
 }catch(error){self.postMessage({id:m.id,error:error.message});}};

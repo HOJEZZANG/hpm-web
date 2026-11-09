@@ -28,5 +28,5 @@ export function installSearchExecution(open){
 }
 export async function openNoticeDetail(root,record){
   const owner=identity(),{records}=await api('notices');if(identity()!==owner||!root.isConnected)return;const notice=records.find(r=>r.id===record.id);if(!notice)return;
-  root.querySelector('dialog')?.remove();const dialog=document.createElement('dialog');dialog.className='search-detail';dialog.setAttribute('aria-label','공지사항 상세');dialog.innerHTML=`<h2>${esc(notice.title)}</h2><p>${esc(notice.content)}</p><button type="button" class="btn outline">닫기</button>`;root.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();dialog.showModal();
+  root.querySelector('dialog.search-detail')?.remove();const dialog=document.createElement('dialog');dialog.className='search-detail';dialog.setAttribute('aria-label','공지사항 상세');dialog.innerHTML=`<h2>${esc(notice.title)}</h2><p>${esc(notice.content)}</p><button type="button" class="btn outline">닫기</button>`;root.append(dialog);dialog.querySelector('button').onclick=()=>dialog.close();dialog.showModal();
 }

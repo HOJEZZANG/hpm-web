@@ -40,6 +40,7 @@ export async function startTestServer(){
         const headers=new Headers(req.headers);headers.set('Origin','https://hojezzang.github.io');
         const request=new Request('https://hpmanagement-web.lotusland1995.workers.dev'+req.url,{method:req.method,headers,...(['GET','HEAD'].includes(req.method)?{}:{body:bytes})});
         const response=await worker.fetch(request,env);
+        if(state.loseNoticeResponse&&req.method==='PUT'&&/^\/api\/business\/notices\/[A-Za-z0-9_-]+$/.test(url.pathname)&&response.ok){state.loseNoticeResponse=false;res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 공지 저장 응답 유실'}));return;}
         if(state.loseApplyResponse&&req.method==='POST'&&url.pathname.endsWith('/apply')&&response.ok){state.loseApplyResponse=false;res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,error:'합성 최종 응답 유실'}));return;}
         res.writeHead(response.status,Object.fromEntries(response.headers));
         if(response.headers.get('content-type')?.includes('application/json'))res.end(JSON.stringify(translate(await response.json(),remote,state.url)));
