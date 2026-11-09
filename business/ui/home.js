@@ -36,5 +36,7 @@ export function initEntry(){
 
 export function noticePreview(n){
   const text=String(n.content||''),long=text.length>240||text.split('\n').length>4;
-  return `<article class="home-notice"><h3>${esc(n.title)}</h3><time>${esc(n.updatedAt?new Date(n.updatedAt).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'}):'')}</time>${long?`<p class="notice-preview">${esc(text.slice(0,240))}${text.length>240?'…':''}</p><details><summary>공지 전체 보기</summary><div class="notice-content">${esc(text)}</div></details>`:`<p class="notice-content">${esc(text)}</p>`}</article>`;
+  const date=n.updatedAt?new Date(n.updatedAt).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'}):'';
+  const author=String(n.authorName??'').trim()||'미기록';
+  return `<article class="home-notice"><h3>${esc(n.title)}</h3><div class="home-notice-meta">${date?`<time>${esc(date)}</time> · `:''}작성자: ${esc(author)}</div>${long?`<p class="notice-preview">${esc(text.slice(0,240))}${text.length>240?'…':''}</p><details><summary>공지 전체 보기</summary><div class="notice-content">${esc(text)}</div></details>`:`<p class="notice-content">${esc(text)}</p>`}</article>`;
 }

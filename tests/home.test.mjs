@@ -25,3 +25,13 @@ test('long notices provide escaped previews and a full readable disclosure',()=>
   const html=noticePreview({title:'<unsafe>',content:'<img onerror=x>\n'.repeat(50)});
   assert(!html.includes('<img'));assert(html.includes('&lt;unsafe&gt;'));assert(html.includes('<details>'));assert(html.includes('공지 전체 보기'));
 });
+
+test('home notice date line shows the immutable author name or unrecorded, without substituting editor or employee number',()=>{
+  for(const authorName of ['홍길동',undefined,'','  ',' 홍길동 ']){
+    const html=noticePreview({title:'공지',content:'본문',updatedAt:'2026-11-03T00:00:00Z',authorName,editorName:'다른 수정자',employeeNo:'001234'});
+    assert(html.includes(`<time>2026. 11. 3.</time> · 작성자: ${String(authorName??'').trim()||'미기록'}</div>`));
+    assert(!html.includes('다른 수정자'));assert(!html.includes('001234'));
+  }
+  assert(noticePreview({authorName:'<작성자>'}).includes('작성자: &lt;작성자&gt;'));
+  const undated=noticePreview({authorName:'홍길동'});assert(undated.includes('<div class="home-notice-meta">작성자: 홍길동</div>'));assert(!undated.includes('<time>'));
+});
