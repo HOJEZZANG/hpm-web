@@ -1,5 +1,5 @@
 // Pure comparison rules. No network, storage, local timezone or inferred yard aliases.
-import {normalizeAhuModel,confirmedYardConflict} from './ahu-models.mjs';
+import {normalizeAhuModel,canonicalYardCode,confirmedYardConflict} from './ahu-models.mjs?v=20261111-yard';
 export const AHU_LIMITS = Object.freeze({file:10*1024*1024,expanded:32*1024*1024,rows:20000,cells:250000,columns:256,text:16*1024*1024,candidates:250000});
 export const AHU_NOTICE = 'ERP PND 대비 생산계획 PND 기준입니다. 두 자료의 날짜 차이이며 실제 납기 지연 판정이나 과거 대비 변경 이력이 아닙니다.';
 const DAY=86400000;
@@ -22,25 +22,39 @@ export function calendarDate(value,date1904=false){
   return {iso:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,day:time/DAY};
 }
 export const identity=value=>String(value??'').trim();
+const HSH_YARD_BASIS='HSH/HSHI 동일 야드 적용';
 export function comparePnd(erp,plan,aliases={}){
   const sources={erp:erp.map((r,i)=>prepare(r,'erp',i)),plan:plan.map((r,i)=>prepare(r,'plan',i))},indexes={erp:index(sources.erp),plan:index(sources.plan)},used=new Set(),results=[];
   let edges=0,examined=0;const eligibility=new Map();
-  function prepare(r,side,i){const yard=identity(r.yard);return {...r,side,sourceId:side+':'+i,yard,hull:identity(r.hull),spec:String(r.spec??''),model:normalizeAhuModel(r.spec,side),matchYard:side==='plan'&&Object.hasOwn(aliases,yard)?identity(aliases[yard]):yard};}
+  function prepare(r,side,i){
+    const yard=identity(r.yard),yardCode=canonicalYardCode(yard);
+    const yardKeys=yardCode?[yardCode]:[];
+    if(yardCode&&side==='plan'&&Object.hasOwn(aliases,yard)){
+      const alias=canonicalYardCode(aliases[yard]);
+      if(alias&&alias!==yardCode)yardKeys.push(alias);
+    }
+    return {...r,side,sourceId:side+':'+i,yard,yardCode,yardKeys,hull:identity(r.hull),spec:String(r.spec??''),model:normalizeAhuModel(r.spec,side)};
+  }
+  function sameYard(a,b){return a.yardKeys.some(key=>b.yardKeys.includes(key));}
+  function hshAlias(a,b){return a.yard!==b.yard&&a.yardCode==='HSH'&&b.yardCode==='HSH';}
   function pairKey(r){return r.hull&&r.model.key?JSON.stringify([r.hull,r.model.key]):'';}
-  function index(rows){const out={yard:new Map(),hull:new Map(),model:new Map(),rawModel:new Map(),pair:new Map()};for(const r of rows)for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key],['rawModel',r.model.model],['pair',pairKey(r)]])if(value){if(!out[key].has(value))out[key].set(value,[]);out[key].get(value).push(r);}return out;}
+  function candidateKeys(r){return [...r.yardKeys.map(key=>['yard',key]),['hull',r.hull],['model',r.model.key],['rawModel',r.model.model]];}
+  function index(rows){const out={yard:new Map(),hull:new Map(),model:new Map(),rawModel:new Map(),pair:new Map()};for(const r of rows)for(const [key,value]of [...candidateKeys(r),['pair',pairKey(r)]])if(value){if(!out[key].has(value))out[key].set(value,[]);out[key].get(value).push(r);}return out;}
   function conflict(a,b){return confirmedYardConflict(a.side==='erp'?a.yard:b.yard,a.side==='plan'?a.yard:b.yard,aliases);}
   function eligible(r){if(eligibility.has(r.sourceId))return eligibility.get(r.sourceId);if(r.keyIssue||!pairKey(r))return [];const bucket=indexes[r.side==='erp'?'plan':'erp'].pair.get(pairKey(r))||[];examined+=bucket.length;if(examined>AHU_LIMITS.candidates)throw Error('호선·규격 후보 관계 250,000개 한계를 초과했습니다. AHU 대상 행을 좁혀 재비교하세요.');const choices=bucket.filter(other=>!other.keyIssue&&!conflict(r,other));eligibility.set(r.sourceId,choices);return choices;}
   function candidates(r,confirmedId=''){
     const opposite=indexes[r.side==='erp'?'plan':'erp'],found=new Map();
-    for(const [key,value]of [['yard',r.matchYard],['hull',r.hull],['model',r.model.key],['rawModel',r.model.model]])for(const other of value?opposite[key].get(value)||[]:[])found.set(other.sourceId,other);
+    for(const [key,value]of candidateKeys(r))for(const other of value?opposite[key].get(value)||[]:[])found.set(other.sourceId,other);
     edges+=found.size;if(edges>AHU_LIMITS.candidates)throw Error('OR 후보 관계 250,000개 한계를 초과했습니다. AHU 대상 행을 좁혀 재비교하세요. 후보를 조용히 생략하지 않습니다.');
     return [...found.values()].map(other=>{
-      const yard=Boolean(r.matchYard&&r.matchYard===other.matchYard),hull=Boolean(r.hull&&r.hull===other.hull),normalizedSpec=Boolean(r.model.key&&r.model.key===other.model.key),spec=Boolean(normalizedSpec||r.model.model&&r.model.model===other.model.model),yardConflict=conflict(r,other),notes=[];
+      const yardConflict=conflict(r,other),yard=!yardConflict&&sameYard(r,other),hull=Boolean(r.hull&&r.hull===other.hull),normalizedSpec=Boolean(r.model.key&&r.model.key===other.model.key),spec=Boolean(normalizedSpec||r.model.model&&r.model.model===other.model.model),notes=[];
       if(r.hull&&other.hull&&!hull)notes.push('호선 다름: 자동 연결 제외');if(!r.hull||!other.hull)notes.push('호선 누락');
       if(!r.model.key||!other.model.key)notes.push('규격 누락 또는 미확인 형식');else if(!spec)notes.push('규격 다름');
       if(yardConflict)notes.push('확인된 서로 다른 조선소 코드');if(r.keyIssue||other.keyIssue)notes.push('식별자 확인 필요');
       const matches=[yard?'야드':'',hull?'호선':'',spec?normalizedSpec?'규격':'규격 원문':''].filter(Boolean);
-      return {source:other,matches,yard,hull,spec,yardConflict,eligible:hull&&normalizedSpec&&!yardConflict&&!r.keyIssue&&!other.keyIssue,reason:matches.join('·')+' 일치'+(notes.length?' / '+notes.join(' / '):other.sourceId===confirmedId?' / 일대일 유일성 확인':' / 유일성 확인 필요')};
+      const matchReason=matches.length?matches.join('·')+' 일치':'야드 별칭 후보';
+      const aliasNote=yard&&hshAlias(r,other)?' / '+HSH_YARD_BASIS:'';
+      return {source:other,matches,yard,hull,spec,yardConflict,eligible:hull&&normalizedSpec&&!yardConflict&&!r.keyIssue&&!other.keyIssue,reason:matchReason+aliasNote+(notes.length?' / '+notes.join(' / '):other.sourceId===confirmedId?' / 일대일 유일성 확인':' / 유일성 확인 필요')};
     }).sort((a,b)=>Number(b.hull&&b.spec)-Number(a.hull&&a.spec)||Number(b.hull)-Number(a.hull)||Number(b.spec)-Number(a.spec)||a.source.row-b.source.row);
   }
   function make(erows,prows,linked,list=[],extra=[]){
@@ -48,8 +62,15 @@ export function comparePnd(erp,plan,aliases={}){
     for(const row of rows){if(!row.hull)reasons.push(`${row.side==='erp'?'ERP':'생산계획'} 호선번호 누락`);if(!row.model.key)reasons.push(row.model.reason);if(row.keyIssue)reasons.push(row.keyIssue);if(row.date?.reason)reasons.push(`${row.side==='erp'?'ERP':'생산계획'} ${row.row}행: ${row.date.reason}`);}
     let status='review',label='확인 필요',diff=null;
     if(linked&&!reasons.length){diff=prows[0].date.day-erows[0].date.day;status=diff<0?'advanced':diff>0?'delayed':'same';label=diff<0?`${-diff}일 당겨짐`:diff>0?`${diff}일 지연`:'일치';}
-    const ep=erows[0],pp=prows[0],basis=!linked?'자동 연결 보류':ep.yard===pp.yard?'호선·규격·야드 일치':ep.matchYard&&ep.matchYard===pp.matchYard?'호선·규격 일치 / 확인한 야드 별칭':!ep.yard||!pp.yard?'호선·규격 일치 / 야드 누락':'호선·규격 일치 / 야드 표기 다름';
-    return {id:results.length,yard:first.yard,hull:first.hull,erp:erows,plan:prows,linked,status,label,diff,reasons:[...new Set(reasons)],linkBasis:basis,candidates:list,candidateCount:list.length,eligibleCount:list.filter(c=>c.eligible).length,erpYard:ep?.yard||'',planYard:pp?.yard||'',erpHull:ep?.hull||'',planHull:pp?.hull||'',erpSpec:ep?.spec||'',planSpec:pp?.spec||'',erpModel:ep?.model.model||'',erpNormalized:ep?.model.value||'',planNormalized:pp?.model.value||'',erpPnd:ep?(ep.date.iso||String(ep.pnd??'')||'(빈 날짜)'):'',planPnd:pp?(pp.date.iso||String(pp.pnd??'')||'(빈 날짜)'):''};
+    const ep=erows[0],pp=prows[0],yardVerified=linked&&sameYard(ep,pp);
+    let basis='자동 연결 보류';
+    if(linked){
+      if(hshAlias(ep,pp))basis='호선·규격 일치 / '+HSH_YARD_BASIS;
+      else if(ep.yard===pp.yard)basis='호선·규격·야드 일치';
+      else if(yardVerified)basis='호선·규격 일치 / 확인한 야드 별칭';
+      else basis='호선·규격 일치 / '+(!ep.yard||!pp.yard?'야드 누락':'야드 표기 다름');
+    }
+    return {id:results.length,yard:first.yard,hull:first.hull,erp:erows,plan:prows,linked,yardVerified,status,label,diff,reasons:[...new Set(reasons)],linkBasis:basis,candidates:list,candidateCount:list.length,eligibleCount:list.filter(c=>c.eligible).length,erpYard:ep?.yard||'',planYard:pp?.yard||'',erpHull:ep?.hull||'',planHull:pp?.hull||'',erpSpec:ep?.spec||'',planSpec:pp?.spec||'',erpModel:ep?.model.model||'',erpNormalized:ep?.model.value||'',planNormalized:pp?.model.value||'',erpPnd:ep?(ep.date.iso||String(ep.pnd??'')||'(빈 날짜)'):'',planPnd:pp?(pp.date.iso||String(pp.pnd??'')||'(빈 날짜)'):''};
   }
   for(const e of sources.erp){const choices=eligible(e);if(choices.length!==1)continue;const p=choices[0];if(eligible(p).length!==1||used.has(e.sourceId)||used.has(p.sourceId))continue;used.add(e.sourceId);used.add(p.sourceId);results.push(make([e],[p],true,candidates(e,p.sourceId)));}
   for(const side of ['erp','plan'])for(const row of sources[side]){

@@ -9,6 +9,39 @@ test('latest ERP minus plan baseline: requested cases, sort/filter, and exported
   const rows=compare(erp,plan),r=rows[0];assert.equal(r.diff,diff);assert.equal(r.status,status);assert.equal(r.label,label);const exported=pndExportRows(rows)[0];assert.equal(exported[pndExportColumns.indexOf('생산계획 PND')],plan);assert.equal(exported[pndExportColumns.indexOf('ERP 최신 PND')],erp);assert.equal(exported[pndExportColumns.indexOf('변경 내용')],label);assert.equal(exported[pndExportColumns.indexOf('변경 일수 (ERP-생산계획)')],diff);assert.equal(filterPndResults(rows).length,status==='same'?0:1);assert.equal(filterPndResults(rows,'',status).length,1);
  }
 });
+test('HSH and HSHI are verified in both directions with original yards, dates and link evidence',()=>{
+ const planDate='2027-02-24';
+ for(const [erpYard,planYard] of [['HSH','HSHI'],['HSHI','HSH']]){
+  for(const [erpDate,diff,label] of [['2027-02-18',-6,'6일 당겨짐'],[planDate,0,'변경 없음'],['2027-02-26',2,'2일 지연']]){
+   const erp=[row(erpDate,'erp',{yard:erpYard,hull:'QA-HULL-01',spec:'HKA-10SO'})];
+   const plan=[row(planDate,'plan',{yard:planYard,hull:'QA-HULL-01',spec:'HKA-10SO'})];
+   const rows=compareProductionPnd({erp,plan});
+   assert.equal(rows.length,1);
+   const [result]=rows;
+   assert(result.linked&&result.candidates[0].yard&&result.candidates[0].eligible);
+   assert.equal(result.diff,diff);
+   assert.equal(result.label,label);
+   assert.match(result.candidates[0].reason,/HSH\/HSHI 동일 야드 적용/);
+   const [cells]=pndExportRows(rows);
+   assert.equal(cells[pndExportColumns.indexOf('ERP 원본 야드')],erpYard);
+   assert.equal(cells[pndExportColumns.indexOf('생산계획 원본 야드')],planYard);
+   assert.match(cells[pndExportColumns.indexOf('연결 근거')],/HSH\/HSHI 동일 야드 적용/);
+  }
+ }
+});
+test('the HSH alias participates in yard-only lookup but cannot bypass keys or mutual uniqueness',()=>{
+ const e=row('2027-02-18','erp',{yard:'HSH',hull:'QA-HULL-01',spec:'HKA-10SO'});
+ const p=row('2027-02-24','plan',{yard:'HSHI',hull:'QA-HULL-01',spec:'HKA-10SO'});
+ const yardOnly=compareProductionPnd({erp:[e],plan:[{...p,hull:'8240',spec:'HKA-08SN'}]});
+ assert(yardOnly.every(r=>!r.linked&&r.candidateCount===1&&r.candidates[0].yard&&!r.candidates[0].eligible));
+ const duplicate=compareProductionPnd({erp:[e],plan:[p,{...p,yard:'HSH',row:4}]});
+ assert.equal(duplicate.length,3);
+ assert(duplicate.every(r=>!r.linked&&r.reasons.some(reason=>reason.includes('복수 후보'))));
+ for(const other of ['SHI','HSHII','HSH-1']){
+  const rows=compareProductionPnd({erp:[{...e,yard:'HSHI'}],plan:[{...p,yard:other}],aliases:other==='SHI'?{SHI:'HSHI'}:{}});
+  assert(rows.every(r=>!r.linked&&r.diff===null&&r.candidates.every(c=>!c.yard)));
+ }
+});
 test('invalid/blank dates, ambiguous links and differing yards never become unchanged or confirmed changes',()=>{
  for(const value of ['',null,'2026-02-30','11/20/26']){const [r]=compare(value,'2026-11-20');assert.equal(r.status,'review');assert.equal(r.label,'날짜 확인 필요');assert.equal(r.diff,null);}
  const duplicates=compareProductionPnd({erp:[row('2026-11-15','erp'),row('2026-11-15','erp',{row:4})],plan:[row('2026-11-20')]});assert(duplicates.every(r=>r.status==='review'&&!r.linked&&r.diff===null));

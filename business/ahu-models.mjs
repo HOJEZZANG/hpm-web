@@ -10,9 +10,15 @@ export function normalizeAhuModel(value,side='plan'){
   return {raw,model,key:'',value:'',reason:'확인되지 않은 규격 형식: 원본 모델을 보존하며 자동 연결하지 않음'};
 }
 
-// Distinct yard identities confirmed by Yard/project-company fields. No alias is inferred.
+// HSH and HSHI are the two confirmed codes for the same yard.
+export function canonicalYardCode(value){
+  const code=String(value??'').trim();
+  return code==='HSHI'?'HSH':code;
+}
+
 const distinctCodes=new Set(['KSB','HSH','HNW','HMD','SHI','DHS','HHI','KYT','HJS']);
 export function confirmedYardConflict(erpYard,planYard,aliases={}){
-  const a=String(erpYard??'').trim(),original=String(planYard??'').trim(),b=distinctCodes.has(original)?original:(Object.hasOwn(aliases,original)?aliases[original]:original);
+  const a=canonicalYardCode(erpYard),original=String(planYard??'').trim(),planCode=canonicalYardCode(original);
+  const b=distinctCodes.has(planCode)||!Object.hasOwn(aliases,original)?planCode:canonicalYardCode(aliases[original]);
   return distinctCodes.has(a)&&distinctCodes.has(b)&&a!==b;
 }

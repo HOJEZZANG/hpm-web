@@ -1,5 +1,7 @@
 // Browser-local comparison evidence only: never workbook bytes or preview cells.
 export const PND_DATABASE='hpm-pnd-results';
+export const PND_COMPARISON_ALGORITHM='erp-minus-plan-v2';
+const readableAlgorithms=new Set(['erp-minus-plan-v1',PND_COMPARISON_ALGORITHM]);
 const version=1,maxBytes=64*1024*1024,states=new Set(['advanced','delayed','review','same']);
 const resultText=['yard','hull','label','linkBasis','erpYard','planYard','erpHull','planHull','erpSpec','planSpec','erpModel','erpNormalized','planNormalized','erpPnd','planPnd'];
 const sourceText=['file','sheet','yard','hull','spec','pnd'];
@@ -16,13 +18,13 @@ export function packPndSnapshot({userId,part,results,files,conditions,comparedAt
  }
  const rows=results.map(r=>({...Object.fromEntries(resultText.map(key=>[key,text(r[key])])),id:r.id,status:r.status,diff:r.diff,reasons:[...r.reasons],candidateCount:r.candidateCount,eligibleCount:r.eligibleCount,
   erp:r.erp.map(reference),plan:r.plan.map(reference),candidates:r.candidates.map(c=>({source:reference(c.source),reason:text(c.reason),eligible:Boolean(c.eligible)}))}));
- const snapshot={key:scope(userId,part),version,algorithm:'erp-minus-plan-v1',snapshotId:crypto.randomUUID(),userId,part,comparedAt,files:{erp:text(files.erp),plan:text(files.plan)},
+ const snapshot={key:scope(userId,part),version,algorithm:PND_COMPARISON_ALGORITHM,snapshotId:crypto.randomUUID(),userId,part,comparedAt,files:{erp:text(files.erp),plan:text(files.plan)},
   conditions:{erp:config(conditions.erp),plan:config(conditions.plan),aliases:Object.entries(conditions.aliases||{}).map(([from,to])=>({from,to:text(to)}))},sources,rows,view:viewState(view)};
  check(new TextEncoder().encode(JSON.stringify(snapshot)).byteLength<=maxBytes,'비교 결과가 브라우저 저장 한도를 초과했습니다. 이전 결과를 유지합니다. 자료를 나누어 비교하세요.');
  unpackPndSnapshot(snapshot,userId,part);return snapshot;
 }
 export function unpackPndSnapshot(snapshot,userId,part){
- check(snapshot?.key===scope(userId,part)&&snapshot.userId===userId&&snapshot.part===part&&snapshot.version===version&&snapshot.algorithm==='erp-minus-plan-v1');
+ check(snapshot?.key===scope(userId,part)&&snapshot.userId===userId&&snapshot.part===part&&snapshot.version===version&&readableAlgorithms.has(snapshot.algorithm));
  check(typeof snapshot.snapshotId==='string'&&typeof snapshot.comparedAt==='string'&&Number.isFinite(Date.parse(snapshot.comparedAt))&&typeof snapshot.files?.erp==='string'&&typeof snapshot.files?.plan==='string');
  check(Array.isArray(snapshot.sources)&&snapshot.sources.length<=40000&&Array.isArray(snapshot.rows)&&snapshot.rows.length<=40000);const sources=snapshot.sources;
  for(const s of sources)check(sourceText.every(k=>typeof s[k]==='string')&&Number.isSafeInteger(s.row)&&s.row>0&&typeof s.model?.value==='string'&&typeof s.date?.iso==='string'&&Array.isArray(s.notices)&&s.notices.every(n=>typeof n==='string'));

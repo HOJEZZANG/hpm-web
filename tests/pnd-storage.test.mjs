@@ -22,5 +22,5 @@ test('account/part, schema and source-reference mismatches cannot restore anothe
  const second=snapshot(rows,{part:'part1'});assert.notEqual(second.key,packed.key);
 });
 test('zero-row normal comparisons remain valid snapshots and calculations/time are not recomputed during restore',()=>{
- const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v1');
+ const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v2');
 });
