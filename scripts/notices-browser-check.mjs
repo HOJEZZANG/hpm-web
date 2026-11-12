@@ -4,7 +4,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {passwordHash} from '../business/auth.mjs';
 import {startTestServer} from './local-test-server.mjs';
 import {browser} from './browser-harness.mjs';
-const state=await startTestServer(),qa=await browser(process.argv[2],state.url),dir='.wrangler/notices-20261106';await mkdir(dir,{recursive:true});
+const state=await startTestServer(),qa=await browser(process.argv[2],state.url),dir='.wrangler/notices-20261112';await mkdir(dir,{recursive:true});
 for(const [id,role,name]of [['editor','admin','합성 수정자'],['reader','user','합성 조회자']])state.env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at,employee_no,profile) VALUES(?,?,?,?,?,?,?,?,?)').run(id,name,'synthetic',await passwordHash(state.password,'synthetic'),role,'active',new Date().toISOString(),id==='editor'?'001234':'001235',JSON.stringify({email:id+'@synthetic.invalid'}));
 for(const [id,owner,title]of [['known','owner','기존 작성자 확인'],['legacy','missing-account','기존 작성자 미기록']])state.env.sqlite.prepare('INSERT INTO notices(id,owner,data,created_at,updated_at) VALUES(?,?,?,?,?)').run(id,owner,JSON.stringify({title,content:'기존 본문 보존'}),'2020-01-01','2020-01-01');
 try{
@@ -15,10 +15,10 @@ try{
  async function save(t){await t.evaluate('document.querySelector("#noticesPage form").requestSubmit()');await wait(t);}
  async function clickRow(t,title,action){await t.evaluate(`(()=>{const tr=[...document.querySelectorAll('#noticesPage [data-notice-list] tbody tr')].find(r=>r.children[0].textContent===${JSON.stringify(title)});tr.querySelector('[data-notice-${action}]').click()})()`);}
  const author=(t,title)=>t.evaluate(`[...document.querySelectorAll('#noticesPage [data-notice-list] tbody tr')].find(r=>r.children[0].textContent===${JSON.stringify(title)}).children[2].textContent`);
- assert.deepEqual(await a.evaluate('[...document.querySelectorAll("#noticesPage [data-notice-list] th")].map(n=>n.textContent)'),['제목','내용','작성자','수정일','관리']);assert.equal(await a.evaluate('document.querySelectorAll("#noticesPage form input,#noticesPage form textarea").length'),2);
+ assert.deepEqual(await a.evaluate('[...document.querySelectorAll("#noticesPage [data-notice-list] th")].map(n=>n.textContent)'),['제목','내용','작성자','작성일','수정일','관리']);assert.equal(await a.evaluate('document.querySelectorAll("#noticesPage form input,#noticesPage form textarea").length'),3);
  assert.equal(await author(a,'기존 작성자 확인'),'등록자');assert.equal(await author(a,'기존 작성자 미기록'),'미기록');
  await clickRow(a,'기존 작성자 미기록','history');await a.wait('document.querySelector("[data-notice-history-status]").textContent==="수정 이력이 없습니다"');await a.evaluate('document.querySelector("[data-notice-history-close]").click()');
- await input(a,'title','새 공지');await input(a,'content','최초 본문');await save(a);assert.equal(await author(a,'새 공지'),'등록자');const id=state.env.sqlite.prepare("SELECT id FROM notices WHERE json_extract(data,'$.title')='새 공지'").get().id;
+ await input(a,'title','새 공지');await input(a,'content','최초 본문');await input(a,'noticeDate','2026-01-15');await save(a);assert.equal(await author(a,'새 공지'),'등록자');const id=state.env.sqlite.prepare("SELECT id FROM notices WHERE json_extract(data,'$.title')='새 공지'").get().id;assert.equal(state.env.sqlite.prepare('SELECT day FROM notices WHERE id=?').get(id).day,'2026-01-15');
  await b.evaluate('document.querySelector("[data-notice-refresh]").click()');await wait(b);await clickRow(b,'새 공지','edit');await input(b,'content','<script>window.noticeXss=1</script>\n변경 내용');await save(b);assert.equal(await author(b,'새 공지'),'등록자');
  await clickRow(b,'새 공지','history');await b.wait('document.querySelectorAll(".notice-event").length===1');await b.evaluate('document.querySelector(".notice-event summary").click()');assert.equal(await b.evaluate('document.querySelector(".notice-change pre:last-child")?.textContent?.length>0'),true);assert.equal(await b.evaluate('window.noticeXss'),undefined);assert.equal(await b.evaluate('document.querySelector(".notice-event strong").textContent'),'합성 수정자');assert(await b.evaluate('document.querySelector(".notice-event time").textContent.includes("한국시간")'));assert(!await b.evaluate('document.querySelector(".notice-history").textContent.includes("001234")||document.querySelector(".notice-history").textContent.includes("@synthetic.invalid")'));await b.evaluate('document.querySelector("[data-notice-history-close]").click()');
  const auditCount=()=>state.env.sqlite.prepare("SELECT count(*) n FROM portal_audit WHERE json_extract(details,'$.noticeKind')='updated'").get().n;
@@ -32,13 +32,31 @@ try{
  const previews=await a.evaluate('[...document.querySelectorAll(".home-notice")].map(n=>({title:n.querySelector("h3").textContent,line:n.querySelector(".home-notice-meta").textContent}))');
  for(const [title,name]of [['기존 작성자 확인','등록자'],['기존 작성자 미기록','미기록'],['실패 후 재시도','등록자']])assert(previews.find(n=>n.title===title)?.line.endsWith(' · 작성자: '+name));
  assert(!JSON.stringify(previews).includes('합성 수정자'));assert(!JSON.stringify(previews).includes('001234'));
+ assert(previews.find(n=>n.title==='실패 후 재시도').line.includes('2026. 1. 15.'));
  for(const width of [1366,390,320])for(const theme of ['light','dark']){
   await a.call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await a.evaluate(`document.documentElement.dataset.theme='${theme}';document.querySelector('.home-notices').scrollIntoView({block:'start',behavior:'instant'})`);
   assert(await a.evaluate('document.documentElement.scrollWidth<=innerWidth+2'));await a.shot(`${dir}/home-authors-${width}-${theme}.png`);
  }
  await a.evaluate('document.getElementById("homeNoticesLink").click()');await a.wait('noticesPage.classList.contains("active")');
+ await input(a,'title','삭제 시험 공지');await input(a,'content','합성 삭제 본문');await input(a,'noticeDate','2026-02-10');await save(a);
+ const deleteId=state.env.sqlite.prepare("SELECT id FROM notices WHERE json_extract(data,'$.title')='삭제 시험 공지'").get().id;
+ qa.dialogs.accept=false;await clickRow(a,'삭제 시험 공지','delete');qa.dialogs.accept=true;assert(state.env.sqlite.prepare('SELECT id FROM notices WHERE id=?').get(deleteId));
+ state.failWrites=true;await clickRow(a,'삭제 시험 공지','delete');await wait(a);state.failWrites=false;assert(state.env.sqlite.prepare('SELECT id FROM notices WHERE id=?').get(deleteId));
+ state.loseNoticeDeleteResponse=true;await clickRow(a,'삭제 시험 공지','delete');await wait(a);assert(!state.env.sqlite.prepare('SELECT id FROM notices WHERE id=?').get(deleteId));
+ await clickRow(a,'삭제 시험 공지','delete');await wait(a);
+ assert.equal(state.env.sqlite.prepare("SELECT count(*) n FROM portal_audit WHERE target_id=? AND json_extract(details,'$.noticeKind')='deleted'").get('/api/business/notices/'+deleteId).n,1);
+ assert(!await a.evaluate('document.querySelector("[data-notice-list]").textContent.includes("삭제 시험 공지")'));
+ await a.evaluate('await navigatePortal("home")');await a.wait('!document.querySelector("#homeBusinessNotices").textContent.includes("삭제 시험 공지")');await a.evaluate('await navigatePortal("notices")');
+ const freshTab=await qa.tab();await login(freshTab,'owner');assert(!await freshTab.evaluate('document.querySelector("[data-notice-list]").textContent.includes("삭제 시험 공지")'));assert(await freshTab.evaluate('document.querySelector("[data-notice-list]").textContent.includes("2026-01-15")'));
  const reader=await qa.tab();await login(reader,'reader');assert.equal(await reader.evaluate('document.querySelector("#noticesPage form")'),null);assert.equal(await reader.evaluate('document.querySelectorAll("[data-notice-edit]").length'),0);await clickRow(reader,'실패 후 재시도','history');await reader.wait('document.querySelector(".notice-history").open&&document.querySelectorAll(".notice-event").length>0');await reader.evaluate('document.querySelector("[data-notice-history-close]").click();void logoutPortal()');await reader.wait('!window.hpmServerUser&&portalWorkspace.hidden');assert.equal(await reader.evaluate('document.querySelectorAll(".notice-history[open]").length'),0);
  assert.equal(state.env.sqlite.prepare("SELECT json_extract(data,'$.content') content FROM notices WHERE id='known'").get().content,'기존 본문 보존');assert.equal(state.env.sqlite.prepare("SELECT json_extract(data,'$.content') content FROM notices WHERE id='legacy'").get().content,'기존 본문 보존');assert.deepEqual(qa.errors,[]);
- await writeFile(dir+'/browser-result.json',JSON.stringify({creatorAutomatic:true,creatorPreserved:true,legacyUnrecorded:true,atomicFailureAndResponseRetry:true,noOpExcluded:true,crossSessionAndReload:true,readOnlyHistoryAndPermissions:true,textEscaped:true,koreanTime:true,widths:[1366,390,320],themes:2,exceptions:0,productionWrites:0}));
+ assert.equal(await freshTab.evaluate('document.querySelector("#noticesPage form [name=noticeDate]").type'),'date');
+ for(const width of [1366,390,320])for(const theme of ['light','dark']){
+  await freshTab.call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+  await freshTab.evaluate(`document.documentElement.dataset.theme='${theme}';scrollTo(0,0)`);
+  assert(await freshTab.evaluate('document.documentElement.scrollWidth<=innerWidth+2'));
+  await freshTab.shot(`${dir}/list-${width}-${theme}.png`);
+ }
+ await writeFile(dir+'/browser-result.json',JSON.stringify({creatorAutomatic:true,creatorPreserved:true,legacyUnrecorded:true,atomicFailureAndResponseRetry:true,noOpExcluded:true,crossSessionAndReload:true,readOnlyHistoryAndPermissions:true,selectedNoticeDate:true,deletionCancelAndFailureAndResponseRetry:true,textEscaped:true,koreanTime:true,widths:[1366,390,320],themes:2,exceptions:0,productionWrites:0}));
  console.log('PASS notice columns/creator; other-user edits; legacy missing history/creator; server snapshots; no-op; atomic failure/retry and lost-response deduplication; other session/reload; history text/permissions; search-detail coexistence; mobile/dark; original legacy content retained.');
 }finally{await qa.close();await state.close();}

@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {koreanTime,monthPeriod,issueLocation,createClock,noticePreview} from '../business/ui/home.js';
+
+test('home notices show the selected calendar date alongside the original author',()=>{
+ const html=noticePreview({title:'합성 공지',content:'본문',authorName:'등록자',noticeDate:'2026-01-15',createdAt:'2026-11-12T00:00:00Z',updatedAt:'2026-11-13T00:00:00Z'});
+ assert(html.includes('<time>2026. 1. 15.</time> · 작성자: 등록자'));
+});
 import {createPresentation} from '../business/ui/presentation.js';
 
 test('Seoul clock and month ranges cross UTC year/month boundaries and leap days',()=>{
