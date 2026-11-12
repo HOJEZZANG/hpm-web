@@ -1,5 +1,5 @@
 // Pure comparison rules. No network, storage, local timezone or inferred yard aliases.
-import {normalizeAhuModel,canonicalYardCode,confirmedYardConflict} from './ahu-models.mjs?v=20261111-yard';
+import {normalizeAhuModel,canonicalYardCode,confirmedYardRelation,confirmedYardConflict} from './ahu-models.mjs?v=20261112-yards';
 export const AHU_LIMITS = Object.freeze({file:10*1024*1024,expanded:32*1024*1024,rows:20000,cells:250000,columns:256,text:16*1024*1024,candidates:250000});
 export const AHU_NOTICE = 'ERP PND 대비 생산계획 PND 기준입니다. 두 자료의 날짜 차이이며 실제 납기 지연 판정이나 과거 대비 변경 이력이 아닙니다.';
 const DAY=86400000;
@@ -22,21 +22,19 @@ export function calendarDate(value,date1904=false){
   return {iso:`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,day:time/DAY};
 }
 export const identity=value=>String(value??'').trim();
-const HSH_YARD_BASIS='HSH/HSHI 동일 야드 적용';
 export function comparePnd(erp,plan,aliases={}){
   const sources={erp:erp.map((r,i)=>prepare(r,'erp',i)),plan:plan.map((r,i)=>prepare(r,'plan',i))},indexes={erp:index(sources.erp),plan:index(sources.plan)},used=new Set(),results=[];
   let edges=0,examined=0;const eligibility=new Map();
   function prepare(r,side,i){
-    const yard=identity(r.yard),yardCode=canonicalYardCode(yard);
+    const yard=String(r.yard??''),yardCode=canonicalYardCode(yard),aliasSource=identity(yard);
     const yardKeys=yardCode?[yardCode]:[];
-    if(yardCode&&side==='plan'&&Object.hasOwn(aliases,yard)){
-      const alias=canonicalYardCode(aliases[yard]);
+    if(yardCode&&side==='plan'&&Object.hasOwn(aliases,aliasSource)){
+      const alias=canonicalYardCode(aliases[aliasSource]);
       if(alias&&alias!==yardCode)yardKeys.push(alias);
     }
     return {...r,side,sourceId:side+':'+i,yard,yardCode,yardKeys,hull:identity(r.hull),spec:String(r.spec??''),model:normalizeAhuModel(r.spec,side)};
   }
   function sameYard(a,b){return a.yardKeys.some(key=>b.yardKeys.includes(key));}
-  function hshAlias(a,b){return a.yard!==b.yard&&a.yardCode==='HSH'&&b.yardCode==='HSH';}
   function pairKey(r){return r.hull&&r.model.key?JSON.stringify([r.hull,r.model.key]):'';}
   function candidateKeys(r){return [...r.yardKeys.map(key=>['yard',key]),['hull',r.hull],['model',r.model.key],['rawModel',r.model.model]];}
   function index(rows){const out={yard:new Map(),hull:new Map(),model:new Map(),rawModel:new Map(),pair:new Map()};for(const r of rows)for(const [key,value]of [...candidateKeys(r),['pair',pairKey(r)]])if(value){if(!out[key].has(value))out[key].set(value,[]);out[key].get(value).push(r);}return out;}
@@ -53,7 +51,8 @@ export function comparePnd(erp,plan,aliases={}){
       if(yardConflict)notes.push('확인된 서로 다른 조선소 코드');if(r.keyIssue||other.keyIssue)notes.push('식별자 확인 필요');
       const matches=[yard?'야드':'',hull?'호선':'',spec?normalizedSpec?'규격':'규격 원문':''].filter(Boolean);
       const matchReason=matches.length?matches.join('·')+' 일치':'야드 별칭 후보';
-      const aliasNote=yard&&hshAlias(r,other)?' / '+HSH_YARD_BASIS:'';
+      const relation=yard?confirmedYardRelation(r.yard,other.yard):'';
+      const aliasNote=relation?' / '+relation:'';
       return {source:other,matches,yard,hull,spec,yardConflict,eligible:hull&&normalizedSpec&&!yardConflict&&!r.keyIssue&&!other.keyIssue,reason:matchReason+aliasNote+(notes.length?' / '+notes.join(' / '):other.sourceId===confirmedId?' / 일대일 유일성 확인':' / 유일성 확인 필요')};
     }).sort((a,b)=>Number(b.hull&&b.spec)-Number(a.hull&&a.spec)||Number(b.hull)-Number(a.hull)||Number(b.spec)-Number(a.spec)||a.source.row-b.source.row);
   }
@@ -65,10 +64,11 @@ export function comparePnd(erp,plan,aliases={}){
     const ep=erows[0],pp=prows[0],yardVerified=linked&&sameYard(ep,pp);
     let basis='자동 연결 보류';
     if(linked){
-      if(hshAlias(ep,pp))basis='호선·규격 일치 / '+HSH_YARD_BASIS;
-      else if(ep.yard===pp.yard)basis='호선·규격·야드 일치';
+      const relation=confirmedYardRelation(ep.yard,pp.yard);
+      if(relation)basis='호선·규격 일치 / '+relation;
+      else if(ep.yardCode&&ep.yardCode===pp.yardCode)basis='호선·규격·야드 일치'+(ep.yard!==pp.yard?' / 대소문자·공백 정리':'');
       else if(yardVerified)basis='호선·규격 일치 / 확인한 야드 별칭';
-      else basis='호선·규격 일치 / '+(!ep.yard||!pp.yard?'야드 누락':'야드 표기 다름');
+      else basis='호선·규격 일치 / '+(!ep.yardCode||!pp.yardCode?'야드 누락':'야드 표기 다름');
     }
     return {id:results.length,yard:first.yard,hull:first.hull,erp:erows,plan:prows,linked,yardVerified,status,label,diff,reasons:[...new Set(reasons)],linkBasis:basis,candidates:list,candidateCount:list.length,eligibleCount:list.filter(c=>c.eligible).length,erpYard:ep?.yard||'',planYard:pp?.yard||'',erpHull:ep?.hull||'',planHull:pp?.hull||'',erpSpec:ep?.spec||'',planSpec:pp?.spec||'',erpModel:ep?.model.model||'',erpNormalized:ep?.model.value||'',planNormalized:pp?.model.value||'',erpPnd:ep?(ep.date.iso||String(ep.pnd??'')||'(빈 날짜)'):'',planPnd:pp?(pp.date.iso||String(pp.pnd??'')||'(빈 날짜)'):''};
   }

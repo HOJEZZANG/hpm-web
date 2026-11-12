@@ -1,7 +1,7 @@
 // Browser-local comparison evidence only: never workbook bytes or preview cells.
 export const PND_DATABASE='hpm-pnd-results';
-export const PND_COMPARISON_ALGORITHM='erp-minus-plan-v2';
-const readableAlgorithms=new Set(['erp-minus-plan-v1',PND_COMPARISON_ALGORITHM]);
+export const PND_COMPARISON_ALGORITHM='erp-minus-plan-v3';
+const readableAlgorithms=new Set(['erp-minus-plan-v1','erp-minus-plan-v2',PND_COMPARISON_ALGORITHM]);
 const version=1,maxBytes=64*1024*1024,states=new Set(['advanced','delayed','review','same']);
 const resultText=['yard','hull','label','linkBasis','erpYard','planYard','erpHull','planHull','erpSpec','planSpec','erpModel','erpNormalized','planNormalized','erpPnd','planPnd'];
 const sourceText=['file','sheet','yard','hull','spec','pnd'];

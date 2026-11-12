@@ -22,5 +22,13 @@ test('account/part, schema and source-reference mismatches cannot restore anothe
  const second=snapshot(rows,{part:'part1'});assert.notEqual(second.key,packed.key);
 });
 test('zero-row normal comparisons remain valid snapshots and calculations/time are not recomputed during restore',()=>{
- const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v2');
+ const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v3');
+});
+test('both earlier yard rule versions restore their original decisions and comparison time unchanged',()=>{
+ const rows=compareProductionPnd({erp:[source('erp',3,'2026-11-10')],plan:[source('plan',3,'2026-11-20')]});
+ for(const algorithm of ['erp-minus-plan-v1','erp-minus-plan-v2']){
+  const packed=snapshot(rows);packed.algorithm=algorithm;packed.rows[0].label='저장 당시 결과';packed.rows[0].diff=null;packed.rows[0].status='review';
+  const original=structuredClone(packed),restored=unpackPndSnapshot(packed,'account-a','part2');
+  assert.equal(restored[0].label,'저장 당시 결과');assert.equal(restored[0].diff,null);assert.deepEqual(packed,original);
+ }
 });

@@ -1,6 +1,6 @@
 // Browser-only comparison presentation. Reuse the verified AHU candidate matching
 // and calendar readers without changing the production import/server module.
-import {comparePnd as matchAhuRows,exportRows as sourceExport,exportColumns as sourceColumns} from '../ahu-pnd.mjs?v=20261111-yard';
+import {comparePnd as matchAhuRows,exportRows as sourceExport,exportColumns as sourceColumns} from '../ahu-pnd.mjs?v=20261112-yards';
 export const PND_NOTICE='생산계획표를 기준으로 ERP 최신 PND의 변경을 비교합니다. 실제 납기 미준수나 생산 지연 판정이 아닙니다.';
 export const partSupport={part1:{label:'1파트',ready:false,reason:'실제 비교 파일 검증 대기 · ERP 열과 연결 기준 확인 후 지원합니다.'},part2:{label:'2파트',ready:true}};
 const comparators={part2:compareVerifiedPart2};

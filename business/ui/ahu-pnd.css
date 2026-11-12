@@ -8,3 +8,4 @@
 .pnd-tools{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.pnd-tools>.pnd-help,.pnd-tools>.pnd-alias{margin:0;padding:14px 16px}.pnd-tools:has(details[open]){grid-template-columns:1fr}.pnd-tools summary{font-size:12px;cursor:pointer}.pnd-tools details[open]>summary{margin-bottom:12px}@media(max-width:600px){.pnd-tools{grid-template-columns:1fr}}
 
 .pnd-last{margin:0 0 18px;padding:16px 18px;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:7px;background:var(--surface);color:var(--ink);overflow-wrap:anywhere}.pnd-last p{margin:6px 0;font-size:13px;line-height:1.7}.pnd-last .hint{color:var(--ink-muted);font-size:12px}.pnd-previous{font-weight:600;color:var(--warn);padding-top:8px;border-top:1px solid var(--line)}
+#ahuPndPage .pnd-yard-value,#ahuPndPage td details p.pnd-source-label{white-space:pre-wrap;overflow-wrap:anywhere}

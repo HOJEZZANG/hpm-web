@@ -1,7 +1,7 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261031-meeting';
 import {init as production} from './production.js?v=20261104-status';
-import {init as ahuPnd} from './ahu-pnd.js?v=20261111-yard';
+import {init as ahuPnd} from './ahu-pnd.js?v=20261112-yards';
 import {createPresentation} from './presentation.js';
 import {initNavigation} from './navigation.js?v=20261103-pressure';
 import {initIssueView} from './issue-view.js?v=20261102-leave';

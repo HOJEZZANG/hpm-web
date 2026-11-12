@@ -10,13 +10,32 @@ export function normalizeAhuModel(value,side='plan'){
   return {raw,model,key:'',value:'',reason:'확인되지 않은 규격 형식: 원본 모델을 보존하며 자동 연결하지 않음'};
 }
 
-// HSH and HSHI are the two confirmed codes for the same yard.
+// Only these user-confirmed pairs share a yard identity.
+export const CONFIRMED_YARD_PAIRS=Object.freeze([
+  ['HSH','HSHI'],
+  ['JO-ENG','제이오 엔지니어링'],
+  ['KYT','한국야나세 통영조선소'],
+  ['DHS','DHSCO'],
+  ['HNW','DSME'],
+  ['HSM','HIPSON MARINE']
+].map(pair=>Object.freeze(pair)));
+const yardKey=value=>String(value??'').replace(/\s+/g,'').toUpperCase();
+const confirmedYards=new Map();
+for(const [code,label] of CONFIRMED_YARD_PAIRS){
+  const group={code,relation:code+'/'+label+' 동일 야드 적용'};
+  confirmedYards.set(yardKey(code),group);
+  confirmedYards.set(yardKey(label),group);
+}
 export function canonicalYardCode(value){
-  const code=String(value??'').trim();
-  return code==='HSHI'?'HSH':code;
+  const key=yardKey(value);
+  return confirmedYards.get(key)?.code??key;
+}
+export function confirmedYardRelation(a,b){
+  const left=yardKey(a),right=yardKey(b),group=confirmedYards.get(left);
+  return left!==right&&group&&group===confirmedYards.get(right)?group.relation:'';
 }
 
-const distinctCodes=new Set(['KSB','HSH','HNW','HMD','SHI','DHS','HHI','KYT','HJS']);
+const distinctCodes=new Set(['KSB','HMD','SHI','HHI','HJS',...CONFIRMED_YARD_PAIRS.map(([code])=>code)]);
 export function confirmedYardConflict(erpYard,planYard,aliases={}){
   const a=canonicalYardCode(erpYard),original=String(planYard??'').trim(),planCode=canonicalYardCode(original);
   const b=distinctCodes.has(planCode)||!Object.hasOwn(aliases,original)?planCode:canonicalYardCode(aliases[original]);

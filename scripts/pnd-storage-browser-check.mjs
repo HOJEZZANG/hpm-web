@@ -7,18 +7,24 @@ import {ahuPresetFixture} from '../tests/support/ahu-pnd-fixtures.mjs';
 import {passwordHash} from '../business/auth.mjs';
 import {startTestServer} from './local-test-server.mjs';
 import {browser} from './browser-harness.mjs';
-const state=await startTestServer(),dir='.wrangler/pnd-cache-20261111';await mkdir(dir,{recursive:true});
+const state=await startTestServer(),dir='.wrangler/pnd-cache-yards-20261112';await mkdir(dir,{recursive:true});
+const yardPairs=[['HSH','HSHI'],['JO-ENG','제이오 엔지니어링'],['KYT','한국야나세 통영조선소'],['DHS','DHSCO'],['HNW','DSME'],['HSM','HIPSON MARINE']];
+function originalYard(index,side){
+ if(index>=12)return 'SHI';
+ const pair=yardPairs[Math.floor(index/2)],label=pair[side==='erp'?index%2:1-index%2];
+ return index===0?label:' \t'+label.toLowerCase().replaceAll(' ','\n \t')+'\n ';
+}
+const testHull=index=>index===0?'QA-HULL-01':index<12?'QA-YARD-'+String(index).padStart(2,'0'):String(index).padStart(5,'0');
 state.env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)').run('second','합성 다른 계정','synthetic',await passwordHash(state.password,'synthetic'),'user','active',new Date().toISOString());
 const make=async(side,changed=false)=>{
  const f=await ahuPresetFixture(side,'xlsx',sheet=>{
   const isErp=side==='erp',header=isErp?2:6;
   sheet.spliceRows(header+1,sheet.rowCount-header);
   for(let i=0;i<135;i++){
-   const isHsh=i===0,r=header+i+1,hull=isHsh?'QA-HULL-01':String(i).padStart(5,'0');
-   const yard=isHsh?(isErp?'HSH':'HSHI'):'SHI';
-   const erpDate=isHsh?(changed?'2027-02-26':'2027-02-18'):['2026-11-15','2026-11-25','2026-11-20'][i%3];
-   const cells=isErp?[[4,yard],[5,hull],[8,erpDate],[10,isHsh?'HKA-10SO':'HKA008SN/TEST'],[20,'AHU'],[23,'AHU'],[30,'UNRELATED_WORKBOOK_CELL_DO_NOT_SAVE']]
-    :[[1,i+1],[2,yard],[3,hull],[6,isHsh?'HKA-10SO':'HKA-08SN'],[16,isHsh?'2027-02-24':'2026-11-20']];
+   const aliasCase=i<12,r=header+i+1,hull=testHull(i),yard=originalYard(i,side);
+   const erpDate=aliasCase?(changed&&i===0?'2027-02-26':'2027-02-18'):['2026-11-15','2026-11-25','2026-11-20'][i%3];
+   const cells=isErp?[[4,yard],[5,hull],[8,erpDate],[10,aliasCase?'HKA-10SO':'HKA008SN/TEST'],[20,'AHU'],[23,'AHU'],[30,'UNRELATED_WORKBOOK_CELL_DO_NOT_SAVE']]
+    :[[1,i+1],[2,yard],[3,hull],[6,aliasCase?'HKA-10SO':'HKA-08SN'],[16,aliasCase?'2027-02-24':'2026-11-20']];
    for(const [c,v]of cells)sheet.getCell(r,c).value=v;
   }
  });
@@ -31,7 +37,7 @@ async function login(id='owner'){
  await t.wait('document.documentElement.dataset.auth==="anonymous"');await t.evaluate(`authUserId.value='${id}';authPassword.value=${JSON.stringify(state.password)};void submitAuth()`);await t.wait(`window.hpmServerUser?.id==='${id}'&&issuesLoaded`);await t.evaluate('await navigatePortal("ahuPnd")');await t.wait('ahuPndPage.dataset.ready==="true"');
  await importStorage();
 }
-const importStorage=()=>t.evaluate('window.pndStore=await import("/business/ui/pnd-storage.js?v=20261111-yard")');
+const importStorage=()=>t.evaluate('window.pndStore=await import("/business/ui/pnd-storage.js?v=20261112-yards")');
 const settled=()=>t.wait('ahuPndPage.getAttribute("aria-busy")!=="true"');
 async function upload(side,file){const {root}=await t.call('DOM.getDocument'),{nodeId}=await t.call('DOM.querySelector',{nodeId:root.nodeId,selector:`[data-file-side=${side}]`});await t.call('DOM.setFileInputFiles',{nodeId,files:[file.path]});await settled();}
 async function click(selector){await t.evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);await settled();}
@@ -47,28 +53,38 @@ try{
  t=await qa.tab();await login();assert.equal(await saved(),null);assert(await t.evaluate('document.querySelector("[data-pnd-results]").hidden'));
  await upload('erp',erp);await upload('plan',plan);await click('[data-pnd-compare]');await t.wait('Boolean(ahuPndPage.dataset.comparedAt)');
  const fresh=await saved();
- assert.equal(JSON.parse(fresh.packed).algorithm,'erp-minus-plan-v2');
+ assert.equal(JSON.parse(fresh.packed).algorithm,'erp-minus-plan-v3');
  assert(await t.evaluate('[...document.querySelectorAll("[data-result-id]")].some(r=>["QA-HULL-01","6일 당겨짐","HSH/HSHI 동일 야드 적용"].every(s=>r.textContent.includes(s)))'));
  const hshExport=(await exportValues()).find(cells=>cells?.[2]==='QA-HULL-01');
  assert.deepEqual([hshExport[3],hshExport[4],hshExport[5],hshExport[6],hshExport[11],hshExport[12]],['2027-02-24','2027-02-18',-6,'6일 당겨짐','HSH','HSHI']);
  assert.match(hshExport[20],/HSH\/HSHI 동일 야드 적용/);
- // Seed the previous release's stored decision and reopen the same browser database.
- await t.evaluate(`{
+ const exported=await exportValues();
+ for(let i=0;i<12;i++){
+  const cells=exported.find(cells=>cells?.[2]===testHull(i)),relation=yardPairs[Math.floor(i/2)].join('/')+' 동일 야드 적용';
+  assert.equal(cells[11],originalYard(i,'erp'));assert.equal(cells[12],originalYard(i,'plan'));assert.equal(cells[6],'6일 당겨짐');assert(cells[20].includes(relation));
+  const screen=await t.evaluate(`(()=>{const row=[...document.querySelectorAll('[data-result-id]')].find(row=>row.cells[2].textContent===${JSON.stringify(testHull(i))});return [row.cells[0].textContent,row.cells[1].textContent,getComputedStyle(row.cells[0]).whiteSpace]})()`);
+  assert.deepEqual(screen,[originalYard(i,'erp'),originalYard(i,'plan'),'pre-wrap']);
+ }
+ // Both earlier rule versions remain stored decisions until a successful recompare.
+ for(const algorithm of ['erp-minus-plan-v1','erp-minus-plan-v2']){
+  await t.evaluate(`{
   const {snapshot}=await pndStore.loadPndSnapshot(hpmServerUser.id,'part2');
-  snapshot.algorithm='erp-minus-plan-v1';
-  const row=snapshot.rows.find(r=>r.hull==='QA-HULL-01');
+  snapshot.algorithm=${JSON.stringify(algorithm)};
+  const row=snapshot.rows.find(r=>r.hull==='QA-YARD-02');
   row.status='review';row.diff=null;row.label='연결 확인 필요';row.linkBasis='야드 명칭 확인 전 자동 연결 보류';
   row.reasons=['야드 명칭 또는 별칭 연결을 직접 확인하세요.'];row.eligibleCount=0;
   for(const candidate of row.candidates){candidate.eligible=false;candidate.reason='호선·규격 일치 / 일대일 유일성 확인 / 야드 명칭 확인 필요';}
   await pndStore.savePndSnapshot(snapshot);
- }`);
- const first=await saved(),time=first.time;await reload();await importStorage();
- assert.equal((await saved()).packed,first.packed);assert.equal(time,fresh.time);
- assert(await t.evaluate('document.querySelector("[data-pnd-old-rule]").textContent.includes("ERP와 생산계획표 파일을 다시 첨부")'));
- assert(await t.evaluate('[...document.querySelectorAll("[data-result-id]")].some(r=>r.textContent.includes("QA-HULL-01")&&r.textContent.includes("야드 명칭 확인 전 자동 연결 보류"))'));
+  }`);
+  const previous=await saved();await reload();await importStorage();
+  assert.equal((await saved()).packed,previous.packed);assert.equal(previous.time,fresh.time);
+  assert(await t.evaluate('document.querySelector("[data-pnd-old-rule]").textContent.includes("ERP와 생산계획표 파일을 다시 첨부")'));
+  assert(await t.evaluate('[...document.querySelectorAll("[data-result-id]")].some(r=>r.textContent.includes("QA-YARD-02")&&r.textContent.includes("야드 명칭 확인 전 자동 연결 보류"))'));
+ }
+ const first=await saved(),time=first.time;
  assert.equal(first.rows,135);assert(!first.packed.includes('UNRELATED_WORKBOOK_CELL_DO_NOT_SAVE'));assert(!first.packed.includes('"bytes"'));assert.equal(await stamp(),time);
  await filters('','');assert.equal(await t.evaluate('document.querySelectorAll("[data-result-id]").length'),100);await click('[data-result-page=next]');assert.equal(await t.evaluate('document.querySelectorAll("[data-result-id]").length'),35);const allValues=await exportValues();assert.equal(allValues.length,137);
- await filters('0000','delayed');assert.equal(await t.evaluate('document.querySelectorAll("[data-result-id]").length'),3);const filteredValues=await exportValues('filtered');assert.equal(filteredValues.length,5);assert.equal(await stamp(),time);
+ await filters('0001','delayed');assert.equal(await t.evaluate('document.querySelectorAll("[data-result-id]").length'),3);const filteredValues=await exportValues('filtered');assert.equal(filteredValues.length,5);assert.equal(await stamp(),time);
  await t.evaluate('await navigatePortal("home");await navigatePortal("ahuPnd")');await t.wait('Boolean(ahuPndPage.dataset.comparedAt)');assert.equal(await stamp(),time);
  await reload();await importStorage();assert.equal(await stamp(),time);assert.equal(await t.evaluate('document.querySelectorAll("[data-result-id]").length'),3);assert(await t.evaluate('[...document.querySelectorAll("[data-file-side]")].every(n=>n.files.length===0)&&[...document.querySelectorAll("[data-file-name]")].every(n=>n.textContent.includes("선택한 파일 없음"))'));assert(await t.evaluate('document.querySelector("[data-pnd-last]").textContent.includes("마지막 비교 결과")&&document.querySelector("[data-pnd-last]").textContent.includes("원본 파일은 복원하지 않았습니다")'));
  assert.deepEqual(await exportValues(),allValues);assert.deepEqual(await exportValues('filtered'),filteredValues);
@@ -85,6 +101,6 @@ try{
  for(const width of [1366,390,320])for(const theme of ['light','dark']){await t.call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await t.evaluate(`document.documentElement.dataset.theme='${theme}';scrollTo(0,0)`);assert(await t.evaluate('document.documentElement.scrollWidth<=innerWidth+2'));await t.shot(`${dir}/restored-${width}-${theme}.png`);}
  await t.evaluate('await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase(pndStore.PND_DATABASE);r.onsuccess=resolve;r.onerror=()=>reject(r.error)})');await reload();assert.equal(await stamp(),undefined);assert(await t.evaluate('document.querySelector("[data-pnd-results]").hidden'));
  assert.deepEqual(qa.errors,[]);assert(state.requests.filter(r=>r.path.startsWith('/api/business/')).every(r=>r.method==='GET'&&r.path==='/api/business/notices'));assert.equal(state.env.objects.size,0);
- await writeFile(dir+'/browser-result.json',JSON.stringify({realIndexedDB:true,realBrowserRestart:true,rows:135,timePreserved:true,candidatesAndExportsPreserved:true,filtersAndPagination:true,accountAndPartIsolation:true,newFileLabels:true,failedCompareAndQuotaRollbackAndCancelPreserveOld:true,successfulReplacement:true,deletedBrowserDataNotRestored:true,originalFilesNotStored:true,productionUploads:0,exceptions:0}));
+ await writeFile(dir+'/browser-result.json',JSON.stringify({approvedYardPairsBothDirections:6,rawCaseWhitespaceAndNewlinesPreservedInScreenAndXlsx:true,legacyRulesPreserved:['v1','v2'],realIndexedDB:true,realBrowserRestart:true,rows:135,timePreserved:true,candidatesAndExportsPreserved:true,filtersAndPagination:true,accountAndPartIsolation:true,newFileLabels:true,failedCompareAndQuotaRollbackAndCancelPreserveOld:true,successfulReplacement:true,deletedBrowserDataNotRestored:true,originalFilesNotStored:true,productionUploads:0,exceptions:0}));
  console.log('PASS real IndexedDB/restart; 135-row full results/filter/page/source/candidate/export consistency; original time; new file labels; comparison failure/quota rollback/cancel; successful replacement; account/part separation/logout; data deletion; no original-file storage or uploads; mobile/dark.');
 }catch(error){await writeFile(dir+'/failure.json',JSON.stringify({message:error.message,errors:qa.errors,state:await t.evaluate('({auth:window.hpmServerUser?.id,html:document.querySelector("#ahuPndPage").outerHTML,entry:document.documentElement.dataset.auth})').catch(e=>e.message)},null,2));throw error;}finally{await qa.close();await state.close();}
