@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import worker from '../worker.js';
 import {makeEnv,TOKEN} from './support/env.mjs';
 const base='https://hpmanagement-web.lotusland1995.workers.dev';
@@ -55,8 +56,43 @@ test('history is read-only and uses existing authenticated read/admin write perm
  const env=makeEnv(),viewer=account(env,'viewer','user');await ok(await request(env,'/n','PUT',{title:'제목',content:'내용'}));
  for(const path of ['', '/n/history'])assert.equal((await request(env,path,'GET',undefined,null)).status,401);
  assert.equal((await request(env,'/n','PUT',{title:'위조',content:'위조',revision:1},viewer)).status,403);await ok(await request(env,'','GET',undefined,viewer));await ok(await request(env,'/n/history','GET',undefined,viewer));
- for(const method of ['POST','PUT','DELETE'])assert.equal((await request(env,'/n/history',method,{},viewer)).status,405);assert.equal((await request(env,'/n','DELETE',{})).status,405);assert.equal((await request(env,'/missing/history')).status,404);
+ for(const method of ['POST','PUT','DELETE'])assert.equal((await request(env,'/n/history',method,{},viewer)).status,405);assert.equal((await request(env,'/n','DELETE',{})).status,400);assert.equal((await request(env,'/n','DELETE',{revision:1},viewer)).status,403);assert.equal((await request(env,'/missing/history')).status,404);
  env.sqlite.prepare("UPDATE portal_accounts SET status='disabled' WHERE id='viewer'").run();assert.equal((await request(env,'/n/history','GET',undefined,viewer)).status,403);
+});
+test('selected notice dates persist independently of server creation time and enter edit history',async()=>{
+ const env=makeEnv(),editor=account(env,'date-editor');
+ let result=await ok(await request(env,'/dated','PUT',{title:'작성일 시험',content:'본문',noticeDate:'2026-01-15',createdAt:'1999-01-01',mutationId:'dated-create'}));
+ const createdAt=result.record.createdAt;
+ assert.equal(result.record.noticeDate,'2026-01-15');assert.notEqual(createdAt,'1999-01-01');assert.equal(saved(env,'dated').day,'2026-01-15');
+ result=await ok(await request(env,'/dated','PUT',{title:'작성일 시험',content:'본문',noticeDate:'2026-02-10',revision:1,mutationId:'date-edit'},editor));
+ assert.equal(result.record.createdAt,createdAt);assert.equal(result.record.authorName,'등록자');assert.equal(result.record.noticeDate,'2026-02-10');
+ assert.deepEqual((await history(env,'dated'))[0].changes,[{field:'noticeDate',label:'작성일',before:'2026-01-15',after:'2026-02-10'}]);
+ const before=saved(env,'dated');
+ assert((await ok(await request(env,'/dated','PUT',{title:'작성일 시험',content:'본문',noticeDate:'2026-02-10',revision:2}))).unchanged);
+ assert.deepEqual(saved(env,'dated'),before);
+ for(const noticeDate of ['','2026-02-30','01/15/2026','2026-01-15T00:00:00Z'])await ok(await request(env,'/dated','PUT',{title:'작성일 시험',content:'본문',noticeDate,revision:2}),400);
+ await ok(await request(env,'/dated','PUT',{title:'구 클라이언트 수정',content:'본문',revision:2}));assert.equal(saved(env,'dated').day,'2026-02-10');
+ env.sqlite.prepare('INSERT INTO notices(id,owner,data,created_at,updated_at) VALUES(?,?,?,?,?)').run('legacy-day','owner',JSON.stringify({title:'기존 작성일',content:'보존'}),'2026-01-14T16:30:00Z','2026-01-20T00:00:00Z');
+ const legacy=saved(env,'legacy-day'),listed=(await ok(await request(env,''))).records;
+ assert.equal(listed.find(r=>r.id==='legacy-day').noticeDate,'2026-01-15');assert.deepEqual(saved(env,'legacy-day'),legacy);
+});
+test('admin deletion checks revisions, keeps audits, rolls back on audit failure and deduplicates retries',async()=>{
+ const env=makeEnv();env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));await ok(await request(env,'/delete-me','PUT',{title:'삭제 시험',content:'원문',noticeDate:'2026-01-15'}));
+ await ok(await request(env,'/delete-me','PUT',{title:'삭제 시험 수정',content:'수정 본문',revision:1}));
+ await ok(await request(env,'/keep','PUT',{title:'보존 시험',content:'보존 본문'}));const kept=saved(env,'keep');
+ await ok(await request(env,'/delete-me','DELETE',{revision:1,mutationId:'stale'}),409);
+ const before=saved(env,'delete-me'),deletion={revision:2,mutationId:'delete-once'};
+ env.sqlite.exec("CREATE TRIGGER fail_notice_delete BEFORE INSERT ON portal_audit WHEN json_extract(NEW.details,'$.noticeKind')='deleted' BEGIN SELECT RAISE(ABORT,'SYNTHETIC_DELETE_FAILURE'); END;");
+ await ok(await request(env,'/delete-me','DELETE',deletion),500);assert.deepEqual(saved(env,'delete-me'),before);
+ env.sqlite.exec('DROP TRIGGER fail_notice_delete');
+ await ok(await request(env,'/delete-me','DELETE',deletion));assert(!saved(env,'delete-me'));
+ assert((await ok(await request(env,'/delete-me','DELETE',deletion))).replayed);
+ await ok(await request(env,'/delete-me','DELETE',{...deletion,revision:3}),409);
+ const events=env.sqlite.prepare("SELECT * FROM portal_audit WHERE target_id='/api/business/notices/delete-me' ORDER BY id").all();
+ assert.equal(events.length,3);assert.equal(JSON.parse(events[2].details).noticeKind,'deleted');assert.equal(JSON.parse(events[2].details).deletedRecord.data.content,'수정 본문');assert.equal(events[2].actor_id,'owner');
+ assert.deepEqual(saved(env,'keep'),kept);assert(!(await ok(await request(env,''))).records.some(r=>r.id==='delete-me'));
+ const searchResponse=await worker.fetch(new Request(base+'/api/business/search?q='+encodeURIComponent('삭제 시험'),{headers:{Origin:'https://hojezzang.github.io',Authorization:'Bearer '+TOKEN}}),env);
+ assert(!(await ok(searchResponse)).records.some(r=>r.id==='delete-me'));
 });
 test('continuous edits page newest first and retain exact escaped-text inputs, editor snapshots and before/after chains',async()=>{
  const env=makeEnv(),other=account(env,'second');await ok(await request(env,'/n','PUT',{title:'제목',content:'원문'}));let before='원문';

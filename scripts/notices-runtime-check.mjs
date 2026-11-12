@@ -22,5 +22,17 @@ try{
  const h=await req('/n/history','GET',undefined,'reader');assert.equal(h.records.length,1);assert.equal(h.records[0].changes.length,2);assert.equal(h.records[0].editorName,'합성 second');
  await req('/n','PUT',{title:listed.title,content:listed.content,revision:2,mutationId:'noop'},'second');assert.equal((await req('/n/history')).records.length,1);assert.equal((await db.prepare('SELECT count(*) n FROM portal_audit').first()).n,2);
  await req('/n','PUT',{...edit,revision:2,mutationId:'forged'},'reader',403);await req('/n/history','DELETE',{},'reader',405);
+ const created=listed.createdAt;
+ const dated=await req('/n','PUT',{title:listed.title,content:listed.content,noticeDate:'2026-01-15',revision:2,mutationId:'date-change'},'second');
+ assert.equal(dated.record.noticeDate,'2026-01-15');assert.equal(dated.record.createdAt,created);assert.equal(dated.record.authorName,'합성 first');
+ assert.equal((await req('/n/history')).records[0].changes[0].field,'noticeDate');
+ await req('/n','DELETE',{revision:3},'reader',403);await req('/n','DELETE',{revision:2},'first',409);
+ const deletion={revision:3,mutationId:'delete-runtime'};
+ await db.prepare("CREATE TRIGGER synthetic_delete_fail BEFORE INSERT ON portal_audit WHEN json_extract(NEW.details,'$.noticeKind')='deleted' BEGIN SELECT RAISE(ABORT,'SYNTHETIC_DELETE_FAILURE'); END").run();
+ await req('/n','DELETE',deletion,'first',500);assert.equal((await req('')).records.length,1);
+ await db.prepare('DROP TRIGGER synthetic_delete_fail').run();
+ await Promise.all([req('/n','DELETE',deletion),req('/n','DELETE',deletion)]);
+ assert.equal((await req('')).records.length,0);
+ assert.equal((await db.prepare("SELECT count(*) n FROM portal_audit WHERE json_extract(details,'$.noticeKind')='deleted'").first()).n,1);
  console.log('PASS real local D1: creator reuse/snapshots; atomic save/history rollback; concurrent response retries exactly once; no-op exclusion; cross-user reads and write/history permissions.');
 }finally{await mf.dispose();}
