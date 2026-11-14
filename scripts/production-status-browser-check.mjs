@@ -30,12 +30,12 @@ try{
  const detailCount=()=>t.evaluate('document.querySelectorAll(".production-adherence-detail tbody tr").length');
  async function filter(name,value){await t.evaluate(`const n=document.querySelector('#productionPage [name=${name}]');n.value=${JSON.stringify(value)};document.querySelector('#productionPage [data-filters]').requestSubmit()`);await ready();}
  await t.evaluate('await navigatePortal("production")');await ready();
- const writes=state.requests.filter(r=>r.method!=='GET').length;
+ assert(await t.evaluate('document.querySelector("[data-adherence-open]").textContent.includes("PND 도래 건 완료율")'));const writes=state.requests.filter(r=>r.method!=='GET').length;
  for(const part of ['part1','part2']){
-  await click('[data-part='+part+']');assert.equal(await rate(),'50%');assert.equal(await count(),'PND 도래 6건 중 완료 3건 · 완료 미확인 2건');
+  await click('[data-part='+part+']');assert.equal(await rate(),'50%');assert.equal(await count(),'3 / 6건 · 50% · 완료 미확인 2건');
   assert.equal(await t.evaluate('document.querySelector("[data-kpi=ready] strong").textContent'),'6건');
   assert.equal(await t.evaluate('[...document.querySelectorAll(".production-track [data-device-status=ready] .production-bar-count")].reduce((n,s)=>n+Number(s.textContent),0)'),6);
-  await click('[data-kpi=ready]');assert.equal(await t.evaluate('document.querySelectorAll("[data-list] tbody tr").length'),6);assert(await t.evaluate('document.querySelector("[data-list]").textContent.includes("future")'));assert.equal(await count(),'PND 도래 3건 중 완료 3건 · 완료 미확인 0건');
+  await click('[data-kpi=ready]');assert.equal(await t.evaluate('document.querySelectorAll("[data-list] tbody tr").length'),6);assert(await t.evaluate('document.querySelector("[data-list]").textContent.includes("future")'));assert.equal(await count(),'3 / 3건 · 100% · 완료 미확인 0건');
   await click('[data-clear-selection]');assert.equal(await rate(),'50%');
   assert(await t.evaluate('document.querySelector("[data-current]").textContent.includes("합성-현재현황-'+part+'.xlsx")&&document.querySelector("[data-current]").textContent.includes("한국시간")'));
   assert.equal(await t.evaluate('document.querySelector("[data-kpi=overdue] strong").textContent'),part==='part1'?'1':'3');
@@ -46,13 +46,13 @@ try{
   for(const [bucket,n]of [['completed',3],['active',1],['unknown',2],['future',1],['excluded',2]]){await click('[data-adherence-bucket='+bucket+']');assert.equal(await detailCount(),n);}
   assert(await t.evaluate('document.querySelector(".production-adherence-detail").textContent.includes("PND 누락")&&document.querySelector(".production-adherence-detail").textContent.includes("PND 날짜 오류")'));
   assert(await t.evaluate('document.querySelector("[data-adherence-guide]").textContent.includes("실제 완료일 기준의 과거 납기 준수 여부를 판정하는 지표가 아닙니다")'));
-  await filter('equipment',part==='part1'?'AC':'AHU');assert.equal(await rate(),'100%');assert.equal(await count(),'PND 도래 1건 중 완료 1건 · 완료 미확인 0건');
-  await click('[data-clear-filters]');await click('[data-kpi=unknown]');assert.equal(await rate(),'0%');assert.equal(await count(),'PND 도래 2건 중 완료 0건 · 완료 미확인 2건');
-  await click('[data-clear-selection]');await filter('Yard','선택 B');assert.equal(await count(),'PND 도래 1건 중 완료 0건 · 완료 미확인 0건');
-  await click('[data-clear-filters]');await filter('from',today);await filter('to',today);assert.equal(await count(),'PND 도래 3건 중 완료 2건 · 완료 미확인 1건');
+  await filter('equipment',part==='part1'?'AC':'AHU');assert.equal(await rate(),'100%');assert.equal(await count(),'1 / 1건 · 100% · 완료 미확인 0건');
+  await click('[data-clear-filters]');await click('[data-kpi=unknown]');assert.equal(await rate(),'0%');assert.equal(await count(),'0 / 2건 · 0% · 완료 미확인 2건');
+  await click('[data-clear-selection]');await filter('Yard','선택 B');assert.equal(await count(),'0 / 1건 · 0% · 완료 미확인 0건');
+  await click('[data-clear-filters]');await filter('from',today);await filter('to',today);assert.equal(await count(),'2 / 3건 · 66.7% · 완료 미확인 1건');
   await click('[data-clear-filters]');await filter('q','future');assert.equal(await rate(),'산정 대상 없음');await click('[data-adherence-open]');await click('[data-adherence-bucket=future]');assert.equal(await detailCount(),1);
   await filter('q','missing');assert.equal(await rate(),'산정 대상 없음');await click('[data-adherence-bucket=excluded]');assert.equal(await detailCount(),1);
-  await filter('q','no-match-at-all');assert.equal(await rate(),'산정 대상 없음');assert.equal(await count(),'PND 도래 0건 중 완료 0건 · 완료 미확인 0건');
+  await filter('q','no-match-at-all');assert.equal(await rate(),'산정 대상 없음');assert.equal(await count(),'0 / 0건 · 완료 미확인 0건');
   await click('[data-clear-filters]');await click('[data-adherence-open]');
   for(const width of [1366,390,320])for(const theme of ['light','dark']){
    await t.call('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});await t.evaluate(`document.documentElement.dataset.theme='${theme}';document.querySelector('[data-production-adherence]').scrollIntoView({block:'start',behavior:'instant'})`);
@@ -60,7 +60,7 @@ try{
   }
  }
  await t.call('Emulation.setDeviceMetricsOverride',{width:1366,height:1000,deviceScaleFactor:1,mobile:false});const large=seed('part1',true);await click('[data-part=part1]');await click('[data-refresh-production]');await t.wait(`productionPage.dataset.importId==='${large}'`);
- assert.equal(await count(),'PND 도래 215건 중 완료 72건 · 완료 미확인 71건');assert.equal(await rate(),'33.5%');await click('[data-adherence-open]');assert.equal(await detailCount(),100);await click('[data-adherence-page="1"]');assert.equal(await detailCount(),100);await click('[data-adherence-page="1"]');assert.equal(await detailCount(),15);
+ assert.equal(await count(),'72 / 215건 · 33.5% · 완료 미확인 71건');assert.equal(await rate(),'33.5%');await click('[data-adherence-open]');assert.equal(await detailCount(),100);await click('[data-adherence-page="1"]');assert.equal(await detailCount(),100);await click('[data-adherence-page="1"]');assert.equal(await detailCount(),15);
  await t.evaluate('await navigatePortal("home");history.back()');await t.wait('location.hash==="#/production"&&Boolean(document.querySelector(".production-adherence-detail"))');await ready();assert.equal(await detailCount(),15);assert.equal(await rate(),'33.5%');
  assert.equal(state.requests.filter(r=>r.method!=='GET').length,writes);assert.deepEqual(qa.errors,[]);
  await writeFile(dir+'/browser-result.json',JSON.stringify({parts:2,dueAndCompletionCountsMatchDetails:true,sharedProcessRules:true,futureAndDateExclusions:true,emptyAndZeroDistinct:true,filtersSelectionsAndHistory:true,pagination:215,koreanDate:true,widths:[1366,390,320],themes:['light','dark'],exceptions:0,businessWrites:0}));

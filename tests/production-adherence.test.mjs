@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productionAdherence} from '../business/ui/production-adherence.js';
+import {productionAdherence,createProductionAdherence} from '../business/ui/production-adherence.js';
+import {parseHTML} from 'linkedom';
 import {productionProcessState,ahuProcessState,productionView,ahuView} from '../business/ui/production-view.js';
 import {productionDisplay} from '../business/ui/production-display.js';
 import {parseProductionSheet,normalizeProductionRow} from '../business/production-sheet.mjs';
 import {writeTable} from '../business/ooxml.mjs';
 import {ahuBytes} from './support/production-parts-fixtures.mjs';
 const today='2026-11-04';
+test('card labels the due-current-completion ratio with counts, and keeps an empty target distinct from zero percent',()=>{
+ const {document}=parseHTML('<section><div data-production-adherence></div></section>'),root=document.querySelector('section'),card=createProductionAdherence(root,'part2');
+ const rows=Array.from({length:20},(_,i)=>({id:String(i),PND:today,현공정:i<18?'납품준비':'미완료'}));card.update(rows,{today});
+ assert(root.textContent.includes('PND 도래 건 완료율'));assert(root.querySelector('[data-adherence-counts]').textContent.startsWith('18 / 20건 · 90%'));assert.equal(root.querySelector('[data-adherence-rate]').textContent,'90%');
+ card.update([],{today});assert.equal(root.querySelector('[data-adherence-rate]').textContent,'산정 대상 없음');assert(!root.querySelector('[data-adherence-counts]').textContent.includes('0%'));
+ card.update([{id:'unfinished',PND:today,현공정:'미완료'}],{today});assert.equal(root.querySelector('[data-adherence-rate]').textContent,'0%');assert(root.querySelector('[data-adherence-counts]').textContent.startsWith('0 / 1건 · 0%'));
+});
 function fixture(part){return [
  ['past-apr','2026-11-03','납품준비 [APR]',100],['today-complete',today,'완료',2],
  ['active','2026-11-02',part==='part2'?'조립2[HA2]':'조립',1],['blank',today,'',1],['unknown','2026-11-01','미확인 공정',1],

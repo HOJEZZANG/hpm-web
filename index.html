@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261102-leave"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1557,9 +1557,9 @@
 
 <dialog id="issueLeaveDialog" class="issue-leave-dialog" aria-labelledby="issueLeaveTitle" aria-describedby="issueLeaveMessage"><h2 id="issueLeaveTitle">변경사항을 저장하시겠습니까?</h2><p id="issueLeaveMessage" role="status" aria-live="polite" hidden></p><div class="issue-leave-actions"><button type="button" class="btn primary" data-issue-leave="save">저장하고 이동</button><button type="button" class="btn light" data-issue-leave="discard">저장하지 않고 이동</button><button type="button" class="btn light" id="issueLeaveContinue" data-issue-leave="continue" autofocus>계속 작성</button></div></dialog>
 <dialog class="photo-lightbox" id="photoLightbox" aria-label="현장 사진 확대" onclick="if(event.target===this) closePhotoLightbox()">
-  <div class="photo-lightbox-dialog">
+  <div class="photo-lightbox-dialog" data-photo-state="waiting">
     <button class="photo-lightbox-close" type="button" aria-label="확대 사진 닫기" onclick="closePhotoLightbox()">×</button>
-    <img id="photoLightboxImage" alt="확대된 현장 사진" draggable="false">
+    <img id="photoLightboxImage" alt="확대된 현장 사진" draggable="false"><span class="photo-load-status" role="status"></span>
   </div>
   <div class="photo-zoom-guide">마우스 휠로 확대·축소 · <span id="photoZoomValue">100%</span></div>
 </dialog>
@@ -2072,7 +2072,7 @@
     }
     function openPhotoLightbox(src) {
       if (!src) return;
-      photoLightboxImage.src = issuePhotoUrl(src);
+      window.hpmSetPhotoSource(photoLightboxImage, issuePhotoUrl(src), {eager:true});
       applyPhotoZoom(1);
       photoLightbox.classList.add('show');
       if(!photoLightbox.open)photoLightbox.showModal();
@@ -2082,7 +2082,7 @@
       photoLightbox.classList.remove('show');
       if(photoLightbox.open)photoLightbox.close();
       applyPhotoZoom(1);
-      photoLightboxImage.removeAttribute('src');
+      window.hpmSetPhotoSource(photoLightboxImage, '');
       document.body.style.overflow = document.getElementById('issueDetailDialog').open?'hidden':'';
     }
     photoLightbox.addEventListener('cancel',e=>{e.preventDefault();e.stopPropagation();closePhotoLightbox();});
@@ -2101,8 +2101,8 @@
       grid.innerHTML = '';
       currentImages.forEach((src, index) => {
         const div = document.createElement('div');
-        div.className = 'preview';
-        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="문제 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
+        div.className = 'preview photo-frame';div.dataset.photoState='waiting';
+        div.innerHTML = `<span class="photo-load-status" role="status">사진 불러오는 중…</span><img data-photo-src="${esc(issuePhotoUrl(src))}" alt="문제 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
@@ -2115,8 +2115,8 @@
       grid.innerHTML = '';
       currentAfterImages.forEach((src, index) => {
         const div = document.createElement('div');
-        div.className = 'preview';
-        div.innerHTML = `<img src="${esc(issuePhotoUrl(src))}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
+        div.className = 'preview photo-frame';div.dataset.photoState='waiting';
+        div.innerHTML = `<span class="photo-load-status" role="status">사진 불러오는 중…</span><img data-photo-src="${esc(issuePhotoUrl(src))}" alt="조치 후 사진 ${index + 1}" title="클릭하여 확대" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><button type="button" title="사진 삭제" onclick="removeAfterImage(${index})">×</button>`;
         div.querySelector('img').addEventListener('click', event => { event.stopPropagation(); openPhotoLightbox(src); });
         grid.appendChild(div);
       });
@@ -2322,7 +2322,7 @@
       if(!issuesLoaded&&!issues.length){document.getElementById('issueList').innerHTML='<p class="empty">'+(issueLoadError?'조회에 실패했습니다. 위 안내에서 다시 조회해 주세요.':window.hpmServerUser?'서버 조회 대기 중':'로그인 후 조회할 수 있습니다.')+'</p>';listCountBadge.textContent='미확인';if(scope)scope.textContent='서버 조회 미확인';window.renderIssueLoadState?.();return;}
       const list=document.getElementById('issueList'),totalPages=Math.max(1,Math.ceil(currentFiltered.length/PAGE_SIZE));if(currentPage>totalPages)currentPage=totalPages;listCountBadge.textContent=currentFiltered.length+'건';list.innerHTML='';const pageItems=currentFiltered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
       if(!pageItems.length)list.innerHTML='<div class="empty">조회 조건에 해당하는 문제점이 없습니다.</div>';
-      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(window.HpmHome.issueLocation(issue)+' · '+(issue.title||'문제점'))} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-location">${esc(window.HpmHome.issueLocation(issue))}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta">${issue.productNo?`<span>제품 규격 ${esc(issue.productNo)}</span>`:''}<span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc(window.HpmHome.issueLocation(issue))}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<img class="mini-thumb" src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진 확대" tabindex="0" role="button" onclick="openPhotoLightbox(this.src)" onkeydown="if(event.key==='Enter'||event.key===' ')openPhotoLightbox(this.src)">`:''}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
+      for(const issue of pageItems){const div=document.createElement('div');div.className='issue-item'+(isOverdue(issue)?' overdue':'');div.setAttribute('role','listitem');const thumbnail=issue.images?.[0]||issue.afterImages?.[0];div.innerHTML=`<div class="issue-summary-row"><input class="issue-checkbox" type="checkbox" aria-label="${esc(window.HpmHome.issueLocation(issue)+' · '+(issue.title||'문제점'))} 삭제 선택" ${selectedIssueIds.has(issue.id)?'checked':''} ${canDeleteIssue(issue)?'':'disabled'} onchange="toggleIssueSelection('${issue.id}',this.checked)"><div class="issue-summary-main"><div class="issue-location">${esc(window.HpmHome.issueLocation(issue))}</div><button class="issue-open-detail" type="button" onclick="openIssueDetails('${issue.id}')">${esc(shortText(issue.title||issue.description,90))}</button><div class="issue-summary-meta">${issue.productNo?`<span>제품 규격 ${esc(issue.productNo)}</span>`:''}<span>${esc(issue.occurDate||'발생일 미지정')}</span><span>${esc(issue.product||'제품 미지정')}</span><span>${esc(window.HpmHome.issueLocation(issue))}</span><span>작성자 ${esc(issue.reporter||'미지정')}</span></div></div><div class="status-stack"><span class="badge ${getStatusClass(issue.status)}">${esc(issue.status)}</span>${isOverdue(issue)?'<span class="badge orange">PND 경과</span>':''}${thumbnail?`<button type="button" class="issue-list-photo photo-frame" data-photo-state="waiting" data-photo="${esc(issuePhotoUrl(thumbnail))}" aria-label="현장 사진 확대" onclick="openPhotoLightbox(this.dataset.photo)"><img class="mini-thumb" data-photo-src="${esc(issuePhotoUrl(thumbnail))}" alt="현장 사진" decoding="async"><span class="photo-load-status" role="status">사진 대기 중</span></button>`:'<span class="photo-none">사진 없음</span>'}</div></div>`;list.appendChild(div);}renderPagination(totalPages);updateSelectionControls();
     }
     window.getIssueForView=id=>issues.find(i=>i.id===id);
     window.getIssuesForDashboard=()=>window.hpmServerUser?issues:[];
@@ -3088,4 +3088,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261112-yards"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261114-local"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
