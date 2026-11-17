@@ -21,11 +21,11 @@ globalThis.fetch=async(input,init={})=>{
 const qa=await browser(process.argv[2],state.url);
 try{
  const t=await qa.tab();await t.call('Emulation.setDeviceMetricsOverride',{width:1366,height:950,deviceScaleFactor:1,mobile:false});await t.wait('document.documentElement.dataset.auth==="anonymous"');
- await t.evaluate('document.querySelector("[data-page=condEva]").click()');assert.equal(requests.length,0);
+ await t.evaluate('window.navigatePortal("condEva")');assert.equal(requests.length,0);
  await t.evaluate(`authUserId.value='owner';authPassword.value=${JSON.stringify(state.password)};void submitAuth()`);await t.wait('window.hpmServerUser?.id==="owner"&&issuesLoaded');
  const menu=await t.evaluate('[...document.querySelectorAll("#productionMenu>.menu-item")].map(n=>n.dataset.page||n.dataset.service)');assert.equal(menu.indexOf('condEva'),menu.indexOf('pressure')+1);assert.equal(menu.indexOf('ahuPnd'),menu.indexOf('condEva')+1);
- await t.evaluate('document.querySelector("[data-page=condEva]").focus()');await t.call('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});await t.call('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await t.wait('condEvaPage.dataset.ready==="true"&&condEvaPage.getAttribute("aria-busy")==="false"');
- assert.equal(await t.evaluate('location.hash'),'#/condEva');assert(await t.evaluate('document.querySelector("[data-page=condEva]").getAttribute("aria-current")==="page"'));
+ await t.evaluate('window.navigatePortal("condEva")');await t.wait('condEvaPage.dataset.ready==="true"&&condEvaPage.getAttribute("aria-busy")==="false"');
+ assert.equal(await t.evaluate('location.hash'),'#/condEva');assert(await t.evaluate('document.querySelector("[data-service=condEva]").target==="_blank"'));
  assert(await t.evaluate('condEvaPage.textContent.includes("연동 설정이 필요")&&condEvaPage.querySelector("[data-cond-results]").hidden'));
  assert.equal(requests.length,0);state.env.HPM_COND_EVA_READ_TOKEN=READ_TOKEN;
  const refresh=async()=>{await t.evaluate('document.querySelector("[data-cond-refresh]").click()');await t.wait('condEvaPage.getAttribute("aria-busy")==="false"');};

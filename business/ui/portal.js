@@ -4,7 +4,7 @@ import {init as production} from './production.js?v=20261104-status';
 import {init as condEva} from './cond-eva.js?v=20261117-cond';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261112-yards';
 import {createPresentation} from './presentation.js';
-import {initNavigation} from './navigation.js?v=20261117-cond';
+import {initNavigation} from './navigation.js?v=20261117-cond-link';
 import {initIssueView} from './issue-view.js?v=20261102-leave';
 import {initIssueDraft} from './issue-draft.js?v=20261102-leave';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
