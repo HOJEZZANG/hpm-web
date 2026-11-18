@@ -1,5 +1,5 @@
 import {$,api,esc,table,button,user} from './common.js?v=20261027-access';
-const labels={weekly:'주간 이슈',notices:'공지사항',issue:'공정 문제점',as:'AS 출장',team:'팀 일정',production:'생산 일정'};
+const labels={weekly:'주간 팀 공정 회의록',notices:'공지사항',issue:'공정 문제점',as:'AS 출장',team:'팀 일정',production:'생산 일정'};
 const identity=()=>user()?JSON.stringify([user().id,user().role,user().status,user().authRevision]):null;
 export function renderSearchResults(root,records){
   records=records.map(r=>r.type==='production'?{...r,label:String(r.label||'').replace(/^2파트\(AHU\)/,'2파트')}:r);

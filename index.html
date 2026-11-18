@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261102-leave"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261102-leave"><link rel="stylesheet" href="business/ui/weekly.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1245,7 +1245,7 @@
 <option value="">선택</option>
 <option>A/C생산팀</option>
 <option>생산계획팀</option>
-<option>생산기술팀</option>
+<option>구조설계팀</option><option>기술팀</option>
 <option>구매/자재팀</option>
 <option>QM팀</option>
 <option>외주업체</option>
@@ -1291,7 +1291,7 @@
 </select>
 <select aria-label="귀책부서 필터" id="deptFilter" onchange="applyFilters()">
 <option value="전체">부서명</option>
-<option>A/C생산팀</option><option>생산계획팀</option><option>생산기술팀</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option>
+<option>A/C생산팀</option><option>생산계획팀</option><option>구조설계팀</option><option>기술팀</option><option value="생산기술팀">생산기술팀 (기존 기록)</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option>
 </select>
 <select aria-label="상태 필터" id="statusFilter" onchange="applyFilters()"><option>미완료</option><option>PND 확인 필요</option>
 <option value="전체" selected>상태 · 전체</option>
@@ -1325,7 +1325,7 @@
 <div><label>종료일</label><input id="statEnd" type="date"></div>
 <div><label>제품</label><select id="statProduct"><option value="전체">전체</option><option>NAVY</option><option>CHILLER</option><option>A/C</option><option>DECK</option><option>COND</option><option>IGG</option><option>UREA</option><option>PROV</option><option>AHU</option></select></div>
 <div><label>공정</label><select id="statProcess"><option value="전체">전체</option><option>CASING PANEL</option><option>PIPE</option><option>COIL</option><option>BED 제작</option><option>BED 도장</option><option>조립</option><option>냉매라인</option><option>스팀라인</option><option>결선</option><option>검사(FAT)</option><option>포장/출하</option><option>기타</option></select></div>
-<div><label>부서</label><select id="statDept"><option value="전체">전체</option><option>A/C생산팀</option><option>생산계획팀</option><option>생산기술팀</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option></select></div>
+<div><label>부서</label><select id="statDept"><option value="전체">전체</option><option>A/C생산팀</option><option>생산계획팀</option><option>구조설계팀</option><option>기술팀</option><option value="생산기술팀">생산기술팀 (기존 기록)</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option></select></div>
 </div>
 <div class="btns">
 <button class="btn primary" onclick="renderStatistics()">통계 조회</button>
@@ -2164,6 +2164,7 @@
 
     function fillForm(issue,{navigate=true}={}){
       if(issueBusy){showToast(issueBusy);return;}
+      window.setIssueDepartment?.(issue.responsibleDept||'');
       issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;document.getElementById('issueEditorTitle').textContent='문제점 수정';window.switchManageView('create');issueMessage('');void discardPendingPhotos();draftIssueId=issue.id;issueId.value=issue.id;
       for(const [field,inputId]of Object.entries(issueEditableFields)){const n=document.getElementById(inputId);if(n.tagName==='SELECT')ensureSelectValue(n,issue[field]||'');else n.value=issue[field]||'';}
       document.getElementById('completedDateField').hidden=false;document.getElementById('completedDate').dataset.storedValue=issue.completedDate||'';window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');
@@ -2212,7 +2213,7 @@
 }
 
     function resetForm(){
-      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('completedDateField').hidden=true;delete document.getElementById('completedDate').dataset.storedValue;window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
+      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';window.setIssueDepartment?.();occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('completedDateField').hidden=true;delete document.getElementById('completedDate').dataset.storedValue;window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
       rememberIssueValues();window.HpmIssueDraft?.clean();
     }
 
@@ -3089,4 +3090,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261117-cond-link"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261118-meeting"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

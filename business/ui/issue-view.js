@@ -1,3 +1,4 @@
+import {issueDepartments} from '../issue-departments.mjs?v=20261118-meeting';
 import {esc} from './common.js';
 import {validateIssueCompletionDate} from '../issue-completion.mjs';
 export function koreanHistoryTime(value){
@@ -10,6 +11,18 @@ const fields=items=>`<dl class="issue-detail-fields">${items.map(([label,value])
 const history=items=>items?.length?`<ol class="detail-timeline">${[...items].toReversed().map(h=>`<li><div class="timeline-meta"><time>${esc(koreanHistoryTime(h.at))}</time><strong>${esc(h.actor||'—')}</strong><span class="badge gray">${esc(h.status||'—')}</span></div><p>${esc(h.note||'변경 내용 없음')}</p></li>`).join('')}</ol>`:'<p class="hint">저장된 이력이 없습니다.</p>';
 export const hasIssueValue=value=>value!==null&&value!==undefined&&value!==false&&String(value).trim()!=='';
 export function initIssueView(){
+  window.setIssueDepartment=(value='')=>{
+    const select=document.getElementById('responsibleDept');
+    select.replaceChildren(new Option('선택',''),...issueDepartments.map(v=>new Option(v,v)));
+    if(value&&!issueDepartments.includes(value))select.add(new Option(value+' (기존 기록)',value));
+    select.value=value;
+  };
+  window.setIssueDepartment();
+  for(const id of ['deptFilter','statDept']){
+    const select=document.getElementById(id),value=select.value;
+    select.replaceChildren(new Option('전체','전체'),...issueDepartments.map(v=>new Option(v,v)),new Option('생산기술팀 (기존 기록)','생산기술팀'));
+    select.value=[...select.options].some(o=>o.value===value)?value:'전체';
+  }
   window.validateIssueCompletionDate=validateIssueCompletionDate;
   const completedDate=document.getElementById('completedDate'),completionHint=document.getElementById('completedDateHint');
   window.updateIssueCompletionHint=()=>{

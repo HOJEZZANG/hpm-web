@@ -6,7 +6,7 @@ function actionLabel(action){
   if(action==='account.update')return '계정 사번·승인·권한 변경';
   if(action==='password.change')return '본인 비밀번호 변경';
   const [method,path]=action.split(' '),parts=path?.split('/')||[],kind=parts[2]==='business'?parts[3]:parts[2];
-  return ({issues:'문제점',photos:'사진','as-events':'AS 출장','team-events':'팀 일정',calendars:'일정 가져오기',weekly:'주간 이슈',imports:'생산 자료 업로드',notices:'공지사항',vehicles:'차량',people:'식수 인원',meals:'식수',menus:'식단표',bookings:'차량 예약',orders:'소모품 신청'}[kind]||'업무자료')+' '+({PUT:'저장',POST:'등록·반영',DELETE:'삭제'}[method]||'변경');
+  return ({issues:'문제점',photos:'사진','as-events':'AS 출장','team-events':'팀 일정',calendars:'일정 가져오기',weekly:'주간 팀 공정 회의록',imports:'생산 자료 업로드',notices:'공지사항',vehicles:'차량',people:'식수 인원',meals:'식수',menus:'식단표',bookings:'차량 예약',orders:'소모품 신청'}[kind]||'업무자료')+' '+({PUT:'저장',POST:'등록·반영',DELETE:'삭제'}[method]||'변경');
 }
 function detailsLabel(details){
   if(!details.before||!details.after)return '처리 완료';
