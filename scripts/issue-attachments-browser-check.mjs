@@ -106,7 +106,7 @@ try{
   await other.evaluate(`await navigatePortal('issue','manage');openIssueDetails('${id}')`);
   assert.match(await other.evaluate('issueDetailBody.textContent'),/실제 완료일\s*2020-01-05/);
   await other.evaluate(`issueDetailDialog.close();editIssue('${id}')`);assert.equal(await other.evaluate('completedDate.value'),'2020-01-05');
-  await other.evaluate(`status.value='종결';status.dispatchEvent(new Event('change',{bubbles:true}));issueForm.requestSubmit()`);await other.wait('!issueBusy&&issues[0].status==="종결"');
+  await other.evaluate(`status.value='조치완료';status.dispatchEvent(new Event('change',{bubbles:true}));issueForm.requestSubmit()`);await other.wait('!issueBusy&&issues[0].status==="조치완료"');
   await t.evaluate('await loadIssues();renderDashboard()');assert.match(await t.evaluate('sumLead.textContent'),/4/);
   await other.evaluate(`editIssue('${id}')`);
   await other.evaluate(`clearCompletedDate.click();issueForm.requestSubmit()`);await other.wait('!issueBusy&&issues[0].completedDate===""');

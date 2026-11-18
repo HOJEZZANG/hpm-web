@@ -1,3 +1,4 @@
+import {normalizeIssueStatus,isCompletedIssueStatus} from '../issue-status.mjs?v=20261118-status';
 import {issueDepartments} from '../issue-departments.mjs?v=20261118-meeting';
 import {esc} from './common.js';
 import {validateIssueCompletionDate} from '../issue-completion.mjs';
@@ -8,9 +9,10 @@ export function koreanHistoryTime(value){
   const date=new Date(value);return Number.isNaN(date.valueOf())?value:new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date)+' (한국 시간)';
 }
 const fields=items=>`<dl class="issue-detail-fields">${items.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||'—')}</dd></div>`).join('')}</dl>`;
-const history=items=>items?.length?`<ol class="detail-timeline">${[...items].toReversed().map(h=>`<li><div class="timeline-meta"><time>${esc(koreanHistoryTime(h.at))}</time><strong>${esc(h.actor||'—')}</strong><span class="badge gray">${esc(h.status||'—')}</span></div><p>${esc(h.note||'변경 내용 없음')}</p></li>`).join('')}</ol>`:'<p class="hint">저장된 이력이 없습니다.</p>';
+const history=items=>items?.length?`<ol class="detail-timeline">${[...items].toReversed().map(h=>`<li><div class="timeline-meta"><time>${esc(koreanHistoryTime(h.at))}</time><strong>${esc(h.actor||'—')}</strong><span class="badge gray">${esc(normalizeIssueStatus(h.status)||'—')}</span></div><p>${esc(h.note||'변경 내용 없음')}</p></li>`).join('')}</ol>`:'<p class="hint">저장된 이력이 없습니다.</p>';
 export const hasIssueValue=value=>value!==null&&value!==undefined&&value!==false&&String(value).trim()!=='';
 export function initIssueView(){
+  window.normalizeIssueStatus=normalizeIssueStatus;window.isCompletedIssueStatus=isCompletedIssueStatus;
   window.setIssueDepartment=(value='')=>{
     const select=document.getElementById('responsibleDept');
     select.replaceChildren(new Option('선택',''),...issueDepartments.map(v=>new Option(v,v)));
@@ -26,7 +28,7 @@ export function initIssueView(){
   window.validateIssueCompletionDate=validateIssueCompletionDate;
   const completedDate=document.getElementById('completedDate'),completionHint=document.getElementById('completedDateHint');
   window.updateIssueCompletionHint=()=>{
-    const editing=Boolean(document.getElementById('issueId').value),value=completedDate.value,stored=completedDate.dataset.storedValue||'',closed=['조치완료','종결'].includes(document.getElementById('status').value),messages=[];
+    const editing=Boolean(document.getElementById('issueId').value),value=completedDate.value,stored=completedDate.dataset.storedValue||'',closed=isCompletedIssueStatus(document.getElementById('status').value),messages=[];
     if(editing){
       if(stored&&!value)messages.push('기존 실제 완료일: '+stored+'. 변경하지 않으면 보존됩니다. 삭제하려면 지우기를 누르세요.');
       try{validateIssueCompletionDate(value||stored,document.getElementById('occurDate').value);}catch(error){messages.push(error.message+' 기존 값은 다른 내용 수정 시 보존됩니다.');}

@@ -21,7 +21,7 @@ try{
   assert.equal(await dirty(),false);assert.equal(await unload(),false);assert.equal(await evalNow('HpmIssueDraft.beforeUnloadActive()'),false);
   await evalNow('await navigatePortal("home");await navigatePortal("issue","manage");switchManageView("list");switchManageView("create")');assert.equal(await evalNow('issueLeaveDialog.open'),false);
   // All editable values compare to the baseline, including explicit date deletion.
-  for(const [id,value]of [['description','추가'],['actionDetail','조치'],['issueExtra_yard','야드'],['status','종결'],['processPnd','2020-01-02'],['occurDate','2020-01-01']]){
+  for(const [id,value]of [['description','추가'],['actionDetail','조치'],['issueExtra_yard','야드'],['status','조치완료'],['processPnd','2020-01-02'],['occurDate','2020-01-01']]){
     const initial=await evalNow(`document.getElementById('${id}').value`);await input(id,value);assert(await dirty(),id);assert(await unload());await input(id,initial);assert.equal(await dirty(),false,id);assert.equal(await unload(),false,id);
   }
   await photo();assert(await dirty());await evalNow('removeImage(0)');assert.equal(await dirty(),false);assert.equal(await unload(),false);

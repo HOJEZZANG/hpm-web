@@ -18,14 +18,14 @@ test('completion API reuses completed_date: edit, omitted preservation, explicit
   const env=makeEnv(true);
   const initial=await save(env,{description:'합성 완료일',occurDate:'2020-01-01',status:'종결'});
   assert.equal(initial.completedDate,'');
-  const updated=await save(env,{completedDate:'2020-01-05'});assert.equal(updated.status,'종결');assert.equal(updated.completedDate,'2020-01-05');
+  const updated=await save(env,{completedDate:'2020-01-05'});assert.equal(updated.status,'조치완료');assert.equal(updated.completedDate,'2020-01-05');
   assert.equal(env.sqlite.prepare('SELECT completed_date FROM issues').get().completed_date,'2020-01-05');
   assert.equal(JSON.parse(env.sqlite.prepare('SELECT payload FROM issues').get().payload).completedDate,'2020-01-05');
   assert.match(updated.history.at(-1).note,/실제 완료일/);
   const preserved=await save(env,{actionDetail:'일반 수정'});assert.equal(preserved.completedDate,'2020-01-05');
   const response=await worker.fetch(new Request('https://hpmanagement-web.lotusland1995.workers.dev/api/issues',{headers:{Authorization:'Bearer '+TOKEN}}),env),rows=(await response.json()).issues;
   assert.equal(rows[0].completedDate,'2020-01-05');assert.equal(analyzeIssues(rows,{},'2026-11-02').lead,4);
-  const cleared=await save(env,{completedDate:''});assert.equal(cleared.completedDate,'');assert.equal(cleared.status,'종결');assert.equal(analyzeIssues([cleared],{},'2026-11-02').lead,null);
+  const cleared=await save(env,{completedDate:''});assert.equal(cleared.completedDate,'');assert.equal(cleared.status,'조치완료');assert.equal(analyzeIssues([cleared],{},'2026-11-02').lead,null);
   assert.equal((await call(env,'completion',{completedDate:'2020-01-05'},'invalid')).status,401);
 });
 
