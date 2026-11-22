@@ -8,9 +8,18 @@ export function initNavigation(){
   const nav=document.getElementById('portalNavigation');
   nav.innerHTML=item('홈','home','home')+`<form class="sidebar-search" id="sidebarSearch" role="search" aria-label="통합검색"><input name="q" type="search" minlength="2" maxlength="100" required placeholder="통합검색" aria-label="통합검색어" autocomplete="off"><button type="submit" aria-label="통합검색 실행">${icon('search')}</button></form>`+group('productionMenu','생산관리',item('현황 대시보드','issue','chart','dashboard')+item('공정 문제점 관리','issue','issue','manage')+item('주간 팀 공정 회의록','weekly','week')+item('생산 일정관리','production','plan')+external('pressure','plan')+external('condEva','plan')+item('PND 대조','ahuPnd','plan'))+group('calendarMenu','출장·일정 관리',item('출장·일정 캘린더','calendar','calendar'))+group('supportMenu','지원업무',external('supplies','box')+external('vehicles','truck'))+group('fireStatusSubmenu','공장동 소화기 점검 현황',item('AHU 공장','fireStatus','fire')+item('A/C 공장','fireAc','fire'))+group('commonMenu','공통',item('공지사항','notices','notice')+item('사용자 승인','accounts','users'));
   nav.querySelector('[data-page=accounts]').hidden=true;
-  const toggle=document.getElementById('menuToggle'),backdrop=document.getElementById('menuBackdrop');
-  const close=()=>{document.body.classList.remove('sidebar-open');toggle.setAttribute('aria-expanded','false');backdrop.hidden=true;};
-  toggle.onclick=()=>{const open=!document.body.classList.contains('sidebar-open');document.body.classList.toggle('sidebar-open',open);toggle.setAttribute('aria-expanded',String(open));backdrop.hidden=!open;};
+  const toggle=document.getElementById('menuToggle'),backdrop=document.getElementById('menuBackdrop'),desktop=matchMedia('(min-width:901px)');
+  function syncToggle(){
+    const expanded=desktop.matches?!document.body.classList.contains('sidebar-collapsed'):document.body.classList.contains('sidebar-open');
+    toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',expanded?'메뉴 접기':'메뉴 펼치기');
+    toggle.title=expanded?'메뉴 접기':'메뉴 펼치기';toggle.innerHTML=`<span aria-hidden="true">☰</span><span class="menu-toggle-label">${expanded?'메뉴 접기':'메뉴 펼치기'}</span>`;
+  }
+  const close=()=>{document.body.classList.remove('sidebar-open');backdrop.hidden=true;syncToggle();};
+  toggle.onclick=()=>{
+    if(desktop.matches){document.body.classList.toggle('sidebar-collapsed');close();}
+    else{const open=!document.body.classList.contains('sidebar-open');document.body.classList.toggle('sidebar-open',open);backdrop.hidden=!open;syncToggle();}
+  };
+  desktop.addEventListener('change',close);syncToggle();
   backdrop.onclick=close;
   nav.onclick=e=>{const parent=e.target.closest('.menu-parent');if(parent){window.togglePortalMenu(parent);return;}const b=e.target.closest('[data-page]');if(b){window.navigatePortal(b.dataset.page,b.dataset.issueTab);close();}else if(e.target.closest('a'))close();};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('sidebar-open')){close();toggle.focus();}});

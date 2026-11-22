@@ -228,3 +228,11 @@ td,th{overflow-wrap:anywhere}
 #issueForm .form-field{gap:6px}
 
 #issueForm .issue-form-grid{gap:14px 18px}
+
+.menu-toggle-label{display:none}
+@media(min-width:901px){
+  .menu-toggle{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;min-height:36px;padding:6px 9px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+  .menu-toggle-label{display:inline;font-size:13px;white-space:nowrap}
+  .sidebar-collapsed .portal-sidebar{display:none}
+  .sidebar-collapsed .portal-main{margin-left:0}
+}

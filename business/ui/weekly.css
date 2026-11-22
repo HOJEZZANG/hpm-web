@@ -1,61 +1,66 @@
-#weeklyPage .weekly-range{font-size:13px;color:var(--hpm-muted,#536782);line-height:1.6;white-space:normal}
+﻿#weeklyPage{max-width:none}
+#weeklyPage>.module-banner{margin-bottom:12px}
+#weeklyPage>.module-banner h1{font-size:26px}
+#weeklyPage>[data-message]:empty{display:none}
+#weeklyPage .weekly-range{font-size:14px;color:var(--ink-muted);line-height:1.5;white-space:normal}
+#weeklyPage .weekly-toolbar{gap:8px;margin:12px 0}
+#weeklyPage .weekly-toolbar .btn{min-height:36px;padding:7px 11px;font-size:14px}
+#weeklyPage .weekly-toolbar input{min-height:36px;padding:6px 9px}
 #weeklyPage .weekly-form textarea[name=planAction]{min-height:140px}
-#weeklyPage .business-table{min-width:1400px}
-#weeklyPage .business-table th:first-child,#weeklyPage .business-table td:first-child{min-width:210px;white-space:pre-line}
-#weeklyPage .business-table th:last-child,#weeklyPage .business-table td:last-child{min-width:190px;white-space:nowrap}
-#weeklyPage .business-table th:nth-last-child(3),#weeklyPage .business-table td:nth-last-child(3){min-width:250px}
 #weeklyPage .weekly-original{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 #weeklyPage .weekly-legacy p{line-height:1.7;font-size:13px}
-.weekly-detail{width:min(1000px,calc(100vw - 32px));max-height:85vh;box-sizing:border-box;overflow:auto;border:1px solid var(--hpm-line,#c2d3e7);border-radius:12px;padding:24px;background:var(--surface,#fff);color:var(--hpm-ink,#16314e)}
-.weekly-detail::backdrop{background:#06172999}
-.weekly-detail h2{font-size:20px;margin-top:0}
-.weekly-detail dl>div{display:grid;grid-template-columns:125px minmax(0,1fr);gap:14px;border-bottom:1px solid var(--hpm-line,#c2d3e7);padding:12px 0}
+#weeklyPage .weekly-result-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0;font-size:14px}
+#weeklyPage .weekly-result-tools .btn{padding:5px 10px;font-size:13px}
+#weeklyPage .weekly-table-scroll{margin:6px 0 0;max-height:max(320px,calc(100dvh - 300px));overflow:auto;scrollbar-gutter:stable;isolation:isolate}
+.weekly-table .weekly-col-part{width:72px}.weekly-table .weekly-col-project{width:10%}.weekly-table .weekly-col-product{width:12%}.weekly-table .weekly-col-problem{width:44%}.weekly-table .weekly-col-manager{width:80px}.weekly-table .weekly-col-pnd{width:136px}
+#weeklyPage .weekly-table{width:100%;min-width:1180px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+#weeklyPage .weekly-table :is(th,td){min-width:0;padding:8px;font-size:14px;line-height:1.5;vertical-align:top;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere}
+#weeklyPage .weekly-table th{position:sticky;top:0;z-index:2;white-space:normal;background:var(--surface-alt);box-shadow:0 1px 0 var(--line-outer)}
+#weeklyPage .weekly-column-title{display:block;font-weight:700;margin-bottom:5px}
+#weeklyPage .weekly-table [data-column=part],#weeklyPage .weekly-table [data-column=manager],#weeklyPage .weekly-table .weekly-date{white-space:nowrap;overflow-wrap:normal}
+#weeklyPage .weekly-table th :is(input,select){display:block;width:100%;min-width:0;max-width:100%;min-height:32px;padding:4px;border:1px solid var(--line-outer);border-radius:4px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;line-height:1.4}
+#weeklyPage .weekly-table :is(input,select,button,summary):focus-visible{outline:2px solid var(--primary,#1763a6);outline-offset:2px}
+#weeklyPage [data-pnd-range]{display:grid;gap:4px;margin-top:5px}
+#weeklyPage [data-pnd-range] label{font-size:12px;font-weight:400}
+#weeklyPage .weekly-row-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px;margin-top:8px;white-space:normal}
+#weeklyPage .weekly-row-actions :is(.btn,summary){display:inline-block;min-height:28px;margin:0;padding:3px 6px;font-size:12px;line-height:20px;cursor:pointer}
+#weeklyPage .weekly-row-actions details{display:block}
+#weeklyPage .weekly-row-actions summary{color:var(--ink-muted);border:1px solid var(--line);border-radius:4px;list-style:none}
+#weeklyPage .weekly-row-actions summary::-webkit-details-marker{display:none}
+#weeklyPage .weekly-row-actions details>div{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.weekly-detail{width:min(1000px,calc(100vw - 32px));max-height:85vh;box-sizing:border-box;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:24px;background:var(--surface);color:var(--ink)}
+.weekly-detail::backdrop{background:#06172999}.weekly-detail h2{font-size:20px;margin-top:0}
+.weekly-detail dl>div{display:grid;grid-template-columns:125px minmax(0,1fr);gap:14px;border-bottom:1px solid var(--line);padding:12px 0}
 .weekly-detail dt{font-weight:700}.weekly-detail dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:560px){.weekly-detail{padding:16px}.weekly-detail dl>div{grid-template-columns:1fr;gap:5px}#weeklyPage .weekly-range{white-space:normal}}
-
-/* Meeting layout is confined to this screen; the editor remains in the DOM. */
-#weeklyPage .weekly-meeting-title{display:none}
-body.hpm-weekly-meeting{overflow:hidden}
+/* The same table and editor stay mounted through both layout changes. */
+#weeklyPage .weekly-meeting-title{display:none}body.hpm-weekly-meeting{overflow:hidden}
 body.hpm-weekly-meeting .portal-topbar,body.hpm-weekly-meeting .portal-sidebar,body.hpm-weekly-meeting #menuBackdrop{display:none!important}
 body.hpm-weekly-meeting .portal-main{margin:0;padding:0}
-#weeklyPage.meeting-view{inset:0;height:100dvh;box-sizing:border-box;z-index:1400;padding:clamp(12px,1.3vw,24px)!important;background:var(--canvas);color:var(--ink);overflow:auto}
+#weeklyPage.meeting-view{display:flex;flex-direction:column;inset:0;height:100dvh;box-sizing:border-box;z-index:1400;padding:12px 16px!important;background:var(--canvas);color:var(--ink);overflow:hidden}
 #weeklyPage.meeting-view>.module-banner,#weeklyPage.meeting-view>[data-message]:empty,#weeklyPage.meeting-view>[data-editor],#weeklyPage.meeting-view>[data-legacy]{display:none}
-#weeklyPage.meeting-view .weekly-toolbar{position:sticky;top:calc(-1 * clamp(12px,1.3vw,24px));z-index:3;align-items:center;margin:0;padding:12px 0;background:var(--canvas);border-bottom:1px solid var(--line)}
-#weeklyPage.meeting-view .weekly-meeting-title{display:block;margin:0;font-size:clamp(18px,1.35vw,24px)}
+#weeklyPage.meeting-view .weekly-toolbar{flex-shrink:0;align-items:center;margin:0;padding:0 0 8px;border-bottom:1px solid var(--line)}
+#weeklyPage.meeting-view .weekly-meeting-title{display:block;margin:0;font-size:20px}
 #weeklyPage.meeting-view .weekly-toolbar>.business-field,#weeklyPage.meeting-view [data-prev-meeting],#weeklyPage.meeting-view [data-next-meeting],#weeklyPage.meeting-view [data-refresh]{display:none}
-#weeklyPage.meeting-view .weekly-range{flex:1;min-width:220px;font-size:clamp(13px,1vw,16px)}
-#weeklyPage.meeting-view .weekly-results>.business-table-wrap{max-height:none;overflow:visible;margin:12px 0 0}
-#weeklyPage.meeting-view .weekly-results{overflow-x:auto}
-#weeklyPage.meeting-view .weekly-results .business-table{width:100%;min-width:1040px;table-layout:fixed}
-#weeklyPage.meeting-view .weekly-results :is(th,td){min-width:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;padding:clamp(10px,1vw,18px) clamp(8px,.75vw,14px);font-size:clamp(15px,1.05vw,20px);line-height:1.65}
-#weeklyPage.meeting-view .weekly-results th{position:static;font-size:clamp(13px,.95vw,17px);white-space:normal}
-#weeklyPage.meeting-view .weekly-results :is(th,td):first-child,#weeklyPage.meeting-view .weekly-results :is(th,td):last-child{display:none}
-#weeklyPage.meeting-view .weekly-results th:nth-child(2){width:5%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(3){width:10%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(4){width:9%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(5){width:29%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(6){width:6%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(7){width:8%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(8){width:20%}
-#weeklyPage.meeting-view .weekly-results th:nth-child(9){width:13%}
-
+#weeklyPage.meeting-view .weekly-range{flex:1;min-width:200px;font-size:14px}
+#weeklyPage.meeting-view .weekly-results{display:flex;flex-direction:column;flex:1;min-height:0}
+#weeklyPage.meeting-view .weekly-table-scroll{flex:1;min-height:0;max-height:none}
+#weeklyPage.meeting-view .weekly-table :is(th,td){font-size:15px;line-height:1.5;padding:8px}
+#weeklyPage.meeting-view .weekly-col-part{width:76px}#weeklyPage.meeting-view .weekly-col-manager{width:88px}
 #weeklyPrintSheet{display:none}
 @page weeklyMeeting{size:A4 landscape;margin:12mm 10mm}
 @media print{
-  :root:has(body.hpm-weekly-print){background:white!important;color-scheme:light}
-  body.hpm-weekly-print{margin:0!important;padding:0!important;overflow:visible!important;background:white!important}
-  body.hpm-weekly-print>:not(#weeklyPrintSheet){display:none!important}
-  body.hpm-weekly-print #weeklyPrintSheet{display:block!important;page:weeklyMeeting;color:#111;background:white;font:10.5pt/1.5 system-ui,sans-serif}
-  #weeklyPrintSheet .weekly-print-heading{margin-bottom:5mm;break-inside:avoid}
-  #weeklyPrintSheet h1{font-size:18pt;margin:0 0 2mm;color:#111}
-  #weeklyPrintSheet .weekly-print-heading p{margin:0;color:#333;font-size:10pt}
-  #weeklyPrintSheet .business-table-wrap{max-width:none;max-height:none;height:auto;overflow:visible;border:0;border-radius:0;margin:0}
-  #weeklyPrintSheet .business-table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;background:white!important;color:#111!important}
-  #weeklyPrintSheet thead{display:table-header-group}
-  #weeklyPrintSheet tr{break-inside:auto}
-  #weeklyPrintSheet :is(th,td){position:static;min-width:0;border:1px solid #a8adb3;padding:2.4mm 1.8mm;font-size:10.5pt;line-height:1.5;vertical-align:top;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;color:#111!important;background:white!important}
-  #weeklyPrintSheet th{font-size:10pt;font-weight:700;background:#eef1f5!important;white-space:normal}
-  #weeklyPrintSheet th:nth-child(1){width:5%}#weeklyPrintSheet th:nth-child(2){width:10%}#weeklyPrintSheet th:nth-child(3){width:9%}#weeklyPrintSheet th:nth-child(4){width:29%}#weeklyPrintSheet th:nth-child(5){width:6%}#weeklyPrintSheet th:nth-child(6){width:8%}#weeklyPrintSheet th:nth-child(7){width:20%}#weeklyPrintSheet th:nth-child(8){width:13%}
+:root:has(body.hpm-weekly-print){background:white!important;color-scheme:light}
+body.hpm-weekly-print{margin:0!important;padding:0!important;overflow:visible!important;background:white!important}
+body.hpm-weekly-print>:not(#weeklyPrintSheet){display:none!important}
+body.hpm-weekly-print #weeklyPrintSheet{display:block!important;page:weeklyMeeting;color:#111;background:white;font:10pt/1.4 system-ui,sans-serif}
+#weeklyPrintSheet .weekly-print-heading{margin-bottom:5mm;break-inside:avoid}
+#weeklyPrintSheet h1{font-size:18pt;margin:0 0 2mm;color:#111}#weeklyPrintSheet .weekly-print-heading p{margin:0;color:#333;font-size:10pt}
+#weeklyPrintSheet .business-table-wrap{max-width:none;max-height:none;height:auto;overflow:visible;border:0;border-radius:0;margin:0}
+#weeklyPrintSheet .weekly-table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;background:white!important;color:#111!important}
+#weeklyPrintSheet thead{display:table-header-group}#weeklyPrintSheet tr{break-inside:auto}
+#weeklyPrintSheet :is(th,td){position:static;min-width:0;border:1px solid #a8adb3;padding:2mm 1.5mm;font-size:10pt;line-height:1.4;vertical-align:top;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere;color:#111!important;background:white!important}
+#weeklyPrintSheet th{font-size:10pt;font-weight:700;background:#eef1f5!important;white-space:normal}
+#weeklyPrintSheet .weekly-col-part{width:6%}#weeklyPrintSheet .weekly-col-project{width:10%}#weeklyPrintSheet .weekly-col-product{width:12%}#weeklyPrintSheet .weekly-col-problem{width:44%}#weeklyPrintSheet .weekly-col-manager{width:7%}#weeklyPrintSheet .weekly-col-pnd{width:10%}
+#weeklyPrintSheet [data-column=part],#weeklyPrintSheet [data-column=manager],#weeklyPrintSheet .weekly-date{white-space:nowrap}
 }
-
-#weeklyPage.meeting-view .weekly-results td[colspan]{display:table-cell}

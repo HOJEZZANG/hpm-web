@@ -1,10 +1,10 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
-import {init as weekly} from './weekly.js?v=20261118-meeting';
+import {init as weekly} from './weekly.js?v=20261122-filters';
 import {init as production} from './production.js?v=20261109-label';
 import {init as condEva} from './cond-eva.js?v=20261117-cond';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261119-stx';
 import {createPresentation} from './presentation.js?v=20261118-status';
-import {initNavigation} from './navigation.js?v=20261118-meeting';
+import {initNavigation} from './navigation.js?v=20261122-menu';
 import {initIssueView} from './issue-view.js?v=20261122-integrated';
 import {initIssueDraft} from './issue-draft.js?v=20261102-leave';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';

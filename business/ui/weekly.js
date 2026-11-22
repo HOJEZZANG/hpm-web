@@ -2,7 +2,16 @@ import {$,api,esc,today,uid,user,isAdmin,field,table,button,shell,run,message,js
 import {weeklyDate,meetingDate,meetingRange,weekLabel,pndDate,combinedPlan} from '../weekly-data.mjs?v=20261031-meeting';
 
 const fields=[['date','등록 회의일','date',{required:true,value:meetingDate(today())}],['part','파트','select',{values:['1 PART','2 PART','3 PART']}],['project','프로젝트명','text',{max:200}],['product','제품','text',{required:true,max:200}],['manager','담당자','text',{required:true,max:100}],['pnd','PND','date'],['problem','현황','textarea',{required:true,wide:true}],['planAction','계획·실행','textarea',{wide:true,max:5000}],['remark','비고','textarea',{wide:true}]];
-const columns=[{label:'회의일 · 보고기간',value:r=>r.meetingDate?`회의일 ${r.meetingDate.replaceAll('-','.')}\n${weekLabel(r)}`:weekLabel(r)},{label:'파트',key:'part'},{label:'프로젝트명',key:'project'},{label:'제품',key:'product'},{label:'현황',key:'problem'},{label:'담당자',key:'manager'},{label:'PND',value:r=>pndDate(r.pnd)||r.pnd},{label:'계획·실행',value:combinedPlan},{label:'비고',key:'remark'}];
+const columns=[{label:'파트',key:'part'},{label:'프로젝트명',key:'project'},{label:'제품',key:'product'},{label:'현황',key:'problem'},{label:'담당자',key:'manager'},{label:'PND',key:'pnd',value:r=>pndDate(r.pnd)||r.pnd},{label:'비고',key:'remark'}];
+const meetingInfo=r=>r.meetingDate?`회의일 ${r.meetingDate.replaceAll('-','.')}\n${weekLabel(r)}`:weekLabel(r);
+const filterControl=c=>{
+  const label=esc(c.label);
+  if(['part','manager'].includes(c.key))return `<select data-weekly-filter="${c.key}" aria-label="${label} 필터"><option value="">전체</option></select>`;
+  if(c.key==='pnd')return `<select data-weekly-filter="pndMode" aria-label="PND 조건"><option value="">전체</option><option value="range">날짜 범위</option><option value="empty">미입력</option><option value="text">날짜 미확인</option></select><div data-pnd-range hidden><label>시작<input type="date" data-weekly-filter="pndFrom" aria-label="PND 시작일"></label><label>종료<input type="date" data-weekly-filter="pndTo" aria-label="PND 종료일"></label></div>`;
+  return `<input type="search" data-weekly-filter="${c.key}" aria-label="${label} 검색" placeholder="검색" autocomplete="off">`;
+};
+const tableHead=filters=>`<colgroup>${columns.map(c=>`<col class="weekly-col-${c.key}">`).join('')}</colgroup><thead><tr>${columns.map(c=>`<th scope="col"><span class="weekly-column-title">${esc(c.label)}</span>${filters?filterControl(c):''}</th>`).join('')}</tr></thead>`;
+const reportRows=(rows,actions)=>rows.length?rows.map(r=>`<tr>${columns.map(c=>`<td data-column="${c.key}"${c.key==='pnd'&&pndDate(r.pnd)?' class="weekly-date"':''}>${esc(c.value?c.value(r):r[c.key])}${c.key==='remark'&&actions?actions(r):''}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="7">조건에 맞는 회의록이 없습니다.</td></tr>`;
 const editable=r=>isAdmin()||r.owner===user()?.id;
 const rangeText=day=>weeklyDate(day)?`회의일 ${meetingDate(day).replaceAll('-','.')} · 보고기간 ${weekLabel(meetingRange(day))}`:'기준일 확인 필요';
 const legacyWeek=r=>[r.key,r.monday,r.date,r.legacyDay,r.year&&r.week?`${r.year}년 ${r.week}주`:''].filter((v,i,a)=>v&&a.indexOf(v)===i).join(' / ')||'기존 주간 정보 없음';
@@ -14,6 +23,35 @@ export async function init(root){
   form.elements.date.insertAdjacentHTML('afterend','<output data-register-range class="weekly-range"></output>');
   form.elements.pnd.insertAdjacentHTML('afterend','<small data-pnd-original class="weekly-original" hidden></small>');
   let selected=null,records=[],legacy=[],newId=uid(),sequence=0,loadedDay=null,normalScroll=0;
+  const list=$('[data-list]',root),filters={part:'',project:'',product:'',problem:'',manager:'',pndMode:'',pndFrom:'',pndTo:'',remark:''};
+  list.innerHTML=`<div class="weekly-result-tools"><output data-result-count role="status" aria-live="polite"></output>${button('필터 전체 초기화','data-weekly-reset')}</div><div class="business-table-wrap weekly-table-scroll" role="region" aria-label="주간 회의록 표" tabindex="0"><table class="business-table weekly-table">${tableHead(true)}<tbody></tbody></table></div>`;
+  const filteredRecords=()=>records.filter(r=>{
+    if(['part','manager'].some(k=>filters[k]&&r[k]!==filters[k]))return false;
+    if(['project','product','problem','remark'].some(k=>filters[k].trim()&&!String(r[k]??'').toLocaleLowerCase().includes(filters[k].trim().toLocaleLowerCase())))return false;
+    const day=pndDate(r.pnd);
+    if(filters.pndMode==='empty')return !String(r.pnd??'').trim();
+    if(filters.pndMode==='text')return Boolean(String(r.pnd??'').trim())&&!day;
+    if(filters.pndMode==='range')return Boolean(day)&&(!filters.pndFrom||day>=filters.pndFrom)&&(!filters.pndTo||day<=filters.pndTo);
+    return true;
+  });
+  function renderResults(){
+    const rows=filteredRecords();
+    // Keep the header controls mounted so typing, selection and IME composition survive.
+    $('tbody',list).innerHTML=reportRows(rows,owned);
+    $('[data-result-count]',list).textContent=`검색 결과 ${rows.length}건 / 전체 ${records.length}건`;
+  }
+  function updateOptions(){
+    for(const key of ['part','manager']){
+      const values=[...new Set([...records.map(r=>r[key]),filters[key]].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+      const control=$(`[data-weekly-filter="${key}"]`,list);
+      control.innerHTML='<option value="">전체</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');control.value=filters[key];
+    }
+  }
+  function changeFilter(e){
+    const key=e.target.dataset.weeklyFilter;if(!Object.hasOwn(filters,key))return;
+    filters[key]=e.target.value;$('[data-pnd-range]',list).hidden=filters.pndMode!=='range';renderResults();
+  }
+  list.addEventListener('input',changeFilter);list.addEventListener('change',changeFilter);
   const owner=user()?.id,meetingButton=$('[data-meeting]',root);
   function setMeeting(enabled){
     if(enabled)normalScroll=window.scrollY;
@@ -24,14 +62,15 @@ export async function init(root){
   function preparePrint(){
     if(!loadedDay||query.value!==loadedDay){message(root,'선택한 회의일의 조회를 완료한 후 인쇄하세요.',true);return false;}
     let sheet=document.getElementById('weeklyPrintSheet');if(!sheet){sheet=document.createElement('section');sheet.id='weeklyPrintSheet';document.body.append(sheet);}
-    sheet.innerHTML=`<div class="weekly-print-heading"><h1>주간 팀 공정 회의록</h1><p>${esc(rangeText(loadedDay))} · 전체 ${records.length}건</p></div>${table(columns.slice(1),records)}`;
+    const rows=filteredRecords();
+    sheet.innerHTML=`<div class="weekly-print-heading"><h1>주간 팀 공정 회의록</h1><p>${esc(rangeText(loadedDay))} · 검색 결과 ${rows.length}건 / 전체 ${records.length}건</p></div><div class="business-table-wrap"><table class="business-table weekly-table">${tableHead(false)}<tbody>${reportRows(rows)}</tbody></table></div>`;
     document.body.classList.add('hpm-weekly-print');return true;
   }
   window.addEventListener('beforeprint',()=>{if(root.isConnected&&root.classList.contains('active'))preparePrint();});
   window.addEventListener('afterprint',()=>document.body.classList.remove('hpm-weekly-print'));
   document.addEventListener('hpm:navigate',()=>{if(root.classList.contains('meeting-view')&&!root.classList.contains('active'))setMeeting(false);});
   document.addEventListener('hpm:auth',()=>{if(!root.isConnected||user()?.id!==owner){if(root.classList.contains('meeting-view'))setMeeting(false);document.getElementById('weeklyPrintSheet')?.remove();document.body.classList.remove('hpm-weekly-print');}});
-  const owned=r=>button('상세',`data-detail="${esc(r.id)}"`)+(editable(r)?button('수정',`data-edit="${esc(r.id)}"`)+button('개별 삭제',`data-delete="${esc(r.id)}"`):'');
+  const owned=r=>`<div class="weekly-row-actions">${button('상세',`data-detail="${esc(r.id)}"`)}${editable(r)?`<details><summary aria-label="회의록 관리 메뉴">관리</summary><div>${button('수정',`data-edit="${esc(r.id)}"`)}${button('개별 삭제',`data-delete="${esc(r.id)}"`)}</div></details>`:''}</div>`;
   const find=id=>[...records,...legacy].find(r=>r.id===id);
   const hint=()=>{$('[data-register-range]',root).textContent=(selected&&form.elements.date.value===selected.referenceDate&&selected.referenceDate!==selected.meetingDate?'기존 기준일 유지 · ':'')+rangeText(form.elements.date.value);};
   root.querySelectorAll('input[type=date]').forEach(input=>{
@@ -49,9 +88,9 @@ export async function init(root){
     if(request!==sequence||query.value!==day)return false;
     records=response.records;legacy=response.legacyRecords||[];loadedDay=day;
     $('[data-query-range]',root).textContent=rangeText(day);
-    $('[data-list]',root).innerHTML=table(columns,records,owned);
+    updateOptions();renderResults();
     $('[data-legacy]',root).hidden=!legacy.length;$('[data-legacy-count]',root).textContent=legacy.length;
-    $('[data-legacy-list]',root).innerHTML=table([{label:'기존 주간 정보',value:legacyWeek},...columns.slice(1)],legacy,owned);
+    $('[data-legacy-list]',root).innerHTML=table([{label:'기존 주간 정보',value:legacyWeek},...columns],legacy,owned);
     return true;
   }
   function showOriginal(record){const original=pndOriginal(record),node=$('[data-pnd-original]',root);node.hidden=!original;node.textContent=original?'기존 PND 원문: '+original+'\n날짜를 변경하지 않으면 원문을 유지합니다.':'';}
@@ -65,7 +104,7 @@ export async function init(root){
   }
   function reset(){selected=null;newId=uid();form.reset();for(const [key,,,opts]of fields)form.elements[key].required=Boolean(opts?.required);form.elements.date.value=query.value||meetingDate(today());showOriginal({});hint();dirty.clean();}
   function detail(record){
-    const rows=[['회의일 · 보고기간',columns[0].value(record)],...(record.referenceDate&&record.referenceDate!==record.meetingDate?[['기존 기준일',record.referenceDate]]:[]),...(record.unresolvedWeek?[['기존 주간 정보',legacyWeek(record)]]:[]),...(record.legacyDate?[['기존 기준일 원문',record.legacyDate]]:[]),...(record.legacySqlDay?[['기존 주간 원문',record.legacySqlDay]]:[]),...columns.slice(1).map(c=>[c.label,c.value?c.value(record):record[c.key]]),...(pndOriginal(record)?[['기존 PND 원문',pndOriginal(record)]]:[])];
+    const rows=[['회의일 · 보고기간',meetingInfo(record)],...(record.referenceDate&&record.referenceDate!==record.meetingDate?[['기존 기준일',record.referenceDate]]:[]),...(record.unresolvedWeek?[['기존 주간 정보',legacyWeek(record)]]:[]),...(record.legacyDate?[['기존 기준일 원문',record.legacyDate]]:[]),...(record.legacySqlDay?[['기존 주간 원문',record.legacySqlDay]]:[]),...columns.map(c=>[c.label,c.value?c.value(record):record[c.key]]),['계획·실행',combinedPlan(record)],...(pndOriginal(record)?[['기존 PND 원문',pndOriginal(record)]]:[])];
     $('[data-detail-content]',root).innerHTML='<h2 id="weeklyDetailTitle">주간 팀 공정 회의록 상세</h2><dl>'+rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v||'—')}</dd></div>`).join('')+'</dl>'+(editable(record)?button('수정',`data-detail-edit="${esc(record.id)}"`):'');
     if(!dialog.open)dialog.showModal();
   }
@@ -75,11 +114,12 @@ export async function init(root){
     if(b.hasAttribute('data-prev-meeting')||b.hasAttribute('data-next-meeting')){const day=meetingDate(query.value||today());query.value=new Date(Date.parse(day+'T00:00:00Z')+(b.hasAttribute('data-prev-meeting')?-7:7)*86400000).toISOString().slice(0,10);query.dispatchEvent(new Event('change'));}
     if(b.hasAttribute('data-meeting'))setMeeting(!root.classList.contains('meeting-view'));
     if(b.hasAttribute('data-weekly-print')&&preparePrint())window.print();
+    if(b.hasAttribute('data-weekly-reset')){for(const key of Object.keys(filters))filters[key]='';list.querySelectorAll('[data-weekly-filter]').forEach(c=>c.value='');$('[data-pnd-range]',list).hidden=true;renderResults();}
     if(b.hasAttribute('data-new')&&dirty.replace())reset();
     if(b.hasAttribute('data-close-detail'))dialog.close();
     if(b.dataset.detail){const r=find(b.dataset.detail);if(r)detail(r);}
     const id=b.dataset.edit||b.dataset.detailEdit;
-    if(id&&dirty.replace()){const r=find(id);if(r){dialog.close();fill(r);}}
+    if(id&&dirty.replace()){const r=find(id);if(r){dialog.close();if(root.classList.contains('meeting-view'))setMeeting(false);fill(r);}}
     if(b.dataset.delete&&confirm('이 기록 한 건을 삭제하시겠습니까?'))void run(root,b,async()=>{const row=find(b.dataset.delete);await api('weekly/'+row.id,jsonOptions('DELETE',{revision:row.revision}));if(selected?.id===row.id)reset();message(root,'서버에서 개별 삭제를 확인했습니다.');await load();});
   });
   form.elements.date.addEventListener('input',hint);form.elements.date.addEventListener('change',()=>{if(weeklyDate(form.elements.date.value)&&(!selected||form.elements.date.value!==selected.referenceDate))form.elements.date.value=meetingDate(form.elements.date.value);hint();form.dispatchEvent(new Event('input',{bubbles:true}));});
