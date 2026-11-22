@@ -216,7 +216,7 @@ test('UPSERT all fields, bound SQL, preserved creation and normalized reads', as
   const createdAt = '2020-01-01T00:00:00.000Z';
   const fields = { issueNo:'N1', occurDate:'2026-09-01', registerDate:'2026-09-02', product:'AHU',
     projectNo:"'); DELETE FROM issues; --", processPnd:'2026-09-20', deliveryDate:'2026-09-21', process:'조립1',
-    issueType:'불량', description:'설명', finder:'발견자', responsibleDept:'생산', status:'조치중', priority:'높음',
+    issueType:'불량', description:'설명', finder:'발견자', responsibleDept:'A/C생산팀', status:'조치중', priority:'높음',
     dueDate:'2026-09-22', feedbackOwner:'담당', causeFeedback:'원인', actionDetail:'조치', completedDate:'',
     verifier:'검증자', prevention:'예방', followupFlag:true, sample:true, createdAt,
     history:[{ at:createdAt, status:'접수', actor:'등록자', note:'등록' }] };

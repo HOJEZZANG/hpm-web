@@ -17,7 +17,8 @@ export const CONFIRMED_YARD_PAIRS=Object.freeze([
   ['KYT','한국야나세 통영조선소'],
   ['DHS','DHSCO'],
   ['HNW','DSME'],
-  ['HSM','HIPSON MARINE']
+  ['HSM','HIPSON MARINE'],
+  ['STX','KSB']
 ].map(pair=>Object.freeze(pair)));
 const yardKey=value=>String(value??'').replace(/\s+/g,'').toUpperCase();
 const confirmedYards=new Map();

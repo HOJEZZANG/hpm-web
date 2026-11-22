@@ -1,3 +1,5 @@
+import {normalizeIssueStatus} from './business/issue-status.mjs';
+import {validIssueDepartment} from './business/issue-departments.mjs';
 import { normalizeCalendar, planCalendarImport, calendarBackup } from './calendar-data.mjs';
 import { businessApi } from './business/api.mjs';
 import { authenticate, authApi } from './business/auth.mjs';
@@ -65,7 +67,7 @@ function toIssue(row) {
   const issue = {};
   for (const [camel, snake] of Object.entries(fields)) issue[camel] = String(row[snake] ?? row[camel] ?? '');
   for(const key of ['yard','hullNo','productNo','remark','part','factory']) issue[key]=String(row[key.replace(/[A-Z]/g,c=>'_'+c.toLowerCase())]??row[key]??'');
-  issue.product ||= '미분류'; issue.status ||= '접수';
+  issue.product ||= '미분류'; issue.status = normalizeIssueStatus(issue.status) || '접수';
   issue.updatedAt ||= issue.createdAt;
   if (/^조립[123]$/.test(issue.process)) issue.process = '조립';
   issue.followupFlag = bool(row.followup_flag ?? row.followupFlag);
@@ -114,6 +116,8 @@ function validateIssue(body, id, old) {
     if (issue[key] && issue[key]!==old?.[fields[key]]) businessDate(issue[key],key);
   }
   validateIssueCompletionDate(issue.completedDate, issue.occurDate, old?.completed_date);
+  if(!validIssueDepartment(issue.responsibleDept,old?.responsible_dept))throw new ApiError(400,'귀책부서를 현재 선택 목록에서 선택하세요. 기존 기록의 부서값은 변경하지 않을 때 유지할 수 있습니다.');
+  issue.status = normalizeIssueStatus(issue.status);
   issue.id = id;
   issue.followupFlag = bool(body.followupFlag); issue.sample = bool(body.sample);
   for (const name of ['images', 'afterImages']) {

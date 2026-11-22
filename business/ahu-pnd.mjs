@@ -1,5 +1,5 @@
 // Pure comparison rules. No network, storage, local timezone or inferred yard aliases.
-import {normalizeAhuModel,canonicalYardCode,confirmedYardRelation,confirmedYardConflict} from './ahu-models.mjs?v=20261112-yards';
+import {normalizeAhuModel,canonicalYardCode,confirmedYardRelation,confirmedYardConflict} from './ahu-models.mjs?v=20261119-stx';
 export const AHU_LIMITS = Object.freeze({file:10*1024*1024,expanded:32*1024*1024,rows:20000,cells:250000,columns:256,text:16*1024*1024,candidates:250000});
 export const AHU_NOTICE = 'ERP PND 대비 생산계획 PND 기준입니다. 두 자료의 날짜 차이이며 실제 납기 지연 판정이나 과거 대비 변경 이력이 아닙니다.';
 const DAY=86400000;

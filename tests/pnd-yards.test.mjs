@@ -9,14 +9,15 @@ import {ahuPresetFixture} from './support/ahu-pnd-fixtures.mjs';
 
 const pairs=[
   ['HSH','HSHI'],['JO-ENG','제이오 엔지니어링'],['KYT','한국야나세 통영조선소'],
-  ['DHS','DHSCO'],['HNW','DSME'],['HSM','HIPSON MARINE']
+  ['DHS','DHSCO'],['HNW','DSME'],['HSM','HIPSON MARINE'],
+  ['STX','KSB']
 ];
 const row=(yard,side,extra={})=>({yard,hull:'QA-YARD-01',spec:'HKA-10SO',row:side==='erp'?3:7,
   file:'synthetic-'+side+'.xlsx',sheet:side==='erp'?'Sheet1':'ALL',pnd:side==='erp'?'2027-02-18':'2027-02-24',
   date:calendarDate(side==='erp'?'2027-02-18':'2027-02-24'),...extra});
 const formatted=value=>' \t'+[...value.toLowerCase()].join(' \n')+'\n ';
 
-test('all six approved pairs match both ways after case/whitespace normalization and retain exact original yards',()=>{
+test('all approved pairs match both ways after case/whitespace normalization and retain exact original yards',()=>{
   for(const pair of pairs)for(const [left,right]of [pair,[...pair].reverse()]){
     for(const [erpYard,planYard]of [[left,right],[formatted(left),formatted(right)]]){
       const erp=row(erpYard,'erp'),plan=row(planYard,'plan'),before=structuredClone({erp,plan});

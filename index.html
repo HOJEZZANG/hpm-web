@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261031-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261101-evidence"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261104-status"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261103-header"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1082,6 +1082,7 @@
 
 <section id="weeklyPage" class="portal-page business-page"></section>
 <section id="productionPage" class="portal-page business-page"></section>
+<section id="condEvaPage" class="portal-page business-page"></section>
 <section id="ahuPndPage" class="portal-page business-page"></section>
 
 
@@ -1182,7 +1183,7 @@
 <div class="summary-card">
 <div class="summary-label">평균 처리 리드타임</div>
 <div class="summary-value"><span id="sumLead">—</span><span style="font-size:16px;"> 일</span></div>
-<div class="summary-sub">조치완료·종결 건 평균</div>
+<div class="summary-sub">조치완료 건 평균</div>
 </div>
 </div>
 <div class="card delivery-warning-card">
@@ -1244,7 +1245,7 @@
 <option value="">선택</option>
 <option>A/C생산팀</option>
 <option>생산계획팀</option>
-<option>생산기술팀</option>
+<option>구조설계팀</option><option>기술팀</option>
 <option>구매/자재팀</option>
 <option>QM팀</option>
 <option>외주업체</option>
@@ -1263,7 +1264,7 @@
 <option>원인검토중</option>
 <option>조치중</option>
 <option>조치완료</option>
-<option>종결</option>
+
 </select></div><div class="form-field"><label for="processPnd">공정 PND(선택)</label><input id="processPnd" type="date"></div><div class="form-field" id="completedDateField" hidden><label for="completedDate">실제 완료일(선택)</label><div class="issue-date-input"><input id="completedDate" type="date" aria-describedby="completedDateHint"><button type="button" id="clearCompletedDate" class="btn light">지우기</button></div></div><p id="completedDateHint" class="hint issue-completion-hint" role="status" hidden></p></div>
 <div class="form-field wide"><label for="description" class="required">문제점 상세내용</label><textarea required id="description" placeholder="발생 위치, 현상, 수량, 작업 영향 등을 구체적으로 입력하세요."></textarea></div>
 <div class="form-field wide"><label for="actionDetail">조치내용</label><textarea id="actionDetail" placeholder="조치한 내용이 있으면 입력하세요. 나중에 추가할 수 있습니다."></textarea></div>
@@ -1290,11 +1291,11 @@
 </select>
 <select aria-label="귀책부서 필터" id="deptFilter" onchange="applyFilters()">
 <option value="전체">부서명</option>
-<option>A/C생산팀</option><option>생산계획팀</option><option>생산기술팀</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option>
+<option>A/C생산팀</option><option>생산계획팀</option><option>구조설계팀</option><option>기술팀</option><option value="생산기술팀">생산기술팀 (기존 기록)</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option>
 </select>
 <select aria-label="상태 필터" id="statusFilter" onchange="applyFilters()"><option>미완료</option><option>PND 확인 필요</option>
 <option value="전체" selected>상태 · 전체</option>
-<option>접수</option><option>원인검토중</option><option>조치중</option><option>조치완료</option><option>종결</option>
+<option>접수</option><option>원인검토중</option><option>조치중</option><option>조치완료</option>
 </select>
 </div>
 <div class="date-filter-bar">
@@ -1324,7 +1325,7 @@
 <div><label>종료일</label><input id="statEnd" type="date"></div>
 <div><label>제품</label><select id="statProduct"><option value="전체">전체</option><option>NAVY</option><option>CHILLER</option><option>A/C</option><option>DECK</option><option>COND</option><option>IGG</option><option>UREA</option><option>PROV</option><option>AHU</option></select></div>
 <div><label>공정</label><select id="statProcess"><option value="전체">전체</option><option>CASING PANEL</option><option>PIPE</option><option>COIL</option><option>BED 제작</option><option>BED 도장</option><option>조립</option><option>냉매라인</option><option>스팀라인</option><option>결선</option><option>검사(FAT)</option><option>포장/출하</option><option>기타</option></select></div>
-<div><label>부서</label><select id="statDept"><option value="전체">전체</option><option>A/C생산팀</option><option>생산계획팀</option><option>생산기술팀</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option></select></div>
+<div><label>부서</label><select id="statDept"><option value="전체">전체</option><option>A/C생산팀</option><option>생산계획팀</option><option>구조설계팀</option><option>기술팀</option><option value="생산기술팀">생산기술팀 (기존 기록)</option><option>구매/자재팀</option><option>QM팀</option><option>외주업체</option><option>공통/협의필요</option></select></div>
 </div>
 <div class="btns">
 <button class="btn primary" onclick="renderStatistics()">통계 조회</button>
@@ -1373,7 +1374,7 @@
           <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
         </div>
         <div class="bar-row">
-          <div class="bar-head"><span>종결</span><strong>1건</strong></div>
+          <div class="bar-head"><span>조치완료</span><strong>1건</strong></div>
           <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
         </div></div></div></div>
 </div>
@@ -1765,7 +1766,7 @@
         const snake = key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
         data[key] = String(value[key] ?? value[snake] ?? '');
       }
-      data.product ||= '미분류'; data.status ||= '접수';
+      data.product ||= '미분류'; data.status = window.normalizeIssueStatus(data.status) || '접수';
       data.updatedAt ||= data.createdAt;
       const truthy = v => v === true || v === 1 || v === '1' || v === 'true';
       data.followupFlag = truthy(value.followupFlag ?? value.followup_flag);
@@ -1834,7 +1835,6 @@
     }
 
     const PAGE_SIZE = 7;
-    const closedStatuses = ['조치완료', '종결'];
     const el = id => document.getElementById(id);
     const issueId = el('issueId'), occurDate = el('occurDate');
     const product=el('product'),processPnd=el('processPnd'),description=el('description'),reporter=el('reporter'),responsibleDept=el('responsibleDept'),status=el('status'),actionDetail=el('actionDetail');
@@ -1900,7 +1900,7 @@
       showToast.timer = setTimeout(() => el.classList.remove('show'), 2300);
     }
     function getStatusClass(status) {
-      if (status === '종결') return 'green';
+      status=window.normalizeIssueStatus(status);
       if (status === '조치완료') return 'blue';
       if (status === '조치중') return 'orange';
       if (status === '원인검토중') return 'purple';
@@ -1918,7 +1918,7 @@
       if (!isValidPndDate(issue?.processPnd)) return null;
       const days = signedDateDiff(todayStr(), issue.processPnd);
       if (days === null) return null;
-      return { days, closed: closedStatuses.includes(issue.status) };
+      return { days, closed: window.isCompletedIssueStatus(issue.status) };
     }
     function getPndDdayText(issue) {
       const aging = getPndAging(issue);
@@ -1947,7 +1947,7 @@
     }
     function isOverdue(issue) {
       const aging = getPndAging(issue);
-      return !!aging && aging.days < 0 && !closedStatuses.includes(issue.status);
+      return !!aging && aging.days < 0 && !window.isCompletedIssueStatus(issue.status);
     }
     function canDeleteIssue(issue){return !!window.hpmServerUser&&!!issue&&(currentUser.role==='admin'||!!issue.reporterId&&issue.reporterId===currentUser.id);}
 
@@ -2163,6 +2163,7 @@
 
     function fillForm(issue,{navigate=true}={}){
       if(issueBusy){showToast(issueBusy);return;}
+      window.setIssueDepartment?.(issue.responsibleDept||'');
       issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;document.getElementById('issueEditorTitle').textContent='문제점 수정';window.switchManageView('create');issueMessage('');void discardPendingPhotos();draftIssueId=issue.id;issueId.value=issue.id;
       for(const [field,inputId]of Object.entries(issueEditableFields)){const n=document.getElementById(inputId);if(n.tagName==='SELECT')ensureSelectValue(n,issue[field]||'');else n.value=issue[field]||'';}
       document.getElementById('completedDateField').hidden=false;document.getElementById('completedDate').dataset.storedValue=issue.completedDate||'';window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');
@@ -2211,7 +2212,7 @@
 }
 
     function resetForm(){
-      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('completedDateField').hidden=true;delete document.getElementById('completedDate').dataset.storedValue;window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
+      if(issueBusy)return;void discardPendingPhotos();issueDraftVersion++;draftPromise=null;draftIssueId='';document.getElementById('issueForm').reset();issueTouched.clear();delete document.getElementById('issueForm').dataset.dirty;issueId.value='';window.setIssueDepartment?.();occurDate.value=todayStr();reporter.value=window.hpmServerUser?currentUser.name:'';status.value='접수';currentImages=[];currentAfterImages=[];renderPreviews();renderAfterPreviews();deleteBtn.style.display='none';formModeBadge.textContent='신규';formModeBadge.className='badge primary';document.getElementById('issueEditorTitle').textContent='신규 문제점 등록';document.getElementById('completedDateField').hidden=true;delete document.getElementById('completedDate').dataset.storedValue;window.updateIssueCompletionHint?.();for(const category of ['before','after'])photoFeedback(category,'');issueMessage('');if(window.hpmServerUser)void prepareIssueDraft().catch(e=>issueMessage(e.message,true));
       rememberIssueValues();window.HpmIssueDraft?.clean();
     }
 
@@ -2220,7 +2221,7 @@
       const productValue = productFilter.value;
       const p = processFilter.value;
       const d = deptFilter.value;
-      const s = statusFilter.value;
+      const s = window.normalizeIssueStatus(statusFilter.value);
       const occurStart = occurStartFilter.value;
       const occurEnd = occurEndFilter.value;
       if (occurStart && occurEnd && occurEnd < occurStart) {
@@ -2232,7 +2233,7 @@
           const haystack = [x.product, x.projectNo, x.processPnd, x.deliveryDate, x.title, x.description, x.yard,x.hullNo,x.productNo,x.remark,x.finder, x.reporter, x.feedbackOwner, x.causeFeedback, x.actionDetail, x.prevention].join(' ').toLowerCase();
           const processMatch = p === '전체' || x.process === p;
           const occurMatch = (!occurStart || x.occurDate >= occurStart) && (!occurEnd || x.occurDate <= occurEnd);
-          return (!keyword || haystack.includes(keyword)) && (productValue === '전체' || x.product === productValue) && processMatch && (d === '전체' || x.responsibleDept === d) && (s === '전체' || s === '미완료' && !closedStatuses.includes(x.status) || s === 'PND 확인 필요' && !!getDeliveryWarning(x) || x.status === s) && occurMatch;
+          return (!keyword || haystack.includes(keyword)) && (productValue === '전체' || x.product === productValue) && processMatch && (d === '전체' || x.responsibleDept === d) && (s === '전체' || s === '미완료' && !window.isCompletedIssueStatus(x.status) || s === 'PND 확인 필요' && !!getDeliveryWarning(x) || x.status === s) && occurMatch;
         })
         .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     }
@@ -2374,7 +2375,7 @@
     function averageLead(items){return window.HpmIssueDashboard?.metrics(items).lead??null;}
 
     function getDeliveryWarning(issue) {
-      if (!isValidPndDate(issue.processPnd) || closedStatuses.includes(issue.status)) return null;
+      if (!isValidPndDate(issue.processPnd) || window.isCompletedIssueStatus(issue.status)) return null;
       const days = signedDateDiff(todayStr(), issue.processPnd);
       if (days === null || days > 7) return null;
       return { issue, days };
@@ -3021,7 +3022,7 @@
     }
     function renderPortalHome(){
       if(typeof issues==='undefined'||typeof calendarState==='undefined')return;
-      const today=todayStr(),period=window.HpmHome.monthPeriod(today),open=issues.filter(x=>!closedStatuses.includes(x.status));
+      const today=todayStr(),period=window.HpmHome.monthPeriod(today),open=issues.filter(x=>!window.isCompletedIssueStatus(x.status));
       const pndWarnings=issues.map(getDeliveryWarning).filter(Boolean).sort((a,b)=>a.days-b.days);
       homeOpenIssues.textContent=open.length;
       homeOverdueIssues.textContent=pndWarnings.length;
@@ -3088,4 +3089,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261114-local"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261119-stx"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

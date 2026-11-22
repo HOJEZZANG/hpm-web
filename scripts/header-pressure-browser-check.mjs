@@ -13,7 +13,7 @@ try{
   state.env.sqlite.prepare('UPDATE portal_accounts SET name=? WHERE id=?').run('합성 긴 표시 이름 모바일 확인','owner');
   await t.evaluate(`authUserId.value='owner';authPassword.value=${JSON.stringify(state.password)};void submitAuth()`);
   await t.wait('window.hpmServerUser?.id==="owner"&&issuesLoaded');
-  assert.deepEqual(await t.evaluate('[...productionMenu.children].map(n=>n.querySelector(".menu-label").firstChild.textContent)'),['현황 대시보드','공정 문제점 관리','주간 이슈관리','생산 일정관리','압력검사','PND 대조']);
+  assert.deepEqual(await t.evaluate('[...productionMenu.children].map(n=>n.querySelector(".menu-label").firstChild.textContent)'),['현황 대시보드','공정 문제점 관리','주간 팀 공정 회의록','생산 일정관리','압력검사','COND/EVA 생산현황','PND 대조']);
   assert.deepEqual(await t.evaluate('(()=>{const a=document.querySelector("[data-service=pressure]");return [a.tagName,a.href,a.target,a.rel,a.textContent.includes("↗"),a.textContent.includes("사내망 접속")]})()'),['A',destination,'_blank','noopener noreferrer',true,true]);
 
   // Chrome's own zoom preference changes actual browser zoom, including DPR and

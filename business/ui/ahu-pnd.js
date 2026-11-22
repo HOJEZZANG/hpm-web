@@ -1,10 +1,10 @@
 import {shell,esc} from './common.js';
-import {packPndSnapshot,unpackPndSnapshot,loadPndSnapshot,savePndSnapshot,savePndView,pndStorageError,PND_COMPARISON_ALGORITHM} from './pnd-storage.js?v=20261112-yards';
-import {sourceLabel,identity} from '../ahu-pnd.mjs?v=20261112-yards';
-import {CONFIRMED_YARD_PAIRS} from '../ahu-models.mjs?v=20261112-yards';
+import {packPndSnapshot,unpackPndSnapshot,loadPndSnapshot,savePndSnapshot,savePndView,pndStorageError,PND_COMPARISON_ALGORITHM} from './pnd-storage.js?v=20261119-stx';
+import {sourceLabel,identity} from '../ahu-pnd.mjs?v=20261119-stx';
+import {CONFIRMED_YARD_PAIRS} from '../ahu-models.mjs?v=20261119-stx';
 import {applyAhuPreset} from '../ahu-presets.mjs?v=20261027-model';
 const $=(s,r=document)=>r.querySelector(s),col=n=>{let s='';for(;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
-import {PND_NOTICE as AHU_NOTICE,filterPndResults as filterResults,partSupport} from './pnd-comparison.js?v=20261112-yards';
+import {PND_NOTICE as AHU_NOTICE,filterPndResults as filterResults,partSupport} from './pnd-comparison.js?v=20261119-stx';
 const names={erp:'ERP 엑셀',plan:'생산계획표'},labels={advanced:'당겨짐',delayed:'지연',review:'확인 필요',same:'변경 없음'};
 const fresh=()=>({file:'',format:'',notices:[],sheets:[],sheet:'',data:null,header:1,yard:'',hull:'',pnd:'',spec:'',filterCol:'',filterValue:'',filterMode:'contains',selected:new Set(),targetConfirmed:false,page:0,presetReady:false,presetReasons:[],presetRule:'',presetMoved:[],settingsOpen:false});
 export async function init(root){
@@ -26,7 +26,7 @@ export async function init(root){
   function message(text,error=false){const node=$('[data-pnd-message]',root);node.textContent=text;node.classList.toggle('error',error);node.setAttribute('role',error?'alert':'status');}
   function stop(reason){worker?.terminate();worker=null;for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error(reason));}pending.clear();}
   function engine(){
-    if(worker)return worker;worker=new Worker(new URL('../../assets/ahu-pnd-worker.js?v=20261112-yards',import.meta.url));
+    if(worker)return worker;worker=new Worker(new URL('../../assets/ahu-pnd-worker.js?v=20261119-stx',import.meta.url));
     worker.onmessage=({data})=>{const item=pending.get(data.id);if(!item)return;pending.delete(data.id);clearTimeout(item.timer);data.error?item.reject(Error(data.error)):item.resolve(data.result);};
     worker.onerror=()=>{stop('엑셀 처리 오류입니다. 이전 비교 결과는 유지됩니다. 원본 파일을 다시 선택하세요.');sources={erp:fresh(),plan:fresh()};invalidate();renderSources();message('엑셀 처리 오류입니다. 이전 비교 결과는 유지됩니다. 원본 파일을 다시 선택하세요.',true);};return worker;
   }
