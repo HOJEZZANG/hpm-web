@@ -49,9 +49,9 @@ test('yard-only candidate lookup uses each approved pair while hull/specificatio
       {erp:[erp,{...erp,yard:right,row:4}],plan:[plan]}
     ]){
       const results=compareProductionPnd(options);
-      assert.equal(results.length,3);
+      assert.equal(results.length,options.plan.length);
       assert(results.every(r=>!r.linked&&r.diff===null&&r.reasons.some(reason=>reason.includes('복수 후보'))));
-      assert.equal(new Set(results.flatMap(r=>[...r.erp,...r.plan]).map(r=>r.sourceId)).size,3);
+      assert.equal(new Set(results.flatMap(r=>[...r.plan,...r.candidates.map(c=>c.source)]).map(r=>r.sourceId)).size,3);
     }
   }
 });

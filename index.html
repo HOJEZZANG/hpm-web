@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261123-priority"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261122-menu"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261122-filters"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261123-priority"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261122-menu"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261122-filters"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"><link rel="stylesheet" href="business/ui/density.css?v=20261123-integrated"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1105,7 +1105,7 @@
     <button type="button" class="home-metric" onclick="void openHomeSummary('open')"><div class="icon" aria-hidden="true">⚠️</div><div><strong id="homeOpenIssues">—</strong><span>미완료 공정 문제</span></div></button>
     <button type="button" class="home-metric" onclick="void openHomeSummary('as')"><div class="icon" aria-hidden="true">🧳</div><div><strong id="homeMonthAs">—</strong><span>이번 달 A/S출장</span></div></button>
     <button type="button" class="home-metric" onclick="void openHomeSummary('team')"><div class="icon" aria-hidden="true">📅</div><div><strong id="homeTodayTeam">—</strong><span>오늘 팀 일정</span></div></button>
-    <button type="button" class="home-metric" onclick="void openHomeSummary('pnd')"><div class="icon" aria-hidden="true">🔔</div><div><strong id="homeOverdueIssues">—</strong><span>PND 확인 필요</span></div></button>
+    <button type="button" class="home-metric" onclick="void openHomeSummary('pnd')"><div class="icon" aria-hidden="true">🔔</div><div><strong id="homeOverdueIssues">—</strong><span>문제점 PND 점검</span></div></button>
   </div>
   <div class="home-grid">
     <div class="card">
@@ -1113,7 +1113,7 @@
       <div class="card-body"><ul class="home-list" id="homeRecentIssues"></ul></div>
     </div>
     <div class="card">
-      <div class="card-head"><h2>PND 알림센터</h2><span class="badge orange" id="homePndAlertCount">—</span></div>
+      <div class="card-head"><h2>공정 문제점 PND 점검</h2><span class="badge orange" id="homePndAlertCount">—</span></div>
       <div class="card-body">
         <div class="dashboard-pnd-guide">미완료 문제 중 공정 PND가 7일 이내이거나 이미 경과한 항목입니다.</div>
         <div class="home-alert-list" id="homePndAlerts"></div>
@@ -1978,7 +1978,7 @@
     function switchIssueTab(tab){
       if(window.HpmHistory&&!window.HpmHistory.rendering)return window.navigatePortal('issue',tab);
       if(!['dashboard','manage','statistics'].includes(tab))tab='manage';for(const p of document.querySelectorAll('#issuePage .panel'))p.classList.toggle('active',p.id===tab+'Panel');document.querySelectorAll('#portalNavigation [data-page=issue]').forEach(b=>{const active=b.dataset.issueTab===tab||b.dataset.issueTab==='dashboard'&&tab==='statistics';b.classList.toggle('active',active);if(active){b.setAttribute('aria-current','page');setPortalMenuExpanded(b.closest('.menu-group').querySelector('.menu-parent'),true);}else b.removeAttribute('aria-current');});
-      const labels={dashboard:['현황 대시보드','공정 문제점 현황과 PND 알림을 확인합니다.'],manage:['공정 문제점 관리','문제점과 조치내용을 기록하고 등록 현황을 확인합니다.'],statistics:['현황 대시보드','문제점의 발생 추이와 개선 검토 자료를 확인합니다.']};document.getElementById('issuePageTitle').textContent=labels[tab][0];document.getElementById('issuePageDescription').textContent=labels[tab][1];window.HpmIssueDashboard?.switch(tab);if(tab==='dashboard')renderDashboard();if(tab==='manage')applyFilters();if(tab==='statistics')renderStatistics();window.scrollTo({top:0,behavior:'smooth'});
+      const labels={dashboard:['현황 대시보드','생산 일정과 공정 문제점의 우선 점검 대상을 함께 확인합니다.'],manage:['공정 문제점 관리','문제점과 조치내용을 기록하고 등록 현황을 확인합니다.'],statistics:['현황 대시보드','문제점의 발생 추이와 개선 검토 자료를 확인합니다.']};document.getElementById('issuePageTitle').textContent=labels[tab][0];document.getElementById('issuePageDescription').textContent=labels[tab][1];window.HpmIssueDashboard?.switch(tab);if(tab==='dashboard')renderDashboard();if(tab==='manage')applyFilters();if(tab==='statistics')renderStatistics();window.scrollTo({top:0,behavior:'smooth'});
     }
 
     function photoFeedback(category,message,error=false){
@@ -3089,4 +3089,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261123-priority"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261123-integrated"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

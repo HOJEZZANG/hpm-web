@@ -13,7 +13,7 @@ test('compact cache preserves every displayed source/candidate and exactly the e
 });
 test('shared sources are pooled rather than duplicating workbook rows across ambiguous candidate edges',()=>{
  const erp=Array.from({length:5},(_,i)=>source('erp',i+3,'2026-11-10')),plan=Array.from({length:5},(_,i)=>source('plan',i+3,'2026-11-20')),rows=compareProductionPnd({erp,plan}),packed=snapshot(rows),restored=unpackPndSnapshot(packed,'account-a','part2');
- assert.equal(packed.sources.length,10);assert.equal(packed.rows.reduce((n,r)=>n+r.candidates.length,0),50);assert.deepEqual(pndExportRows(restored),pndExportRows(rows));
+ assert.equal(packed.sources.length,10);assert.equal(packed.rows.reduce((n,r)=>n+r.candidates.length,0),25);assert.deepEqual(pndExportRows(restored),pndExportRows(rows));
 });
 test('account/part, schema and source-reference mismatches cannot restore another result or unsafe selector identifiers',()=>{
  const rows=compareProductionPnd({erp:[source('erp',3,'2026-11-10')],plan:[source('plan',3,'2026-11-20')]}),packed=snapshot(rows);
@@ -22,11 +22,11 @@ test('account/part, schema and source-reference mismatches cannot restore anothe
  const second=snapshot(rows,{part:'part1'});assert.notEqual(second.key,packed.key);
 });
 test('zero-row normal comparisons remain valid snapshots and calculations/time are not recomputed during restore',()=>{
- const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v4');
+ const packed=snapshot([]),copy=structuredClone(packed);assert.deepEqual(unpackPndSnapshot(copy,'account-a','part2'),[]);assert.equal(copy.comparedAt,packed.comparedAt);assert.equal(copy.algorithm,'erp-minus-plan-v5-plan-scope');
 });
 test('all earlier yard rule versions restore their original decisions and comparison time unchanged',()=>{
  const rows=compareProductionPnd({erp:[source('erp',3,'2026-11-10')],plan:[source('plan',3,'2026-11-20')]});
- for(const algorithm of ['erp-minus-plan-v1','erp-minus-plan-v2','erp-minus-plan-v3']){
+ for(const algorithm of ['erp-minus-plan-v1','erp-minus-plan-v2','erp-minus-plan-v3','erp-minus-plan-v4']){
   const packed=snapshot(rows);packed.algorithm=algorithm;packed.rows[0].label='저장 당시 결과';packed.rows[0].diff=null;packed.rows[0].status='review';
   const original=structuredClone(packed),restored=unpackPndSnapshot(packed,'account-a','part2');
   assert.equal(restored[0].label,'저장 당시 결과');assert.equal(restored[0].diff,null);assert.deepEqual(packed,original);

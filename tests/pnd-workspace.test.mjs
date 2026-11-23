@@ -35,7 +35,7 @@ test('the HSH alias participates in yard-only lookup but cannot bypass keys or m
  const yardOnly=compareProductionPnd({erp:[e],plan:[{...p,hull:'8240',spec:'HKA-08SN'}]});
  assert(yardOnly.every(r=>!r.linked&&r.candidateCount===1&&r.candidates[0].yard&&!r.candidates[0].eligible));
  const duplicate=compareProductionPnd({erp:[e],plan:[p,{...p,yard:'HSH',row:4}]});
- assert.equal(duplicate.length,3);
+ assert.equal(duplicate.length,2);
  assert(duplicate.every(r=>!r.linked&&r.reasons.some(reason=>reason.includes('복수 후보'))));
  for(const other of ['SHI','HSHII','HSH-1']){
   const rows=compareProductionPnd({erp:[{...e,yard:'HSHI'}],plan:[{...p,yard:other}],aliases:other==='SHI'?{SHI:'HSHI'}:{}});
@@ -45,7 +45,7 @@ test('the HSH alias participates in yard-only lookup but cannot bypass keys or m
 test('invalid/blank dates, ambiguous links and differing yards never become unchanged or confirmed changes',()=>{
  for(const value of ['',null,'2026-02-30','11/20/26']){const [r]=compare(value,'2026-11-20');assert.equal(r.status,'review');assert.equal(r.label,'날짜 확인 필요');assert.equal(r.diff,null);}
  const duplicates=compareProductionPnd({erp:[row('2026-11-15','erp'),row('2026-11-15','erp',{row:4})],plan:[row('2026-11-20')]});assert(duplicates.every(r=>r.status==='review'&&!r.linked&&r.diff===null));
- const e=row('2026-11-15','erp',{yard:'ERP 표기'}),p=row('2026-11-20','plan',{yard:'계획 표기'});assert.equal(compareProductionPnd({erp:[e],plan:[p]})[0].label,'연결 확인 필요');assert.equal(compareProductionPnd({erp:[e],plan:[p],aliases:{'계획 표기':'ERP 표기'}})[0].diff,-5);
+ const e=row('2026-11-15','erp',{yard:'ERP 표기'}),p=row('2026-11-20','plan',{yard:'계획 표기'});assert.equal(compareProductionPnd({erp:[e],plan:[p]})[0].label,'ERP 연결 확인 필요');assert.equal(compareProductionPnd({erp:[e],plan:[p],aliases:{'계획 표기':'ERP 표기'}})[0].diff,-5);
  assert.throws(()=>compareProductionPnd({part:'part1',erp:[],plan:[]}),/검증 대기/);
  assert.equal(calendarDate(1,true).iso,'1904-01-02');assert.equal(calendarDate(61).iso,'1900-03-01');assert.equal(calendarDate(60).iso,'');
 });

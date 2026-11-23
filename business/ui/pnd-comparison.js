@@ -5,14 +5,19 @@ export const PND_NOTICE='생산계획표를 기준으로 ERP 최신 PND의 변�
 export const partSupport={part1:{label:'1파트',ready:false,reason:'실제 비교 파일 검증 대기 · ERP 열과 연결 기준 확인 후 지원합니다.'},part2:{label:'2파트',ready:true}};
 const comparators={part2:compareVerifiedPart2};
 export function compareProductionPnd(options){
-  const part=options.part||'part2';if(!partSupport[part]?.ready||!comparators[part])throw Error('1파트는 실제 비교 파일 검증 대기 상태입니다.');
-  return comparators[part](options);
+  return compareProductionPndWithScope(options).results;
 }
-function compareVerifiedPart2({erp,plan,aliases={}}){
-  const rows=matchAhuRows(erp,plan,aliases).map(result=>{
+export const isExcludedAlomHull=value=>String(value??'').replace(/[\r\n]/g,'').trim().toUpperCase()==='ALOM';
+export function compareProductionPndWithScope(options){
+  const part=options.part||'part2';if(!partSupport[part]?.ready||!comparators[part])throw Error('1파트는 실제 비교 파일 검증 대기 상태입니다.');
+  const erp=options.erp.filter(r=>!isExcludedAlomHull(r.hull)),plan=options.plan.filter(r=>!isExcludedAlomHull(r.hull)),matched=matchAhuRows(erp,plan,options.aliases||{}),results=comparators[part]({...options,matched});
+  return {results,scope:{erpSelected:options.erp.length,planSelected:options.plan.length,erpAlom:options.erp.length-erp.length,planAlom:options.plan.length-plan.length,erpStandalone:matched.filter(r=>!r.plan.length).length,planIncluded:plan.length}};
+}
+function compareVerifiedPart2({matched}){
+  const rows=matched.filter(result=>result.plan.length>0).map(result=>{
     const r={...result,diff:null,status:'review'},e=r.erp[0],p=r.plan[0];
     if(r.linked&&!r.yardVerified){r.linked=false;r.reasons=[...r.reasons,'야드 명칭 또는 별칭 연결을 직접 확인하세요.'];r.linkBasis='야드 명칭 확인 전 자동 연결 보류';r.eligibleCount=0;r.candidates=r.candidates.map(c=>({...c,eligible:false,reason:c.reason+' / 야드 명칭 확인 필요'}));}
-    r.reviewKind=r.linked?'date':'link';r.label=r.linked?'날짜 확인 필요':'연결 확인 필요';
+    r.reviewKind=r.linked?'date':'link';r.label=r.linked?'날짜 확인 필요':'ERP 연결 확인 필요';
     if(r.linked&&e.date?.iso&&p.date?.iso&&!r.reasons.length){
       // Latest ERP minus the managed production-plan baseline, in calendar days.
       r.diff=e.date.day-p.date.day;

@@ -1,7 +1,7 @@
 // Browser-local comparison evidence only: never workbook bytes or preview cells.
 export const PND_DATABASE='hpm-pnd-results';
-export const PND_COMPARISON_ALGORITHM='erp-minus-plan-v4';
-const readableAlgorithms=new Set(['erp-minus-plan-v1','erp-minus-plan-v2','erp-minus-plan-v3',PND_COMPARISON_ALGORITHM]);
+export const PND_COMPARISON_ALGORITHM='erp-minus-plan-v5-plan-scope';
+const readableAlgorithms=new Set(['erp-minus-plan-v1','erp-minus-plan-v2','erp-minus-plan-v3','erp-minus-plan-v4',PND_COMPARISON_ALGORITHM]);
 const version=1,maxBytes=64*1024*1024,states=new Set(['advanced','delayed','review','same']);
 const resultText=['yard','hull','label','linkBasis','erpYard','planYard','erpHull','planHull','erpSpec','planSpec','erpModel','erpNormalized','planNormalized','erpPnd','planPnd'];
 const sourceText=['file','sheet','yard','hull','spec','pnd'];
@@ -10,7 +10,7 @@ const text=value=>String(value??'');
 const scope=(userId,part)=>{check(typeof userId==='string'&&userId.length>0&&['part1','part2'].includes(part));return JSON.stringify([userId,part]);};
 const viewState=value=>({search:typeof value?.search==='string'?value.search.slice(0,2000):'',status:['attention','',...states].includes(value?.status)?value.status:'attention',page:Number.isSafeInteger(value?.page)&&value.page>=0?value.page:0});
 function config(value){return {header:Number(value.header),yard:Number(value.yard),hull:Number(value.hull),pnd:Number(value.pnd),spec:Number(value.spec),selected:[...value.selected].filter(Number.isSafeInteger),targetConfirmed:Boolean(value.targetConfirmed)};}
-export function packPndSnapshot({userId,part,results,files,conditions,comparedAt=new Date().toISOString(),view}){
+export function packPndSnapshot({userId,part,results,files,conditions,comparedAt=new Date().toISOString(),view,scope:comparisonScope}){
  check(Array.isArray(results)&&results.length<=40000);const sources=[],bySource=new Map();
  function reference(source){
   const item={...Object.fromEntries(sourceText.map(key=>[key,text(source[key])])),row:source.row,model:{value:text(source.model?.value)},date:{iso:text(source.date?.iso)},notices:(source.notices||[]).map(text)};
@@ -20,6 +20,7 @@ export function packPndSnapshot({userId,part,results,files,conditions,comparedAt
   erp:r.erp.map(reference),plan:r.plan.map(reference),candidates:r.candidates.map(c=>({source:reference(c.source),reason:text(c.reason),eligible:Boolean(c.eligible)}))}));
  const snapshot={key:scope(userId,part),version,algorithm:PND_COMPARISON_ALGORITHM,snapshotId:crypto.randomUUID(),userId,part,comparedAt,files:{erp:text(files.erp),plan:text(files.plan)},
   conditions:{erp:config(conditions.erp),plan:config(conditions.plan),aliases:Object.entries(conditions.aliases||{}).map(([from,to])=>({from,to:text(to)}))},sources,rows,view:viewState(view)};
+ if(comparisonScope){const keys=['erpSelected','planSelected','erpAlom','planAlom','erpStandalone','planIncluded'];check(keys.every(k=>Number.isSafeInteger(comparisonScope[k])&&comparisonScope[k]>=0));snapshot.comparisonScope=Object.fromEntries(keys.map(k=>[k,comparisonScope[k]]));check(comparisonScope.planIncluded===results.length);}
  check(new TextEncoder().encode(JSON.stringify(snapshot)).byteLength<=maxBytes,'비교 결과가 브라우저 저장 한도를 초과했습니다. 이전 결과를 유지합니다. 자료를 나누어 비교하세요.');
  unpackPndSnapshot(snapshot,userId,part);return snapshot;
 }
@@ -27,6 +28,7 @@ export function unpackPndSnapshot(snapshot,userId,part){
  check(snapshot?.key===scope(userId,part)&&snapshot.userId===userId&&snapshot.part===part&&snapshot.version===version&&readableAlgorithms.has(snapshot.algorithm));
  check(typeof snapshot.snapshotId==='string'&&typeof snapshot.comparedAt==='string'&&Number.isFinite(Date.parse(snapshot.comparedAt))&&typeof snapshot.files?.erp==='string'&&typeof snapshot.files?.plan==='string');
  check(Array.isArray(snapshot.sources)&&snapshot.sources.length<=40000&&Array.isArray(snapshot.rows)&&snapshot.rows.length<=40000);const sources=snapshot.sources;
+ if(snapshot.comparisonScope)check(['erpSelected','planSelected','erpAlom','planAlom','erpStandalone','planIncluded'].every(k=>Number.isSafeInteger(snapshot.comparisonScope[k])&&snapshot.comparisonScope[k]>=0)&&snapshot.comparisonScope.planIncluded===snapshot.rows.length);
  for(const s of sources)check(sourceText.every(k=>typeof s[k]==='string')&&Number.isSafeInteger(s.row)&&s.row>0&&typeof s.model?.value==='string'&&typeof s.date?.iso==='string'&&Array.isArray(s.notices)&&s.notices.every(n=>typeof n==='string'));
  const get=index=>{check(Number.isSafeInteger(index)&&index>=0&&index<sources.length);return sources[index];};let edges=0;const ids=new Set();
  return snapshot.rows.map(r=>{check(Number.isSafeInteger(r.id)&&r.id>=0&&!ids.has(r.id)&&states.has(r.status)&&resultText.every(k=>typeof r[k]==='string')&&(r.diff===null||Number.isSafeInteger(r.diff))&&Array.isArray(r.reasons)&&r.reasons.every(s=>typeof s==='string')&&Array.isArray(r.erp)&&Array.isArray(r.plan)&&Array.isArray(r.candidates));ids.add(r.id);

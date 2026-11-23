@@ -1,5 +1,6 @@
+import {loadProductionSnapshot} from './production-data.js?v=20261123-integrated';
 import {$,api,esc,field,table,button,run,message,shell} from './common.js';
-import {productionImportPanel,wireProductionImports} from './production-import.js?v=20261123-priority';
+import {productionImportPanel,wireProductionImports} from './production-import.js?v=20261123-integrated';
 import {xlsxClient} from './xlsx-client.js?v=20261123-priority';
 import {productionEquipment} from '../domain.mjs';
 import {processStateLabels} from './production-view.js?v=20261123-priority';
@@ -64,22 +65,8 @@ async function initPart(root,part){
     if(!active())return;const request=++epoch;++viewEpoch;
     const progress=$('[data-production-progress]',root);progress.textContent='최신 자료 확인 중…';
     try{
-      const {record}=await scoped('imports/latest?kind=production');if(request!==epoch||!active())return;
-      const candidate=[];let response=null,offset=0;const ids=new Set();
-      if(record)do{
-        response=await scoped('production?import='+encodeURIComponent(record.id)+'&offset='+offset);if(request!==epoch||!active())return;
-        if(response.importId!==record.id||response.imported?.row_count!==record.row_count)throw Error('자료 버전이 달라 다시 조회해야 합니다.');
-        for(const row of response.records){if(ids.has(row.id))throw Error('중복된 조회 응답입니다. 다시 조회하세요.');ids.add(row.id);candidate.push(row);}
-        const next=response.nextOffset;if(next!=null&&(!Number.isSafeInteger(next)||next<=offset))throw Error('조회 위치를 확인할 수 없습니다.');offset=next;
-        progress.textContent=`조회 ${candidate.length}/${record.row_count}건`;await new Promise(resolve=>requestAnimationFrame(resolve));
-      }while(offset!=null);
-      if(record&&candidate.length!==record.row_count)throw Error('전체 행 조회를 완료하지 못했습니다.');
-      const nextMeta=response?.version===2?response.meta:null,nextEquipment=ahu?'LINE 5000':nextMeta?.equipment||['제조사양관리구분','분류','LINE 5000'].find(k=>candidate.some(r=>Object.hasOwn(r,k)))||'';
-      // Read preserved part-1 cells for display fields omitted by the legacy API.
-      if(!ahu&&nextMeta){
-        const extra=['규격','제품 규격','품번'].flatMap(name=>{const matches=nextMeta.columns.map((c,index)=>({c,index})).filter(({c})=>c.title.trim()===name);return matches.length===1&&!candidate.some(r=>Object.hasOwn(r,name))?[[name,matches[0].index]]:[];});
-        if(extra.length){const byId=new Map(candidate.map(r=>[r.id,r]));let rawOffset=0,seen=0;do{const result=await scoped('imports/'+record.id+'/rows?offset='+rawOffset);if(request!==epoch||!active())return;for(const raw of result.records){const row=byId.get(record.id+'_'+raw.number);if(!row)throw Error('표시할 원본 행이 조회 자료와 다릅니다.');for(const [name,index]of extra)row[name]=raw.values[index]??'';seen++;}const next=result.nextOffset;if(next!=null&&(!Number.isSafeInteger(next)||next<=rawOffset))throw Error('원본 조회 위치를 확인하세요.');rawOffset=next;}while(rawOffset!=null);if(seen!==candidate.length)throw Error('원본 열 조회가 불완전합니다. 다시 조회하세요.');}
-      }
+      const snapshot=await loadProductionSnapshot(part,{onProgress:(count,total)=>{if(request===epoch&&active())progress.textContent=`조회 ${count}/${total}건`;}});if(request!==epoch||!active())return;
+      const {record,records:candidate,meta:nextMeta,equipment:nextEquipment}=snapshot;
       const chosen=filters(),options={};for(const k of ['equipment',...filterKeys]){options[k]=[...new Set(candidate.map(r=>k==='equipment'?productionEquipment(r,nextEquipment):r[k]).filter(Boolean))].sort();if(!options[k].includes(chosen[k]))chosen[k]='';}
       if(chosen.from&&chosen.to&&chosen.from>chosen.to)throw Error('PND 종료일은 시작일 이후여야 합니다.');
       const viewRequest=++viewEpoch,result=await engine.call('view',{part,records:candidate,filters:chosen,equipment:nextEquipment,selection});if(request!==epoch||viewRequest!==viewEpoch||!active())return;

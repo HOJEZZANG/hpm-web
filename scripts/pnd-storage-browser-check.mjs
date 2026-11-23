@@ -53,7 +53,7 @@ try{
  t=await qa.tab();await login();assert.equal(await saved(),null);assert(await t.evaluate('document.querySelector("[data-pnd-results]").hidden'));
  await upload('erp',erp);await upload('plan',plan);await click('[data-pnd-compare]');await t.wait('Boolean(ahuPndPage.dataset.comparedAt)');
  const fresh=await saved();
- assert.equal(JSON.parse(fresh.packed).algorithm,'erp-minus-plan-v4');
+ assert.equal(JSON.parse(fresh.packed).algorithm,'erp-minus-plan-v5-plan-scope');
  assert(await t.evaluate('[...document.querySelectorAll("[data-result-id]")].some(r=>["QA-HULL-01","6일 당겨짐","HSH/HSHI 동일 야드 적용"].every(s=>r.textContent.includes(s)))'));
  const hshExport=(await exportValues()).find(cells=>cells?.[2]==='QA-HULL-01');
  assert.deepEqual([hshExport[3],hshExport[4],hshExport[5],hshExport[6],hshExport[11],hshExport[12]],['2027-02-24','2027-02-18',-6,'6일 당겨짐','HSH','HSHI']);
@@ -78,7 +78,7 @@ try{
   }`);
   const previous=await saved();await reload();await importStorage();
   assert.equal((await saved()).packed,previous.packed);assert.equal(previous.time,fresh.time);
-  assert(await t.evaluate('document.querySelector("[data-pnd-old-rule]").textContent.includes("ERP와 생산계획표 파일을 다시 첨부")'));
+  assert(await t.evaluate('document.querySelector("[data-pnd-old-rule]").textContent.includes("자료를 선택해 다시 대조")'));
   assert(await t.evaluate('[...document.querySelectorAll("[data-result-id]")].some(r=>r.textContent.includes("QA-YARD-02")&&r.textContent.includes("야드 명칭 확인 전 자동 연결 보류"))'));
  }
  const first=await saved(),time=first.time;
@@ -101,7 +101,7 @@ try{
  const goodTime=second.time;await t.evaluate('void logoutPortal()');await t.wait('!window.hpmServerUser&&portalWorkspace.hidden');assert(!await t.evaluate('ahuPndPage.textContent.includes("새_erp.xlsx")'));await login('second');assert.equal(await saved(),null);assert.equal(await stamp(),undefined);assert(await t.evaluate('document.querySelector("[data-pnd-results]").hidden'));await t.evaluate('void logoutPortal()');await t.wait('!window.hpmServerUser');await login('owner');assert.equal(await stamp(),goodTime);
  for(const width of [1366,390,320])for(const theme of ['light','dark']){await t.call('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await t.evaluate(`document.documentElement.dataset.theme='${theme}';scrollTo(0,0)`);assert(await t.evaluate('document.documentElement.scrollWidth<=innerWidth+2'));await t.shot(`${dir}/restored-${width}-${theme}.png`);}
  await t.evaluate('await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase(pndStore.PND_DATABASE);r.onsuccess=resolve;r.onerror=()=>reject(r.error)})');await reload();assert.equal(await stamp(),undefined);assert(await t.evaluate('document.querySelector("[data-pnd-results]").hidden'));
- assert.deepEqual(qa.errors,[]);assert(state.requests.filter(r=>r.path.startsWith('/api/business/')).every(r=>r.method==='GET'&&['/api/business/notices','/api/business/imports'].includes(r.path)));assert.equal(state.env.objects.size,0);
+ assert.deepEqual(qa.errors,[]);assert(state.requests.filter(r=>r.path.startsWith('/api/business/')).every(r=>r.method==='GET'&&['/api/business/notices','/api/business/imports','/api/business/imports/latest'].includes(r.path)));assert.equal(state.env.objects.size,0);
  await writeFile(dir+'/browser-result.json',JSON.stringify({approvedYardPairsBothDirections:6,rawCaseWhitespaceAndNewlinesPreservedInScreenAndXlsx:true,legacyRulesPreserved:['v1','v2'],realIndexedDB:true,realBrowserRestart:true,rows:135,timePreserved:true,candidatesAndExportsPreserved:true,filtersAndPagination:true,accountAndPartIsolation:true,newFileLabels:true,failedCompareAndQuotaRollbackAndCancelPreserveOld:true,successfulReplacement:true,deletedBrowserDataNotRestored:true,originalFilesNotStored:true,productionUploads:0,exceptions:0}));
  console.log('PASS real IndexedDB/restart; 135-row full results/filter/page/source/candidate/export consistency; original time; new file labels; comparison failure/quota rollback/cancel; successful replacement; account/part separation/logout; data deletion; no original-file storage or uploads; mobile/dark.');
 }catch(error){await writeFile(dir+'/failure.json',JSON.stringify({message:error.message,errors:qa.errors,state:await t.evaluate('({auth:window.hpmServerUser?.id,html:document.querySelector("#ahuPndPage").outerHTML,entry:document.documentElement.dataset.auth})').catch(e=>e.message)},null,2));throw error;}finally{await qa.close();await state.close();}
