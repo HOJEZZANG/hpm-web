@@ -2,14 +2,15 @@ import {parseProductionSheet,validateMetadata,normalizeProductionRow} from '../p
 import {productionLimits as L,byteLength} from '../production-limits.mjs';
 import {ensure} from '../domain.mjs';
 import {productionWorkbook} from '../production-export.mjs';
-import {productionView,ahuView} from './production-view.js?v=20261104-status';
+import {productionView,ahuView} from './production-view.js?v=20261123-priority';
 import {productionDisplay} from './production-display.js';
+import {parseAhuPreparedSheet} from '../production-ahu-sheet.mjs';
 let plan;
 self.onmessage=async({data:m})=>{try{
   let result;
-  if(m.type==='parse'){
-    plan=parseProductionSheet(new Uint8Array(m.bytes),progress=>self.postMessage({progress}),m.part);
-    result={meta:plan.meta,info:plan.info,sample:plan.rows.slice(0,20)};
+  if(m.type==='parse'||m.type==='parsePrepared'){
+    plan=m.type==='parsePrepared'?parseAhuPreparedSheet(m.sheet):parseProductionSheet(new Uint8Array(m.bytes),progress=>self.postMessage({progress}),m.part);
+    result={meta:plan.meta,info:plan.info,sample:plan.rows.slice(0,20),prepared:plan.prepared};
   }else if(m.type==='validate'){
     plan.meta.mapping=m.mapping;validateMetadata(plan.meta);let size=0,cells=0,warnings=0;
     for(const row of plan.rows){const d=normalizeProductionRow(row,plan.meta);size+=byteLength(d);cells+=d.__cellCount;if(!d.PND)warnings++;}

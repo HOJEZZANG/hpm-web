@@ -30,7 +30,7 @@ try{
  const detailCount=()=>t.evaluate('document.querySelectorAll(".production-adherence-detail tbody tr").length');
  async function filter(name,value){await t.evaluate(`const n=document.querySelector('#productionPage [name=${name}]');n.value=${JSON.stringify(value)};document.querySelector('#productionPage [data-filters]').requestSubmit()`);await ready();}
  await t.evaluate('await navigatePortal("production")');await ready();
- assert(await t.evaluate('document.querySelector("[data-adherence-open]").textContent.includes("PND 도래 건 완료율")'));const writes=state.requests.filter(r=>r.method!=='GET').length;
+ assert(await t.evaluate('document.querySelector("[data-adherence-open]").textContent.includes("PND 도래 대상 현재 완료율")'));const writes=state.requests.filter(r=>r.method!=='GET').length;
  for(const part of ['part1','part2']){
   await click('[data-part='+part+']');assert.equal(await rate(),'50%');assert.equal(await count(),'3 / 6건 · 50% · 완료 미확인 2건');
   assert.equal(await t.evaluate('document.querySelector("[data-kpi=ready] strong").textContent'),'6건');
@@ -38,7 +38,7 @@ try{
   await click('[data-kpi=ready]');assert.equal(await t.evaluate('document.querySelectorAll("[data-list] tbody tr").length'),6);assert(await t.evaluate('document.querySelector("[data-list]").textContent.includes("future")'));assert.equal(await count(),'3 / 3건 · 100% · 완료 미확인 0건');
   await click('[data-clear-selection]');assert.equal(await rate(),'50%');
   assert(await t.evaluate('document.querySelector("[data-current]").textContent.includes("합성-현재현황-'+part+'.xlsx")&&document.querySelector("[data-current]").textContent.includes("한국시간")'));
-  assert.equal(await t.evaluate('document.querySelector("[data-kpi=overdue] strong").textContent'),part==='part1'?'1':'3');
+  assert.equal(await t.evaluate('document.querySelector("[data-kpi=overdue] strong").textContent'),'1');
   await t.evaluate('document.querySelector("[data-adherence-open]").focus()');
   await t.call('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});await t.call('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
   await t.wait('Boolean(document.querySelector(".production-adherence-detail"))');assert.equal(await detailCount(),6);

@@ -4,6 +4,7 @@ import {ensure} from './domain.mjs';
 import {excelDate} from './excel.mjs';
 import {productionLimits as L,byteLength} from './production-limits.mjs';
 import {assertPartRow} from './production-parts.mjs';
+import {productionSourceDate} from './production-source-date.mjs';
 export const ahuFields=['Yard','HullNo','현공정','PND','수량','품번','Work Order','LINE 5000','규격','최종완료일','최신공정완료일'];
 const ids=new Set(['HullNo','품번','Work Order','규격','초기호선','프로젝트번호','생산계획번호','TagNo','SysNo']);
 const title=v=>String(v??'').trim();
@@ -28,7 +29,10 @@ export function normalizeAhuRow(raw,meta){
 export function parseAhuProductionSheet(bytes,onProgress=()=>{}){
  const book=openAhuWorkbook(bytes);ensure(book.sheets.includes('Sheet1'),'2파트(AHU)는 Sheet1 양식을 사용하세요.');
  // Only the verified primary sheet is counted. Additional sheets are never combined.
- const sheet=book.readSheet(book.sheets.indexOf('Sheet1'));onProgress({phase:'AHU 양식 확인',percent:55});
+ const sheet=book.readSheet(book.sheets.indexOf('Sheet1'));return parseAhuPreparedSheet(sheet,onProgress);
+}
+export function parseAhuPreparedSheet(sheet,onProgress=()=>{}){
+ ensure(sheet.name==='Sheet1','2파트(AHU)는 Sheet1 양식을 사용하세요.');onProgress({phase:'AHU 양식 확인',percent:55});
  const headers=sheet.rows.filter(r=>r.number<=10&&ahuFields.every(k=>[...r.cells.values()].some(c=>title(c.display)===k)));
  ensure(headers.length>=1,'2파트(AHU) 헤더를 확인하세요. 제공된 AHU 양식을 사용하세요.');const header=headers[0];
  ensure(headers.every(r=>sheet.columns.every(c=>title(r.cells.get(c)?.display)===title(header.cells.get(c)?.display))),'서로 다른 AHU 헤더가 있습니다. 양식을 확인하세요.');
@@ -44,7 +48,7 @@ export function parseAhuProductionSheet(bytes,onProgress=()=>{}){
   rows.push({number:r.number,values});
  }
  ensure(rows.length,'2파트(AHU) 대상 행이 없습니다.');
- const meta={version:2,part:'part2',sourceSheet:'Sheet1',headerRow:header.number,columns,mapping,equipment:'LINE 5000',date1904:sheet.date1904,rowCount:rows.length,excluded};
+ const meta={version:2,part:'part2',sourceSheet:'Sheet1',headerRow:header.number,columns,mapping,equipment:'LINE 5000',date1904:sheet.date1904,rowCount:rows.length,excluded,sourceDate:productionSourceDate(sheet.preview?.rows||[],sheet.date1904)};
  ensure(byteLength(meta)<=L.metadata,'AHU 열 정보 처리 한계를 초과했습니다.',413);for(const raw of rows)normalizeAhuRow(raw,meta);
- return {meta,info:validateAhuMetadata(meta),rows};
+ return {meta,info:validateAhuMetadata(meta),rows,prepared:sheet};
 }

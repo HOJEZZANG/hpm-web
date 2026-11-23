@@ -4,6 +4,7 @@ import {inspectZip,excelDate} from './excel.mjs';
 import {productionLimits as L,byteLength} from './production-limits.mjs';
 import {parseAhuProductionSheet,validateAhuMetadata,normalizeAhuRow} from './production-ahu-sheet.mjs';
 import {productionPart,assertPartRow} from './production-parts.mjs';
+import {productionSourceDate} from './production-source-date.mjs';
 export const columnLabel=n=>{let s='';for(;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
 export const normalizedTitle=v=>String(v??'').trim();
 export function mappingInfo(columns){
@@ -49,5 +50,5 @@ export function parseProductionSheet(bytes,onProgress=()=>{},part='part1'){
   const info=mappingInfo(columns);ensure(!info.missing.length,'필수 열 누락: '+info.missing.join(', '));
   const rows=sheet.rowNumbers.filter(n=>n>1).map(number=>({number,values:columns.map(c=>sheet.get(number,c.position)),formulas:columns.flatMap((c,i)=>sheet.formula(number,c.position)?[[i,sheet.formula(number,c.position)]]:[])}));
   ensure(rows.length,'등록할 데이터 행이 없습니다.');const meta={version:2,columns,mapping:info.mapping,date1904:sheet.date1904,rowCount:rows.length,equipment:info.equipment};ensure(byteLength(meta)<=L.metadata,'열 정보 처리 예산 512KiB를 초과했습니다.',413);
-  return {meta,info,rows};
+  meta.sourceDate=productionSourceDate(sheet.rowNumbers.filter(n=>n<=10).map(number=>({number,values:columns.map(c=>sheet.get(number,c.position))})),sheet.date1904);return {meta,info,rows};
 }

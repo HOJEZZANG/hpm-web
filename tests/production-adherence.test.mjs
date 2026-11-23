@@ -11,7 +11,7 @@ const today='2026-11-04';
 test('card labels the due-current-completion ratio with counts, and keeps an empty target distinct from zero percent',()=>{
  const {document}=parseHTML('<section><div data-production-adherence></div></section>'),root=document.querySelector('section'),card=createProductionAdherence(root,'part2');
  const rows=Array.from({length:20},(_,i)=>({id:String(i),PND:today,현공정:i<18?'납품준비':'미완료'}));card.update(rows,{today});
- assert(root.textContent.includes('PND 도래 건 완료율'));assert(root.querySelector('[data-adherence-counts]').textContent.startsWith('18 / 20건 · 90%'));assert.equal(root.querySelector('[data-adherence-rate]').textContent,'90%');
+ assert(root.textContent.includes('PND 도래 대상 현재 완료율'));assert(root.querySelector('[data-adherence-counts]').textContent.startsWith('18 / 20건 · 90%'));assert.equal(root.querySelector('[data-adherence-rate]').textContent,'90%');
  card.update([],{today});assert.equal(root.querySelector('[data-adherence-rate]').textContent,'산정 대상 없음');assert(!root.querySelector('[data-adherence-counts]').textContent.includes('0%'));
  card.update([{id:'unfinished',PND:today,현공정:'미완료'}],{today});assert.equal(root.querySelector('[data-adherence-rate]').textContent,'0%');assert(root.querySelector('[data-adherence-counts]').textContent.startsWith('0 / 1건 · 0%'));
 });

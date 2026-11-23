@@ -5,7 +5,7 @@ import {idOk,now,admin} from './access.mjs';
 import {beginProduction,productionImport} from './production-import.mjs';
 import {productionWorkbook} from './production-export.mjs';
 import {productionPart,assertPartRow} from './production-parts.mjs';
-export async function latestProduction(env,part='part1'){productionPart(part);return env.DB.prepare("SELECT id,filename,row_count,applied_at,created_at,sha256,production_part AS part FROM plan_imports WHERE kind='production' AND production_part=? AND status='applied' ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1").bind(part).first();}
+export async function latestProduction(env,part='part1'){productionPart(part);return env.DB.prepare("SELECT id,filename,row_count,applied_at,created_at,sha256,production_part AS part,json_extract(staged_data,'$.sourceDate') AS source_date,(SELECT name FROM portal_accounts WHERE portal_accounts.id=coalesce(json_extract(staged_data,'$.appliedBy'),plan_imports.owner)) AS applied_by,CASE WHEN json_extract(staged_data,'$.appliedBy') IS NULL THEN 'import-owner' ELSE 'applied' END AS applied_by_basis FROM plan_imports WHERE kind='production' AND production_part=? AND status='applied' ORDER BY applied_at DESC,created_at DESC,id DESC LIMIT 1").bind(part).first();}
 export async function imports(req,env,u,id,action,url){
   const part=productionPart(url.searchParams.get('part')??undefined);
   if(req.method==='GET'&&id==='latest'){ensure(url.searchParams.get('kind')==='production','업로드 구분을 확인하세요.');return {record:await latestProduction(env,part)};}
@@ -36,7 +36,8 @@ export async function imports(req,env,u,id,action,url){
   if(r.status==='applied')return {applied:r.row_count,id:r.id,retry:true};
   const table=r.kind==='production'?'production_rows':'supply_items';
   const statements=JSON.parse(r.staged_data).rows.map(row=>env.DB.prepare(`INSERT INTO ${table}(id,import_id,row_number,data) VALUES(?,?,?,?) ON CONFLICT(import_id,row_number) DO NOTHING`).bind(`${r.id}_${row.number}`,r.id,row.number,JSON.stringify(row.data)));
-  statements.push(env.DB.prepare("UPDATE plan_imports SET status='applied',applied_at=? WHERE id=? AND status='preview'").bind(now(),id));
+  if(r.kind==='production')statements.push(env.DB.prepare("UPDATE plan_imports SET status='applied',applied_at=?,staged_data=json_set(staged_data,'$.appliedBy',?) WHERE id=? AND status='preview'").bind(now(),u.id,id));
+  else statements.push(env.DB.prepare("UPDATE plan_imports SET status='applied',applied_at=? WHERE id=? AND status='preview'").bind(now(),id));
   try{await env.DB.batch(statements);}catch(e){if(/UNIQUE.*plan_imports|applied_import_hash/i.test(e.message))throw new BusinessError(409,'동일 파일을 다른 요청이 이미 반영했습니다. 이력을 새로 조회하세요.');throw e;}
   return {applied:r.row_count,id:r.id};
 }

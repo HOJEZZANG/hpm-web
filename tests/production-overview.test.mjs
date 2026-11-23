@@ -12,12 +12,12 @@ test('explicit process mapping never treats unknown or ambiguous names as comple
   for(const p of ['납품준비','납품준비 [APR]','납품준비 완료','APR','완료'])assert.equal(productionProcessState(p),'ready');
   for(const p of ['조립','대기','PROV PAINT 작업[PPT]','DECK UNIT BED FRAME 제작[DBP]'])assert.equal(productionProcessState(p),'active');
   for(const p of ['알 수 없음','납품준비 대기','UNKNOWN[APR]','납품준비 [AA1]',''])assert.equal(productionProcessState(p),'unknown');
-  assert.deepEqual(productionCounts(rows,today),{total:7,active:4,ready:1,unknown:2,overdue:1,upcoming:2,missingPnd:1,invalidPnd:1});
+  assert.deepEqual(productionCounts(rows,today),{total:7,active:4,ready:1,unknown:2,overdue:1,upcoming:1,missingPnd:1,invalidPnd:1});
   const v=productionView(rows,{},'분류',{},today);assert.deepEqual(v.groups.map(g=>[g.name,g.total,g.active,g.ready,g.unknown,g.overdue]),[['AC',3,2,1,0,1],['PROV',3,2,0,1,0],['DECK',1,0,0,1,0]]);
   assert.equal(v.summary.total,v.summary.active+v.summary.ready+v.summary.unknown);assert.equal(rows.reduce((n,r)=>n+r.수량,0),46);
 });
 test('cards, graph, exact process selection, risk tabs and query filters share the same rows',()=>{
-  for(const [selection,ids]of [[{status:'active'},['A1','A3','P1','P2']],[{status:'ready'},['A2']],[{status:'unknown'},['P3','D1']],[{risk:'overdue'},['A1']],[{risk:'upcoming'},['A3','P1']],[{equipment:'PROV',risk:'upcoming'},['P1']],[{equipment:'AC',process:'납품준비 [APR]'},['A2']]])assert.deepEqual(productionView(rows,{},'분류',selection,today).records.map(r=>r.id),ids);
+  for(const [selection,ids]of [[{status:'active'},['A1','A3','P1','P2']],[{status:'ready'},['A2']],[{status:'unknown'},['P3','D1']],[{risk:'overdue'},['A1']],[{risk:'upcoming'},['A3']],[{equipment:'PROV',risk:'upcoming'},[]],[{equipment:'AC',process:'납품준비 [APR]'},['A2']]])assert.deepEqual(productionView(rows,{},'분류',selection,today).records.map(r=>r.id),ids);
   const context=productionView(rows,{},'분류',{equipment:'PROV'},today);assert.equal(context.summary.total,3);assert.equal(context.summary.unknown,1);
   const p=productionView(rows,{equipment:'AC'},'분류',{equipment:'PROV',process:'PROV 결선[PEL]'},today);assert.equal(p.selection.equipment,'');assert.equal(p.selection.process,null);assert.deepEqual(p.records.map(r=>r.id),['A1','A2','A3']);
   assert.deepEqual(productionView(rows,{from:today,to:'2026-11-07'},'분류',{},today).records.map(r=>r.id),['A3','P1']);

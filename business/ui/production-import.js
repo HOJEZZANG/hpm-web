@@ -1,9 +1,10 @@
 import {$,api,esc,table,button,run,message,download,isAdmin,jsonOptions} from './common.js';
-import {xlsxClient} from './xlsx-client.js?v=20261031-workspace';
+import {xlsxClient} from './xlsx-client.js?v=20261123-priority';
+import {rememberProductionSource,reusableProductionSources,sourceLabel} from './production-sources.js?v=20261123-priority';
 const FILE_LIMIT=10*1024*1024;
 export function productionImportPanel(part='part1'){
   const label=part==='part2'?'2파트':'1파트';
-  return `<details class="production-import" data-import-panel open><summary>${label} · 생산자료 반영</summary><dl class="production-current" data-current><div class="production-current-empty">최신 자료 확인 중…</div></dl><div class="production-import-controls">${isAdmin()?'<div class="production-drop" data-plan-drop tabindex="0" role="button" aria-label="생산 엑셀 파일 선택 또는 드롭"><span>엑셀 파일 선택 · 드롭</span>'+button('파일 선택','data-choose-file')+'<input type="file" accept=".xlsx" aria-label="생산 엑셀 파일" data-file hidden></div><p data-selected-file>선택한 파일 없음</p>':''}<div class="business-toolbar production-actions">${isAdmin()?'<button type="button" class="btn primary" data-apply disabled>현황 반영</button>'+button('전송 중지','data-cancel-import hidden')+button('다른 파일 선택','data-new-import'):''}${button('새로 조회','data-refresh-production')}${button('엑셀 다운로드','data-export')}</div></div><div class="production-import-notes"><span class="production-export-hint">엑셀: 현재 조건의 전체 결과</span>${isAdmin()?'<details class="production-file-guide"><summary>파일 안내 · 양식</summary><p>'+(part==='part2'?'AHU Sheet1 · 헤더 자동 확인 · 규격별 원본 행 1건':'1파트 Sheet1 양식')+' · .xlsx 최대 10MiB. 원본·열 순서·이전 자료를 보존하며 수식은 저장된 계산값을 읽습니다.</p>'+(part==='part1'?button('예시 포함 양식 다운로드','data-template'):'')+'</details>':''}</div><div role="status" aria-live="polite" data-import-progress></div><progress data-import-meter max="100" value="0" aria-label="엑셀 처리 진행률" hidden></progress><div data-preview-area></div></details>`;
+  return `<details class="production-import" data-import-panel open><summary>${label} · 생산자료 반영</summary><dl class="production-current" data-current><div class="production-current-empty">최신 자료 확인 중…</div></dl><p class="hint">팀 공용 · 마지막 정상 반영자료를 함께 조회합니다. ERP 직접 연동·자동 갱신 자료가 아닙니다.</p><div class="production-import-controls">${isAdmin()?'<div class="production-drop" data-plan-drop tabindex="0" role="button" aria-label="생산 엑셀 파일 선택 또는 드롭"><span>엑셀 파일 선택 · 드롭</span>'+button('파일 선택','data-choose-file')+'<input type="file" accept=".xlsx" aria-label="생산 엑셀 파일" data-file hidden></div><p data-selected-file>선택한 파일 없음</p><div data-production-reuse></div>':''}<div class="business-toolbar production-actions">${isAdmin()?'<button type="button" class="btn primary" data-apply disabled>현황 반영</button>'+button('전송 중지','data-cancel-import hidden')+button('다른 파일 선택','data-new-import'):''}${button('새로 조회','data-refresh-production')}${button('엑셀 다운로드','data-export')}</div></div><div class="production-import-notes"><span class="production-export-hint">엑셀: 현재 조건의 전체 결과</span>${isAdmin()?'<details class="production-file-guide"><summary>파일 안내 · 양식</summary><p>'+(part==='part2'?'AHU Sheet1 · 헤더 자동 확인 · 규격별 원본 행 1건':'1파트 Sheet1 양식')+' · .xlsx 최대 10MiB. 원본·열 순서·이전 자료를 보존하며 수식은 저장된 계산값을 읽습니다.</p>'+(part==='part1'?button('예시 포함 양식 다운로드','data-template'):'')+'</details>':''}</div><div role="status" aria-live="polite" data-import-progress></div><progress data-import-meter max="100" value="0" aria-label="엑셀 처리 진행률" hidden></progress><div data-preview-area></div></details>`;
 }
 export async function wireProductionImports(root,onApplied,part='part1'){
   const scoped=(path,options)=>api(path+(path.includes('?')?'&':'?')+'part='+part,options);
@@ -24,14 +25,15 @@ export async function wireProductionImports(root,onApplied,part='part1'){
     if(!active())return;render();progress(`${server.applyCount}건 반영 완료`,100);$('[data-import-meter]',root).hidden=true;message(root,'');
     try{await onApplied();}catch(e){if(active())message(root,'반영은 완료됐으나 최신 화면 조회에 실패했습니다. 최신 자료 새로 조회를 이용하세요. '+e.message,true);}
   }
-  async function choose(chosen){
+  async function choose(chosen,prepared=null){
     if(!chosen)return;if(!/\.xlsx$/i.test(chosen.name)||chosen.size>FILE_LIMIT||chosen.size===0)throw Error('.xlsx 10MiB 이하 파일을 선택하세요.');
     progress('파일 읽기 · 무결성 확인 중…',0);let candidateEngine;
     try{
       const bytes=await chosen.arrayBuffer(),sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');check();
-      candidateEngine=xlsxClient(p=>progress(p.phase+' 중…',p.percent));const candidate=await candidateEngine.call('parse',{bytes,part},[bytes]);check();
+      candidateEngine=xlsxClient(p=>progress(p.phase+' 중…',p.percent));const candidate=prepared?await candidateEngine.call('parsePrepared',{sheet:prepared}):await candidateEngine.call('parse',{bytes,part},[bytes]);check();
       engine?.close();engine=candidateEngine;candidateEngine=null;local={...candidate,sha256:sha};file=chosen;uploadId=crypto.randomUUID();server=null;columnPage=0;render();
       $('[data-selected-file]',root).textContent=`${part==='part2'?'2파트':'1파트'} · ${chosen.name} · ${(chosen.size/1024/1024).toFixed(2)}MiB · ${local.meta.rowCount}건`;
+      if(part==='part2'&&candidate.prepared)rememberProductionSource({purpose:'erp-latest',filename:chosen.name,prepared:candidate.prepared,original:chosen});
       progress('파일 확인 완료 · 미리보기를 확인하고 현황 반영을 누르세요.',100);
     }finally{candidateEngine?.close();}
   }
@@ -64,6 +66,7 @@ export async function wireProductionImports(root,onApplied,part='part1'){
     if(b.hasAttribute('data-cancel-import')){if(!commitSent){cancelled=true;progress('중지 요청 · 진행 중인 요청 확인 후 멈춥니다. 이전 현황은 유지합니다.',null);}return;}
     if(b.hasAttribute('data-template')){void run(root,b,()=>download('imports/template?kind=production','생산일정_예시포함.xlsx'));return;}
     if(busy)return;
+    if(b.hasAttribute('data-reuse-production')){const source=reusableProductionSources('erp-latest')[Number($('[data-production-source]',root).value)];if(source?.original&&source.prepared)void act(()=>choose(source.original,source.prepared));return;}
     if(b.hasAttribute('data-choose-file')||b.hasAttribute('data-new-import')){const input=$('[data-file]',root);input.value='';input.click();return;}
     if(b.hasAttribute('data-column-next')||b.hasAttribute('data-column-prev')){columnPage+=b.hasAttribute('data-column-next')?1:-1;render();$('[data-plan-preview]',root).open=true;}
     if(b.hasAttribute('data-apply'))void act(apply);
@@ -74,6 +77,8 @@ export async function wireProductionImports(root,onApplied,part='part1'){
     drop.addEventListener('dragover',e=>{e.preventDefault();if(!busy)drop.classList.add('dragging');});drop.addEventListener('dragleave',()=>drop.classList.remove('dragging'));
     drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dragging');if(busy)return;const files=[...e.dataTransfer.files];if(files.length!==1){message(root,'파일은 한 번에 1개씩 선택하세요. 기존 선택은 유지됩니다.',true);return;}void act(()=>choose(files[0]));});
   }
+  function renderReuse(){const area=$('[data-production-reuse]',root);if(!area)return;const sources=part==='part2'?reusableProductionSources('erp-latest').filter(s=>s.original&&/\.xlsx$/i.test(s.filename)):[];area.innerHTML=sources.length?'<label>이미 읽은 생산현황 · ERP 형식<select data-production-source>'+sources.map((s,i)=>'<option value="'+i+'">'+esc(sourceLabel(s))+'</option>').join('')+'</select></label>'+button('이 자료로 미리보기','data-reuse-production'):'<p class="hint">이 로그인 세션에서 읽은 공정·수량·장비 열이 있는 ERP 형식 자료이 있으면 재사용할 수 있습니다. 개인 PND 저장 결과에는 공정·수량·장비 등 전체 생산열과 원본 검증 정보가 없어 팀 생산자료로 반영할 수 없습니다. 생산계획 .xlsx 원본이 필요합니다.</p>'; }
+  renderReuse();document.addEventListener('hpm:production-source',renderReuse);
   const guard=e=>{if(active()&&root.classList.contains('active')&&[...e.dataTransfer?.types||[]].includes('Files'))e.preventDefault();};document.addEventListener('dragover',guard);document.addEventListener('drop',guard);
-  const clear=()=>{if(!root.isConnected||!window.hpmServerUser){closed=true;cancelled=true;engine?.close();document.removeEventListener('dragover',guard);document.removeEventListener('drop',guard);document.removeEventListener('hpm:auth',clear);}};document.addEventListener('hpm:auth',clear);
+  const clear=()=>{if(!root.isConnected||!window.hpmServerUser){closed=true;cancelled=true;engine?.close();document.removeEventListener('hpm:production-source',renderReuse);document.removeEventListener('dragover',guard);document.removeEventListener('drop',guard);document.removeEventListener('hpm:auth',clear);}};document.addEventListener('hpm:auth',clear);
 }

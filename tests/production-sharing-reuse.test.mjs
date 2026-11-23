@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import worker from '../worker.js';
+import {makeEnv,TOKEN} from './support/env.mjs';
+import {ahuBytes} from './support/production-parts-fixtures.mjs';
+import {parseProductionSheet} from '../business/production-sheet.mjs';
+import {loadSharedProductionSource,rememberProductionSource,reusableProductionSources} from '../business/ui/production-sources.js';
+import {extractAhuRows} from '../business/ahu-xlsx.mjs';
+const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+async function request(env,path,method='GET',body,token=TOKEN){return worker.fetch(new Request('https://test.invalid/api/business/'+path,{method,headers:{Origin:'https://hojezzang.github.io',Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':body instanceof Uint8Array?'application/octet-stream':'application/json'})},...(body===undefined?{}:{body:body instanceof Uint8Array?body:JSON.stringify(body)})}),env);}
+async function json(...args){const response=await request(...args);assert.equal(response.status,200,await response.clone().text());return response.json();}
+async function stage(env,bytes,apply=true){const plan=parseProductionSheet(bytes,()=>{},'part2'),id=crypto.randomUUID(),suffix='?part=part2';await json(env,'imports/start','POST',{part:'part2',id,filename:'ERP-공유.xlsx',sha256:sha(bytes),size:bytes.length,meta:{...plan.meta,sourceDate:'2099-01-01'}});await json(env,'imports/'+id+'/file'+suffix,'PUT',bytes);for(let i=0;i<plan.rows.length;i+=20)await json(env,'imports/'+id+'/chunk'+suffix,'POST',{rows:plan.rows.slice(i,i+20)});if(apply){await json(env,'imports/'+id+'/ready'+suffix,'POST');await json(env,'imports/'+id+'/apply'+suffix,'POST');}return id;}
+test('independent authenticated users see the same applied part snapshot and metadata; unfinished replacement preserves it',async()=>{
+ const env=makeEnv(),id=await stage(env,ahuBytes()),token='c'.repeat(64);env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)').run('viewer','열람자','unused','unused','user','active','2026-11-23');env.sqlite.prepare('INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(sha(token),'viewer','2099-01-01T00:00:00Z');
+ const owner=(await json(env,'imports/latest?kind=production&part=part2')).record,viewer=(await json(env,'imports/latest?kind=production&part=part2','GET',undefined,token)).record;assert.deepEqual(owner,viewer);assert.equal(viewer.id,id);assert(viewer.applied_by);assert.equal(viewer.source_date,'');assert.equal((await json(env,'production?part=part2','GET',undefined,token)).importId,id);await stage(env,ahuBytes(4),false);assert.equal((await json(env,'imports/latest?kind=production&part=part2')).record.id,id);assert.equal((await request(env,'imports/'+id+'/rows?part=part1')).status,404);assert.equal((await request(env,'imports/start','POST',{},token)).status,403);
+});
+test('team ERP source reuses complete saved raw rows, preserves identifiers/date and never fetches or reparses the workbook',async()=>{
+ const env=makeEnv(),id=await stage(env,ahuBytes()),paths=[];globalThis.window={hpmServerUser:{id:'owner'},apiRequest:async path=>{paths.push(path);return json(env,path.replace('/api/business/',''));}};
+ const source={id,part:'part2',filename:'ERP-공유.xlsx'},sheet=await loadSharedProductionSource(source),rows=extractAhuRows(sheet,sheet.reusePreset.config?{...sheet.reusePreset.config,selected:sheet.reusePreset.selected,targetConfirmed:true}:{},source.filename);
+ assert.equal(rows.length,3);assert.equal(rows[0].hull,'00001');assert.equal(rows[0].date.iso,'2026-10-31');assert(paths.every(p=>!p.includes('/file')));assert(sheet.notices[0].includes('실시간')===false);const count=paths.length;await loadSharedProductionSource(source);assert.equal(paths.length,count);delete globalThis.window;
+});
+test('actual applying account is recorded separately from the original uploader',async()=>{
+ const env=makeEnv(),id=await stage(env,ahuBytes(),false),token='d'.repeat(64);env.sqlite.prepare('INSERT INTO portal_accounts(id,name,salt,password_hash,role,status,created_at) VALUES(?,?,?,?,?,?,?)').run('applying-admin','실제 반영자','unused','unused','admin','active','2026-11-23');env.sqlite.prepare('INSERT INTO portal_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(sha(token),'applying-admin','2099-01-01T00:00:00Z');await json(env,'imports/'+id+'/ready?part=part2','POST',undefined,token);await json(env,'imports/'+id+'/apply?part=part2','POST',undefined,token);const result=(await json(env,'imports/latest?kind=production&part=part2')).record;assert.equal(result.applied_by,'실제 반영자');assert.equal(result.applied_by_basis,'applied');assert.equal(env.sqlite.prepare('SELECT owner FROM plan_imports WHERE id=?').get(id).owner,'owner');
+});
+test('ERP and baseline caches remain separate and are cleared on account changes',()=>{
+ globalThis.document={dispatchEvent(){}};globalThis.window={hpmServerUser:{id:'reader'}};rememberProductionSource({purpose:'erp-latest',filename:'ERP.xlsx'});rememberProductionSource({purpose:'plan-baseline',filename:'기준.xlsx'});assert.equal(reusableProductionSources('erp-latest')[0].filename,'ERP.xlsx');assert.equal(reusableProductionSources('plan-baseline')[0].filename,'기준.xlsx');window.hpmServerUser={id:'other'};assert.equal(reusableProductionSources('erp-latest').length,0);assert.equal(reusableProductionSources('plan-baseline').length,0);delete globalThis.window;delete globalThis.document;
+});
+test('related-record endpoint requires login, part, and an applied source; uses read-only existing records without synthesizing links',async()=>{
+ const env=makeEnv();env.sqlite.exec(readFileSync(new URL('../migrations/0003_shared_calendars.sql',import.meta.url),'utf8'));const id=await stage(env,ahuBytes()),row=env.sqlite.prepare('SELECT id FROM production_rows WHERE import_id=? ORDER BY row_number').get(id).id,before=env.sqlite.prepare('SELECT * FROM production_rows').all();assert.equal((await request(env,'production-related?part=part1&row='+row)).status,404);const result=await json(env,'production-related?part=part2&row='+row);assert.equal(result.groups.length,2);assert(result.groups.every(g=>g.records.length===0));assert.deepEqual(env.sqlite.prepare('SELECT * FROM production_rows').all(),before);assert.equal((await request(env,'production-related?part=part2&row='+row,'GET',undefined,'')).status,401);
+});
