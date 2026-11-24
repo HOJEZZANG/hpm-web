@@ -4,7 +4,9 @@ import {weeklyDate} from '../weekly-data.mjs';
 export const processStateLabels={active:'진행 중',ready:'납품준비·완료',unknown:'공정 미분류'};
 const activeCodes=new Set(['AC1','AC2','PC1','PC2','DK2','DBP','PPT','PEL','PA1','AEL','AA1','APT']);
 const activeNames=new Set(['대기','자재대기','생산대기','가공','취부','용접','조립','결선','페인트','도장','검사','시운전','FAT','HYDTEST']);
-export const isProductionRisk=(state,day,today,risk)=>state==='active'&&Boolean(day)&&(risk==='overdue'?day<today:day>=today&&day<=addDays(today,6));
+export const PRODUCTION_LOOKAHEAD_DAYS=14;
+export const productionUpcomingEnd=today=>addDays(today,PRODUCTION_LOOKAHEAD_DAYS-1);
+export const isProductionRisk=(state,day,today,risk)=>state==='active'&&Boolean(day)&&(risk==='overdue'?day<today:day>=today&&day<=productionUpcomingEnd(today));
 const productionPnd=row=>weeklyDate(String(row.PND??'').trim());
 // The same explicit completion rule feeds both parts, charts and PND evidence.
 export function isCompletedProductionProcess(value){

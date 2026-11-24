@@ -1,5 +1,5 @@
 // Current saved process status, not a reconstruction of historical delivery dates.
-import {productionProcessState,ahuProcessState} from './production-view.js?v=20261123-priority';
+import {productionProcessState,ahuProcessState} from './production-view.js?v=20261124-requests';
 import {koreanToday} from '../domain.mjs';
 import {weeklyDate} from '../weekly-data.mjs';
 import {esc,table,button} from './common.js';

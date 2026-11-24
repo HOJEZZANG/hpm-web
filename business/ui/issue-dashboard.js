@@ -1,4 +1,4 @@
-import {initProductionOverview} from './production-overview.js?v=20261123-integrated';
+import {initProductionOverview} from './production-overview.js?v=20261124-requests';
 import {esc} from './common.js';
 import {analyzeIssues,day,issueCardEvidence} from './issue-analytics.js?v=20261118-status';
 const $=id=>document.getElementById(id),caption={product:'제품',process:'공정',responsibleDept:'귀책부서',issueType:'유형',status:'상태',month:'발생 월'};

@@ -8,7 +8,7 @@ import {ahuPresetFixture} from '../tests/support/ahu-pnd-fixtures.mjs';
 import {koreanToday,addDays} from '../business/domain.mjs';
 const dir='.wrangler/production-priority-20261123',state=await startTestServer(),qa=await browser(process.argv[2],state.url),today=koreanToday();await mkdir(dir,{recursive:true});
 const row=(hull,offset,process,quantity=1)=>['STX',hull,process,offset===null?'':typeof offset==='string'?offset:addDays(today,offset),quantity,'HKA008SN/ITEM-'+hull,'WO-'+hull,'AHU','HKA-08SN','',''];
-const bytes=ahuBytes(0,{rows:[row('0001',-9,'조립2[HA2]',3),row('0002',-1,'조립2[HA2]'),row('0003',0,'조립2[HA2]',2),row('0004',6,'조립2[HA2]',4),row('0005',7,'조립2[HA2]',5),row('0006',-5,'완료',6),row('0007',-4,'',7),row('0008','2026-02-30','조립2[HA2]'),row('0009',null,'조립2[HA2]'),row('0010',2,'새 공정',2)]});
+const bytes=ahuBytes(0,{rows:[row('0001',-9,'조립2[HA2]',3),row('0002',-1,'조립2[HA2]'),row('0003',0,'조립2[HA2]',2),row('0004',13,'조립2[HA2]',4),row('0005',14,'조립2[HA2]',5),row('0006',-5,'완료',6),row('0007',-4,'',7),row('0008','2026-02-30','조립2[HA2]'),row('0009',null,'조립2[HA2]'),row('0010',2,'새 공정',2)]});
 try{
  const a=await qa.tab(),b=await qa.tab();
  async function login(t){await t.evaluate(`authUserId.value='owner';authPassword.value=${JSON.stringify(state.password)};void submitAuth()`);await t.wait('window.hpmServerUser?.id==="owner"&&issuesLoaded');}

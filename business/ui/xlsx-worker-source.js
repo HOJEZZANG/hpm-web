@@ -2,7 +2,7 @@ import {parseProductionSheet,validateMetadata,normalizeProductionRow} from '../p
 import {productionLimits as L,byteLength} from '../production-limits.mjs';
 import {ensure} from '../domain.mjs';
 import {productionWorkbook} from '../production-export.mjs';
-import {productionView,ahuView} from './production-view.js?v=20261123-priority';
+import {productionView,ahuView} from './production-view.js?v=20261124-requests';
 import {productionDisplay} from './production-display.js';
 import {parseAhuPreparedSheet} from '../production-ahu-sheet.mjs';
 let plan;

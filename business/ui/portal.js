@@ -1,6 +1,6 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261122-filters';
-import {init as production} from './production.js?v=20261123-integrated';
+import {init as production} from './production.js?v=20261124-requests';
 import {init as condEva} from './cond-eva.js?v=20261117-cond';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261123-integrated';
 import {createPresentation} from './presentation.js?v=20261118-status';
@@ -11,7 +11,7 @@ import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
 import {initHistory} from './history.js?v=20261117-cond';
 import {initEntry,noticePreview} from './home.js?v=20261112-notices';
 import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261118-meeting';
-import {initIssueDashboard} from './issue-dashboard.js?v=20261123-integrated';
+import {initIssueDashboard} from './issue-dashboard.js?v=20261124-requests';
 import {accounts} from './accounts.js?v=20261118-meeting';
 import {init as notices} from './notices.js?v=20261112-notices';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
