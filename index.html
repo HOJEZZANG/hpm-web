@@ -1033,7 +1033,7 @@
 @media(max-width:760px){.schedule-page .module-banner{padding:12px 14px}.schedule-page .module-banner h1{font-size:19px}.schedule-page .module-banner p{display:none}.schedule-page .calendar-area{padding:8px}.schedule-page .cal-day{padding:3px;min-height:85px}.schedule-page .cal-day-name{padding:6px 0;font-size:12px}.schedule-page .cal-event{padding:4px 2px;font-size:10px;border-left-width:2px;border-radius:4px}.schedule-page .cal-date-num{font-size:12px;padding:3px}.schedule-page .cal-top h3{font-size:19px}.schedule-page .cal-list-section{padding:14px}.schedule-tabs{gap:6px}.schedule-tabs .btn{padding:9px 10px;font-size:12px}.schedule-actions{gap:5px}.schedule-editor{width:100%;max-width:100%;border-radius:0}.schedule-editor .calendar-form .row{grid-template-columns:1fr}.schedule-page .cal-item{padding:13px}}
 
 </style>
-<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261123-priority"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261122-menu"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261122-filters"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"><link rel="stylesheet" href="business/ui/density.css?v=20261124-requests"></head>
+<link rel="stylesheet" href="business/ui/business.css"><link rel="stylesheet" href="business/ui/production.css?v=20261124-layout"><script src="business/ui/session.js?v=20261109-photos"></script><link rel="stylesheet" href="business/ui/portal-shell.css?v=20261122-menu"><link rel="stylesheet" href="business/ui/theme.css?v=20261103-header"><link rel="stylesheet" href="business/ui/ahu-pnd.css?v=20261112-yards"><link rel="stylesheet" href="business/ui/home.css?v=20261109-notice-author"><link rel="stylesheet" href="business/ui/issue-form.css?v=20261109-photos"><link rel="stylesheet" href="business/ui/weekly.css?v=20261122-filters"><link rel="stylesheet" href="business/ui/workspace.css?v=20261101-panels"><link rel="stylesheet" href="business/ui/insights.css?v=20261118-meeting"><link rel="stylesheet" href="business/ui/notices.css?v=20261112-notices"><link rel="stylesheet" href="business/ui/cond-eva.css?v=20261117-cond"><link rel="stylesheet" href="business/ui/density.css?v=20261124-layout"><link rel="stylesheet" href="business/ui/production-layout.css?v=20261124-layout"></head>
 <body>
 <section id="authEntry" class="auth-entry" aria-label="HPM 로그인">
   <div class="auth-entry-tools"><button type="button" id="authThemeToggle" class="theme-toggle" aria-label="테마 전환">☾</button></div>
@@ -1109,11 +1109,11 @@
   </div>
   <div class="home-grid">
     <div class="card">
-      <div class="card-head"><h2>최근 공정 문제점</h2><span class="badge blue">RECENT</span></div>
+      <div class="card-head"><h2>최근 공정 문제점</h2><button type="button" class="btn outline" onclick="void navigatePortal('issue','manage')">전체 보기</button></div>
       <div class="card-body"><ul class="home-list" id="homeRecentIssues"></ul></div>
     </div>
     <div class="card">
-      <div class="card-head"><h2>공정 문제점 PND 점검</h2><span class="badge orange" id="homePndAlertCount">—</span></div>
+      <div class="card-head"><h2>공정 문제점 PND 점검 <span class="badge orange" id="homePndAlertCount">—</span></h2><button type="button" class="btn outline" onclick="void openHomeSummary('pnd')">전체 보기</button></div>
       <div class="card-body">
         <div class="dashboard-pnd-guide">미완료 문제 중 공정 PND가 7일 이내이거나 이미 경과한 항목입니다.</div>
         <div class="home-alert-list" id="homePndAlerts"></div>
@@ -3029,13 +3029,13 @@
       homeMonthAs.textContent=calendarState.as.loaded?calendarState.as.events.filter(e=>rangesOverlapCal(calGetStart(e),calGetEnd(e),period.start,period.end)).length:'—';
       homeTodayTeam.textContent=calendarState.team.loaded?calendarState.team.events.filter(e=>calInRange(today,calGetStart(e),calGetEnd(e))).length:'—';
       const calendarStatus=document.getElementById('homeCalendarStatus');if(calendarStatus){const failed=['as','team'].some(t=>calendarState[t].error),busy=['as','team'].some(t=>calendarState[t].busy);calendarStatus.hidden=!window.hpmServerUser||!failed&&!busy;calendarStatus.classList.toggle('error',failed);calendarStatus.replaceChildren(Object.assign(document.createElement('span'),{textContent:failed?'AS·팀 일정 조회 실패 · 집계는 미확인입니다. 다시 조회해 주세요.':'AS·팀 일정 서버 조회 중…'}));if(failed&&!busy){const b=document.createElement('button');b.className='btn outline';b.textContent='일정 다시 조회';b.onclick=()=>void initializeCalendars();calendarStatus.append(b);}}
-      const recent=[...issues].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,5);
+      const recent=[...issues].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,3);
       homeRecentIssues.innerHTML=recent.length?recent.map(x=>`<li><button type="button" class="home-recent-link" onclick="navigatePortal('issue','manage');openIssueDetails('${x.id}')"><strong>${escapePortal(window.HpmHome.issueLocation(x))} · ${escapePortal(x.title||'-')}</strong><span>${escapePortal(x.product||'미분류')} / ${escapePortal(x.process||'-')} / ${escapePortal(x.status||'-')} · PND ${escapePortal(x.processPnd||'-')} ${getPndDdayText(x)?'('+getPndDdayText(x)+')':''} · 등록자 ${escapePortal(x.reporter||'-')}</span></button></li>`).join(''):'<li><span>등록된 문제점이 없습니다.</span></li>';
       const alertCount=document.getElementById('homePndAlertCount');
       const alertBox=document.getElementById('homePndAlerts');
       if(alertCount)alertCount.textContent=`${pndWarnings.length}건`;
       if(alertBox){
-        alertBox.innerHTML=pndWarnings.length?pndWarnings.slice(0,6).map(({issue,days})=>{
+        alertBox.innerHTML=pndWarnings.length?pndWarnings.slice(0,3).map(({issue,days})=>{
           const dday=days<0?`D+${Math.abs(days)}`:days===0?'D-DAY':`D-${days}`;
           const kind=days<0?'PND 경과':days===0?'PND 당일':'PND 임박';
           return `<button class="home-alert-item ${days<0?'past':''}" onclick="navigatePortal('issue','manage');editIssue('${issue.id}')">
@@ -3089,4 +3089,4 @@ async function initializePortal() {
 window.startHpmPortal=initializePortal;
 </script>
 
-<script type="module">import "./business/ui/portal.js?v=20261124-requests"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>
+<script type="module">import "./business/ui/portal.js?v=20261124-layout"; await window.startHpmPortal(); await window.HpmHistory.start();</script></body></html>

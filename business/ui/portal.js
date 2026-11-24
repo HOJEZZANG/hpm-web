@@ -1,6 +1,6 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
 import {init as weekly} from './weekly.js?v=20261122-filters';
-import {init as production} from './production.js?v=20261124-requests';
+import {init as production} from './production.js?v=20261124-layout';
 import {init as condEva} from './cond-eva.js?v=20261117-cond';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261123-integrated';
 import {createPresentation} from './presentation.js?v=20261118-status';
@@ -9,9 +9,9 @@ import {initIssueView} from './issue-view.js?v=20261122-integrated';
 import {initIssueDraft} from './issue-draft.js?v=20261102-leave';
 import {initIssueLoadState} from './issue-load-state.js?v=20261101-evidence';
 import {initHistory} from './history.js?v=20261117-cond';
-import {initEntry,noticePreview} from './home.js?v=20261112-notices';
+import {initEntry,noticePreview} from './home.js?v=20261124-layout';
 import {initGlobalSearch,installSearchExecution,renderSearchResults,openNoticeDetail} from './home-search.js?v=20261118-meeting';
-import {initIssueDashboard} from './issue-dashboard.js?v=20261124-requests';
+import {initIssueDashboard} from './issue-dashboard.js?v=20261124-layout';
 import {accounts} from './accounts.js?v=20261118-meeting';
 import {init as notices} from './notices.js?v=20261112-notices';
 import * as passwordPolicy from '../password-policy.mjs?v=20261027-pin';
@@ -47,13 +47,14 @@ window.addEventListener('beforeunload',e=>{if(document.querySelector('.business-
 window.HpmBusiness={open};
 const homeGrid=document.querySelector('#homePage .home-grid');
 homeGrid?.insertAdjacentHTML('beforeend',`<section class="card home-notices" aria-labelledby="homeNoticesTitle"><div class="card-head"><h2 id="homeNoticesTitle">공지사항</h2><a href="#/notices" id="homeNoticesLink">전체 공지 보기</a></div><div class="card-body" id="homeBusinessNotices" aria-live="polite"></div></section>`);
+document.getElementById('homeBusinessNotices').onclick=e=>{const b=e.target.closest('[data-home-notice]');if(b)void run(document.getElementById('homePage'),b,()=>openNoticeDetail(document.getElementById('homePage'),{id:b.dataset.homeNotice}));};
 document.getElementById('homeNoticesLink').onclick=e=>{e.preventDefault();window.navigatePortal('notices');};
 let noticesSequence=0;
 async function refreshHomeNotices(){
   const sequence=++noticesSequence,owner=user()?.id;
   const el=document.getElementById('homeBusinessNotices');if(!el)return;
   if(!user()){el.textContent='로그인 후 공지사항을 조회할 수 있습니다.';return;}
-  try{const r=await api('notices');if(sequence!==noticesSequence||user()?.id!==owner)return;el.innerHTML=r.records.slice(0,5).map(noticePreview).join('')||'<p class="hint">등록된 공지사항이 없습니다.</p>';}catch(e){if(sequence===noticesSequence&&user()?.id===owner)el.textContent=e.message;}
+  try{const r=await api('notices');if(sequence!==noticesSequence||user()?.id!==owner)return;el.innerHTML=r.records.slice(0,3).map(n=>noticePreview(n,{compact:true})).join('')||'<p class="hint">등록된 공지사항이 없습니다.</p>';}catch(e){if(sequence===noticesSequence&&user()?.id===owner)el.textContent=e.message;}
 }
 document.addEventListener('hpm:auth',()=>void refreshHomeNotices());
 document.addEventListener('hpm:navigate',e=>{if(e.detail==='home')void refreshHomeNotices();});

@@ -23,7 +23,7 @@ try{
  assert.equal(await a.evaluate('document.querySelector("#productionPage [data-import-panel]").open'),false);
  assert.equal(await a.evaluate('document.querySelector("#productionPage [data-filter-panel]").open'),false);
  assert.equal(await a.evaluate('document.querySelector("#productionPage [data-adherence],#productionPage [data-risk]")'),null);
- assert(await a.evaluate(`(()=>{const r=document.querySelector('#productionPage');const nodes=['[data-import-panel]','[data-filters]','[data-summary]','[data-process]','[data-list]'].map(s=>r.querySelector(s));return nodes.every((n,i)=>!i||Boolean(nodes[i-1].compareDocumentPosition(n)&Node.DOCUMENT_POSITION_FOLLOWING))})()`));
+ assert(await a.evaluate(`(()=>{const r=document.querySelector('#productionPage');const nodes=['[data-import-panel]','[data-filters]','[data-production-priority]','[data-process]','[data-summary]','[data-list]'].map(s=>r.querySelector(s));return nodes.every((n,i)=>!i||Boolean(nodes[i-1].compareDocumentPosition(n)&Node.DOCUMENT_POSITION_FOLLOWING))})()`));
  assert(await a.evaluate(`['[data-apply]','[data-plan-drop]'].every(s=>document.querySelector('#productionPage [data-import-panel]').contains(document.querySelector('#productionPage '+s)))`));
  const columns=['PND','현공정','수량','분류','Yard','HullNo','FAT','Work Order','제품 규격'];
  const firstBytes=writeTable(columns,Array.from({length:45},(_,i)=>[addDays(today,-1),i%2?'조립':'납품준비',1,i%3?'AC':'CHILLER','합성 야드','000'+i,addDays(today,1),'00017','0008-A']));

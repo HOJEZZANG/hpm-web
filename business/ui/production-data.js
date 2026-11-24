@@ -3,7 +3,7 @@ import {api,esc} from './common.js';
 import {koreanToday} from '../domain.mjs';
 import {productionView,ahuView} from './production-view.js?v=20261124-requests';
 import {productionDisplay} from './production-display.js?v=20261124-requests';
-import {productionPriority} from './production-priority.js?v=20261124-requests';
+import {productionPriority} from './production-priority.js?v=20261124-layout';
 let account=null;const snapshots=new Map(),pending=new Map();
 const identity=()=>window.hpmServerUser?JSON.stringify([window.hpmServerUser.id,window.hpmServerUser.role,window.hpmServerUser.authRevision]):null;
 function current(){const owner=identity();if(owner!==account){account=owner;snapshots.clear();pending.clear();}return owner;}
