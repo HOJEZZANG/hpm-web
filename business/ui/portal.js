@@ -1,5 +1,5 @@
 import {$,api,esc,field,table,button,run,message,jsonOptions,shell,user,isAdmin,collection} from './common.js?v=20261027-access';
-import {init as weekly} from './weekly.js?v=20261122-filters';
+import {init as weekly} from './weekly.js?v=20261125-mobile';
 import {init as production} from './production.js?v=20261124-layout';
 import {init as condEva} from './cond-eva.js?v=20261117-cond';
 import {init as ahuPnd} from './ahu-pnd.js?v=20261123-integrated';
